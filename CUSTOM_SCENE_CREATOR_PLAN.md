@@ -83,7 +83,30 @@ tools/
 
 ## 3. Entry points
 
-### 3a. Main menu — confirmed feasible
+> **DECIDED 2026-08-07 by the M1 spike — reversed from the plan above.**
+> The editor is entered **from inside a running campaign**. The main-menu boot is abandoned for v1.
+>
+> The spike reached the mission, then crashed in another mod's code, and the cause is not fixable
+> from here. `Campaign.DoLoadingForGameType` raises `OnAfterGameInitializationFinished` on **every
+> installed module unconditionally**, but only calls `InitializeMainParty()` on the `NewCampaign` /
+> `SavedCampaign` paths (`api_v1.4.5.txt:11034-11051`). A `Tutorial` boot runs neither — so every
+> mod is told "the game is ready" while `Hero.MainHero` is still null. CharacterReload threw first
+> (`Clan.PlayerClan`); **DistinguishedServicePlus and ChatAi override the same callback** on this
+> install alone. Fixing one mod just exposes the next.
+>
+> That also answers M1's original question by proof: tutorial mode gives **no main hero and no main
+> party**.
+>
+> In-campaign entry removes the whole class of failure — every module has already initialized
+> successfully, the player and party are real, and `CreateSandBoxMissionInitializerRecord` becomes
+> safe. It also deletes the boot machinery we would otherwise own across game updates.
+>
+> **If main-menu entry is ever revisited** it must use a non-`Campaign` `GameType` (the
+> custom-battle pattern), since `OnAfterGameInitializationFinished` is raised *only* from
+> `Campaign`. That gives up `Campaign.Current` and needs a different player-agent path.
+> `SceneCreatorGameManager.cs` is kept, unwired, for that.
+
+### 3a. Main menu — ABANDONED for v1 (see box above)
 `Module.CurrentModule.AddInitialStateOption` is public (`api_v1.4.5.txt:612620`), used by Native for `Editor`/`CustomBattle`/`Options` (`:934412-934426`) and by third parties (`RealisticBattleProject/RBM/SubModule.cs:79`).
 
 Two native patterns for opening a scene with no sandbox game:
@@ -99,8 +122,17 @@ Both share the same 6-step `DoLoadingForGameManager`; copy it and replace `OnLoa
 
 **Risk:** Tutorial mode may leave `Hero.MainHero` null. Gate spike M1.
 
-### 3b. In-campaign entry
-Campaign game menu (`campaign_scene_creator`) + console command `scene_creator.open <scene>` (pattern: `HomesteadConsoleCommands.cs`). Tavernkeeper dialog costs more (dialog XML, per-culture tokens, localization) for the same result — add only if the menu proves awkward.
+### 3b. In-campaign entry — **PRIMARY, implemented**
+`SceneCreatorCampaignBehavior` adds an "Open Scene Creator" option to the `town`, `village` and
+`castle` menus; `csc.open <scene> [levels]` opens any scene directly. Both funnel through
+`SceneCreatorEntry`.
+
+A tavernkeeper *dialog* remains possible but is not the cheap option — it costs dialog XML,
+per-culture conversation tokens and localization to land in the same place a menu entry already
+reaches. Worth adding for flavour once the browser exists, not before.
+
+**Cost of this decision:** a campaign must be loaded to edit. Mitigate with one small dedicated save
+kept for editing, and by making the browse ⇄ edit loop (§16) never return to the map.
 
 ---
 
@@ -538,8 +570,8 @@ Plus an **unsaved-changes guard** on leave, and **resume-last-project** on entry
 | # | Milestone | Content | Est. |
 |---|---|---|---|
 | **M0** | Skeleton | Module, `SubModule.xml`, csproj vs 1.4.7 refs, loads clean | 0.5 d |
-| **M1** | **Boot spike** ⚠️ | `SceneCreatorGameManager` from `EditorSceneMissionManager`; main-menu option opens a scene with a walking player + free camera. **Answers `Hero.MainHero`-null.** | 1–2 d |
-| **M2** | **Scene catalog** ⚠️ | `build_scene_catalog.ps1` harvesting levels from `scene.xscene`; browser UI; bulk load test → good/bad flags | 1.5 d |
+| ~~M1~~ | ~~Boot spike~~ **DONE** | Answered: tutorial-mode campaign has no main hero/party, and main-menu boot breaks other mods' init hooks. Entry moved in-campaign (§3). | done |
+| ~~M2~~ | ~~Scene catalog~~ **PARTLY DONE** | `build_scene_catalog.ps1` done: 611 scenes, **405 multi-level**, 127 without navmesh. Browser UI + bulk load test still open (folded into M6/M7). | 0.5 d left |
 | **M3** | Dumps | `build_asset_dump.ps1` → 1.4.7 dump; regen `api_v1.4.7.txt`; re-cut categories; naval + logical flags | 1.5 d |
 | **M4** | Editor fork + API | Port editor/camera/picker onto `ISceneEditTarget`; strip tier/cost gating; write `HomesteadSceneTarget` adapter to validate the seam | 3 d |
 | **M5** | Persistence | `SceneProject` save/load/list, autosave, resume-last, legacy template read/write | 1 d |
@@ -551,7 +583,7 @@ Plus an **unsaved-changes guard** on leave, and **resume-last-project** on entry
 | **M11** | Export + bake (§12) | In-game exporter (prefab XML, scene fragment) with physics/spawn/script/GUID stages; ship `bake_scene.py` + `bake_config.json`; retire `add_collision_and_spawns.py` | 2 d |
 | **M12** | **Scene derivation** (§8) | `derive_scene.ps1`, "Derived" category, strip-level UI, redistribution decision | 1.5 d |
 | **M13** | Map-patch terrain (§10b) | Coordinate picker; resolve the normalized-vs-raw coordinate question | 0.5 d |
-| **M14** | Campaign entry + migration | Game menu, console command, HomesteadBuilder template migration, deprecation notice | 1 d |
+| **M14** | ~~Campaign entry~~ + migration | Menu option + `csc.open` **done**; HomesteadBuilder template migration and deprecation notice remain | 0.5 d |
 | **M15** | Polish | Localization (EN master + `Utils.GetLocalizedString`), README + `README_BAKE.md`, Workshop packaging | 1–2 d |
 | — | *Deferred* | Homesteads adopts the library and deletes its copy (§7) | post-v1 |
 | — | *Research only* | `terrain.bin` write support (§10d) | ? |
