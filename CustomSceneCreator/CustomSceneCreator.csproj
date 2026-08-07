@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <Platforms>x64</Platforms>
+    <AssemblyName>CustomSceneCreator</AssemblyName>
+    <RootNamespace>CustomSceneCreator</RootNamespace>
+    <Version>0.1.0</Version>
+    <FileVersion>0.1.0.0</FileVersion>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <Product>Custom Bannerlord Scene Creator</Product>
+    <Description>Standalone in-game scene editor for Mount &amp; Blade II: Bannerlord.</Description>
+
+    <ModuleId>CustomSceneCreator</ModuleId>
+    <ModuleName>Custom Bannerlord Scene Creator</ModuleName>
+    <RunPostBuildEvent>OnBuildSuccess</RunPostBuildEvent>
+    <BaseOutputPath>$(MSBuildProjectDirectory)\bin\</BaseOutputPath>
+    <DistFolder>$(MSBuildProjectDirectory)\..\Dist\$(ModuleId)</DistFolder>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="bin\**\*.cs" />
+    <Compile Remove="obj\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Game reference assemblies for the target version. Compile-time only. -->
+    <PackageReference Include="Bannerlord.ReferenceAssemblies" Version="1.4.7.117484" />
+    <!-- Harmony: compile-time only; the runtime DLL comes from the Bannerlord.Harmony module. -->
+    <PackageReference Include="Lib.Harmony" Version="2.4.2" ExcludeAssets="runtime" PrivateAssets="all" />
+    <!-- Newtonsoft.Json: the base game ships it; compile-time reference only. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" ExcludeAssets="runtime" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="_Module\SubModule.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- Stage a loadable module folder next to the source so build.bat only has to copy
+       Dist\CustomSceneCreator into the game's Modules directory. -->
+  <Target Name="CopyToDist" AfterTargets="Build">
+    <MakeDir Directories="$(DistFolder)\bin\Win64_Shipping_Client" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(DistFolder)\bin\Win64_Shipping_Client" />
+    <Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="$(DistFolder)\bin\Win64_Shipping_Client" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
+    <Copy SourceFiles="_Module\SubModule.xml" DestinationFolder="$(DistFolder)" />
+    <ItemGroup>
+      <ModuleDataFiles Include="_Module\ModuleData\**\*.*" />
+      <ModuleGuiFiles Include="_Module\GUI\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ModuleDataFiles)" DestinationFolder="$(DistFolder)\ModuleData\%(RecursiveDir)" Condition="'@(ModuleDataFiles)' != ''" />
+    <Copy SourceFiles="@(ModuleGuiFiles)" DestinationFolder="$(DistFolder)\GUI\%(RecursiveDir)" Condition="'@(ModuleGuiFiles)' != ''" />
+  </Target>
+
+</Project>

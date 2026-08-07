@@ -1,0 +1,33 @@
+<Module>
+	<Name value="Custom Bannerlord Scene Creator"/>
+	<Id value="CustomSceneCreator"/>
+	<Version value="v1.4.7"/>
+	<SingleplayerModule value="true"/>
+	<MultiplayerModule value="false"/>
+	<DependedModules>
+		<DependedModule Id="Native"/>
+		<DependedModule Id="SandBoxCore"/>
+		<DependedModule Id="Sandbox"/>
+		<DependedModule Id="StoryMode"/>
+	</DependedModules>
+	<DependedModuleMetadatas>
+		<!-- Harmony is optional for now: the M1 boot spike uses no patches. Keep the ordering
+		     declared so that when patches arrive the load order is already correct. -->
+		<DependedModuleMetadata id="Bannerlord.Harmony" order="LoadBeforeThis" optional="true" />
+		<DependedModuleMetadata id="Native" order="LoadBeforeThis" />
+		<DependedModuleMetadata id="SandBoxCore" order="LoadBeforeThis" />
+		<DependedModuleMetadata id="Sandbox" order="LoadBeforeThis" />
+		<DependedModuleMetadata id="StoryMode" order="LoadBeforeThis" />
+	</DependedModuleMetadatas>
+	<SubModules>
+		<SubModule>
+			<Name value="Custom Bannerlord Scene Creator"/>
+			<DLLName value="CustomSceneCreator.dll"/>
+			<SubModuleClassType value="CustomSceneCreator.SubModule"/>
+			<Tags>
+				<Tag key="DedicatedServerType" value="none"/>
+				<Tag key="IsNoRenderModeElement" value="false"/>
+			</Tags>
+		</SubModule>
+	</SubModules>
+</Module>
