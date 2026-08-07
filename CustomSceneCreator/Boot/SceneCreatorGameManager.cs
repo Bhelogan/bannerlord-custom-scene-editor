@@ -5,8 +5,25 @@ using TaleWorlds.MountAndBlade;
 
 namespace CustomSceneCreator.Boot {
     /// <summary>
-    /// Boots a scene-editing session straight from the main menu, with no sandbox campaign and no
-    /// save game.
+    /// PARKED - NOT WIRED UP. Kept as reference, not called by anything.
+    ///
+    /// This booted a scene-editing session straight from the main menu.  It reached the mission but
+    /// crashed reliably on a modded install, and the cause is not fixable from inside this mod:
+    ///
+    ///   <c>Campaign.DoLoadingForGameType</c> raises
+    ///   <c>OnAfterGameInitializationFinished</c> on every installed module unconditionally, but
+    ///   only calls <c>InitializeMainParty()</c> on the <c>NewCampaign</c> / <c>SavedCampaign</c>
+    ///   paths.  A <c>Tutorial</c> boot runs neither, so every mod is told the game is ready while
+    ///   <c>Hero.MainHero</c> is still null.  CharacterReload threw first
+    ///   (<c>Clan.PlayerClan</c>); DistinguishedServicePlus and ChatAi override the same callback.
+    ///
+    /// The editor is entered from inside a live campaign instead - see
+    /// <c>SceneCreatorCampaignBehavior</c>.  This file stays because if a main-menu entry is ever
+    /// revisited it must use a non-Campaign <c>GameType</c> (the custom-battle pattern), since
+    /// <c>OnAfterGameInitializationFinished</c> is raised only from <c>Campaign</c>.  That route
+    /// gives up <c>Campaign.Current</c> and needs a different player-agent path.
+    ///
+    /// Original notes follow.
     ///
     /// Modelled on the game's own <c>EditorSceneMissionManager</c>, which is what the official
     /// editor uses to open an arbitrary scene from a cold start.  The loading state machine below
