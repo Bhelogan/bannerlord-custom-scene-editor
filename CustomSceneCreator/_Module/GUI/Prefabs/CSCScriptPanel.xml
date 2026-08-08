@@ -119,7 +119,7 @@
                     </ScrollablePanel>
 
                     <!-- Variables of the selected attached script. -->
-                    <ScrollablePanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" AutoHideScrollBars="true" ClipRect="VarClip" InnerPanel="VarClip\VarInner" VerticalScrollbar="VarBar">
+                    <ScrollablePanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" IsVisible="@IsVariableListVisible" AutoHideScrollBars="true" ClipRect="VarClip" InnerPanel="VarClip\VarInner" VerticalScrollbar="VarBar">
                       <Children>
                         <Widget Id="VarClip" ClipContents="true" WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" MarginRight="20">
                           <Children>
@@ -162,12 +162,24 @@
                                           </Children>
                                         </ListPanel>
 
-                                        <!-- Everything else: a text box. -->
-                                        <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="30" Sprite="BlankWhiteSquare_9" Color="#111111FF" IsVisible="@IsTextEditor" MarginTop="4" DoNotAcceptEvents="true">
+                                        <!-- Everything else: a text box, plus a picker of the values
+                                             shipped scenes use where there are any. Typing an FMOD
+                                             event path from memory is not a thing anyone can do. -->
+                                        <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="30" StackLayout.LayoutMethod="HorizontalLeftToRight" IsVisible="@IsTextEditor" MarginTop="4">
                                           <Children>
-                                            <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@Value" Brush="Review.NameInput.Text" DoNotAcceptEvents="false" MarginLeft="8" />
+                                            <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="BlankWhiteSquare_9" Color="#111111FF" DoNotAcceptEvents="true">
+                                              <Children>
+                                                <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@Value" Brush="Review.NameInput.Text" DoNotAcceptEvents="false" MarginLeft="8" />
+                                              </Children>
+                                            </Widget>
+                                            <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="150" Command.Click="ExecuteChoose" IsVisible="@HasPresets" MarginLeft="8">
+                                              <Children>
+                                                <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="BlankWhiteSquare_9" Color="#2A2118FF" DoNotAcceptEvents="true" />
+                                                <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@ChooseText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                              </Children>
+                                            </ButtonWidget>
                                           </Children>
-                                        </Widget>
+                                        </ListPanel>
 
                                         <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="30" Text="@ReadOnlyValueText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="@IsReadOnly" MarginTop="4" DoNotAcceptEvents="true" />
 
@@ -186,6 +198,56 @@
                         </ScrollbarWidget>
                       </Children>
                     </ScrollablePanel>
+
+                    <!-- The value picker takes over the variable column, the same way the category
+                         list takes over the choice column. -->
+                    <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" StackLayout.LayoutMethod="VerticalTopToBottom" IsVisible="@IsValueListOpen">
+                      <Children>
+
+                        <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="26" Text="@ValueTitleText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+
+                        <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="38" Sprite="BlankWhiteSquare_9" Color="#111111FF" MarginTop="6" DoNotAcceptEvents="true">
+                          <Children>
+                            <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@ValueSearchText" Brush="Review.NameInput.Text" DoNotAcceptEvents="false" MarginLeft="10" />
+                          </Children>
+                        </Widget>
+
+                        <ScrollablePanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" AutoHideScrollBars="true" ClipRect="ValClip" InnerPanel="ValClip\ValInner" VerticalScrollbar="ValBar" MarginTop="6">
+                          <Children>
+                            <Widget Id="ValClip" ClipContents="true" WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" MarginRight="20">
+                              <Children>
+                                <ListPanel Id="ValInner" DataSource="{ValueItems}" WidthSizePolicy="StretchToParent" HeightSizePolicy="CoverChildren" StackLayout.LayoutMethod="VerticalTopToBottom">
+                                  <ItemTemplate>
+                                    <ButtonWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="36" Command.Click="ExecuteSelect" IsSelected="@IsSelected" Brush="Saveload.SaveList.Item" MarginBottom="3">
+                                      <Children>
+                                        <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" StackLayout.LayoutMethod="HorizontalLeftToRight" MarginLeft="12" MarginRight="12" DoNotAcceptEvents="true">
+                                          <Children>
+                                            <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@Text" Brush="Popup.Button.Text" HorizontalAlignment="Left" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                            <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="120" Text="@UsesText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                          </Children>
+                                        </ListPanel>
+                                      </Children>
+                                    </ButtonWidget>
+                                  </ItemTemplate>
+                                </ListPanel>
+                              </Children>
+                            </Widget>
+                            <ScrollbarWidget Id="ValBar" AlignmentAxis="Vertical" UpdateScrollbarBounds="true" WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="20" HorizontalAlignment="Right" VerticalAlignment="Top" Handle="ValBarHandle" MinValue="0" MaxValue="100">
+                              <Children>
+                                <Widget Id="ValBarHandle" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="18" SuggestedHeight="40" HorizontalAlignment="Center" Sprite="BlankWhiteSquare_9" Color="#666666FF" />
+                              </Children>
+                            </ScrollbarWidget>
+                          </Children>
+                        </ScrollablePanel>
+
+                        <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="200" SuggestedHeight="38" HorizontalAlignment="Center" Command.Click="ExecuteCloseValueList" Brush="Popup.Cancel.Button" MarginTop="6">
+                          <Children>
+                            <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@ValueBackText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                          </Children>
+                        </ButtonWidget>
+
+                      </Children>
+                    </ListPanel>
 
                   </Children>
                 </ListPanel>

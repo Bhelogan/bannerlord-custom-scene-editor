@@ -6,6 +6,15 @@ using TaleWorlds.Library;
 using IOPath = System.IO.Path;
 
 namespace CustomSceneCreator.Catalog {
+    /// <summary>A value shipped scenes use for a variable, offered as a preset.</summary>
+    public class ScriptPreset {
+        public string Text = "";
+        /// <summary>How many times shipped scenes set the variable to this.</summary>
+        public int Uses;
+        /// <summary>How many distinct scenes use it - the measure of how general a value is.</summary>
+        public int Scenes;
+    }
+
     /// <summary>One variable a script takes, as observed in shipped scenes.</summary>
     public class ScriptVariable {
         public string Name = "";
@@ -14,6 +23,19 @@ namespace CustomSceneCreator.Catalog {
         public string Default = "";
         public string Samples = "";
         public int Uses;
+
+        /// <summary>
+        /// Values shipped scenes actually use for this variable, most-used first.
+        ///
+        /// These exist because a string variable is usually not free text at all - "Event Path" wants
+        /// one of a fixed set of FMOD event names, and there is no way to guess one. The real list
+        /// lives in sound banks the game never exposes (module_sounds.xml is only an example
+        /// template), so the shipped scenes are the only place the working values can be read from.
+        /// Empty for variables with no repeated values worth offering.
+        /// </summary>
+        public List<ScriptPreset> Presets = new();
+
+        public bool HasPresets => Presets.Count > 0;
 
         /// <summary>
         /// A GUID pointing at another entity - AnimationPoint's PairEntity is the common case. Shown
@@ -114,13 +136,27 @@ namespace CustomSceneCreator.Catalog {
 
                         foreach (XmlNode variableNode in scriptEl.ChildNodes) {
                             if (!(variableNode is XmlElement variableEl)) continue;
-                            definition.Variables.Add(new ScriptVariable {
+
+                            var variable = new ScriptVariable {
                                 Name = variableEl.GetAttribute("name"),
                                 Type = Fallback(variableEl.GetAttribute("type"), "string"),
                                 Default = variableEl.GetAttribute("default"),
                                 Samples = variableEl.GetAttribute("samples"),
                                 Uses = ParseInt(variableEl.GetAttribute("uses")),
-                            });
+                            };
+
+                            foreach (XmlNode valueNode in variableEl.ChildNodes) {
+                                if (!(valueNode is XmlElement valueEl)) continue;
+                                string text = valueEl.GetAttribute("text");
+                                if (text.Length == 0) continue;
+                                variable.Presets.Add(new ScriptPreset {
+                                    Text = text,
+                                    Uses = ParseInt(valueEl.GetAttribute("uses")),
+                                    Scenes = ParseInt(valueEl.GetAttribute("scenes")),
+                                });
+                            }
+
+                            definition.Variables.Add(variable);
                         }
 
                         result.Add(definition);

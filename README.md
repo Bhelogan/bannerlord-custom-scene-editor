@@ -35,8 +35,11 @@ app around it is campaign-free.
   add their own markers without a rebuild. They export under their declared name and tag, so
   `FindEntitiesWithTag("sp_enemy")` finds them.
 - **Script attachment** — in **Script** mode, click a placed object to see what scripts are on it,
-  add more from a searchable list of the 130 the game ships, and edit their variables. Attached
-  scripts preview live where they can, and are written out on export either way.
+  add more from a searchable list of the 130 the game ships, and edit their variables. Bools are
+  buttons, and string variables offer the values shipped scenes actually use — you cannot type an
+  FMOD event path like `event:/mission/ambient/detail/river_01` from memory, and the real list lives
+  in sound banks the game never exposes. Attached scripts preview live where they can, and are
+  written out on export either way.
 - **Export** — project JSON, prefab XML, or a scene fragment you can paste into a real `scene.xscene`
   for the Modding Kit to bake a navmesh over.
 
@@ -65,7 +68,7 @@ Generators that read your local game install. Regenerate these after a game upda
 |---|---|
 | `tools/build_scene_catalog.ps1` | `ModuleData/scene_catalog.xml` — every scene, its module, category, upgrade levels, and missing-support-file flags |
 | `tools/build_asset_dump.ps1` | `ModuleData/bannerlord_assets_v<version>.txt` — every placeable prefab. Column layout matches the legacy dump so existing bake scripts keep working. |
-| `tools/build_script_catalog.ps1` | `ModuleData/script_catalog.xml` — every scene script, its variables, inferred types, and how often shipped scenes use it |
+| `tools/build_script_catalog.ps1` | `ModuleData/script_catalog.xml` — every scene script, its variables, inferred types, how often shipped scenes use it, and the values each string variable is set to (values seen in at least two scenes, so scene-local names are left out) |
 
 Pass `-GameDir` if your install is not at the default path.
 

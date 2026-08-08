@@ -57,9 +57,19 @@ if (-not (Test-Path $modulesRoot)) {
 $variableRegex = [regex] '<variable name="([^"]+)" value="([^"]*)"\s*/>'
 $guidRegex     = [regex] '^\{[0-9A-Fa-f\-]{36}\}$'
 
-# name -> @{ Count; Vars = @{ varName -> @{ Count; Samples } } }
+# name -> @{ Count; Vars = @{ varName -> @{ Count; Samples; Values = @{ value -> @{ Uses; Scenes } } } } }
 $scripts = @{}
 $sceneCount = 0
+
+# How many distinct values to offer as presets for a string variable, and the minimum number of
+# distinct scenes a value must appear in to count as one.
+#
+# The scene-count floor is what separates a shared constant from a scene-local name. Every distinct
+# value across every variable is 27,000 of them and 2MB - but most of that is GUIDs and one-off
+# path names like "barrier_path_17" that mean nothing in a different scene. Requiring two scenes
+# leaves ~1,400 values across 184 variables, which is the set that is actually worth offering.
+$maxPresets = 200
+$minScenesForPreset = 2
 
 foreach ($moduleDir in Get-ChildItem -Path $modulesRoot -Directory) {
     $sceneObj = Join-Path $moduleDir.FullName 'SceneObj'
@@ -113,13 +123,23 @@ foreach ($moduleDir in Get-ChildItem -Path $modulesRoot -Directory) {
                 $varValue = $varMatch.Groups[2].Value
 
                 if (-not $entry.Vars.ContainsKey($varName)) {
-                    $entry.Vars[$varName] = @{ Count = 0; Samples = [System.Collections.Generic.List[string]]::new() }
+                    $entry.Vars[$varName] = @{
+                        Count   = 0
+                        Samples = [System.Collections.Generic.List[string]]::new()
+                        Values  = @{}
+                    }
                 }
                 $var = $entry.Vars[$varName]
                 $var.Count++
                 if ($var.Samples.Count -lt 8 -and -not $var.Samples.Contains($varValue)) {
                     $var.Samples.Add($varValue) | Out-Null
                 }
+
+                if (-not $var.Values.ContainsKey($varValue)) {
+                    $var.Values[$varValue] = @{ Uses = 0; Scenes = [System.Collections.Generic.HashSet[string]]::new() }
+                }
+                $var.Values[$varValue].Uses++
+                $var.Values[$varValue].Scenes.Add($sceneDir.Name) | Out-Null
             }
         }
     }
@@ -168,14 +188,34 @@ try {
 
         foreach ($varName in ($entry.Vars.Keys | Sort-Object { -$entry.Vars[$_].Count })) {
             $var = $entry.Vars[$varName]
+            $varType = Get-VariableType $var.Samples
+
             $writer.WriteStartElement('Variable')
             $writer.WriteAttributeString('name', $varName)
-            $writer.WriteAttributeString('type', (Get-VariableType $var.Samples))
+            $writer.WriteAttributeString('type', $varType)
             $writer.WriteAttributeString('uses', [string] $var.Count)
             if ($var.Samples.Count -gt 0) {
                 $writer.WriteAttributeString('default', $var.Samples[0])
                 $writer.WriteAttributeString('samples', ($var.Samples -join ' | '))
             }
+
+            # Presets, for string variables only. A float or a bool has nothing to list, and an
+            # entity reference is a per-scene GUID that would be meaningless anywhere else.
+            if ($varType -eq 'string') {
+                $presets = $var.Values.Keys |
+                    Where-Object { $_.Trim().Length -gt 0 -and $var.Values[$_].Scenes.Count -ge $minScenesForPreset } |
+                    Sort-Object { -$var.Values[$_].Uses } |
+                    Select-Object -First $maxPresets
+
+                foreach ($presetValue in $presets) {
+                    $writer.WriteStartElement('Value')
+                    $writer.WriteAttributeString('text', $presetValue)
+                    $writer.WriteAttributeString('uses', [string] $var.Values[$presetValue].Uses)
+                    $writer.WriteAttributeString('scenes', [string] $var.Values[$presetValue].Scenes.Count)
+                    $writer.WriteEndElement()
+                }
+            }
+
             $writer.WriteEndElement()
         }
 

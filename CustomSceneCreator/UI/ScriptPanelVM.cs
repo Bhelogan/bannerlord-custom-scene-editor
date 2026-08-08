@@ -27,12 +27,16 @@ namespace CustomSceneCreator.UI {
         private MBBindingList<ScriptChoiceVM> _choiceItems = new();
         private MBBindingList<ScriptVariableItemVM> _variableItems = new();
         private MBBindingList<ScriptCategoryItemVM> _categoryItems = new();
+        private MBBindingList<ScriptValueItemVM> _valueItems = new();
 
         private readonly List<string> _categories = new();
         private int _categoryIndex;
         private bool _isAdding;
         private bool _isCategoryListOpen;
         private string _searchText = "";
+
+        private ScriptVariableItemVM? _valueTarget;
+        private string _valueSearchText = "";
 
         private AttachedScript? _selectedAttached;
         private ScriptDefinition? _selectedChoice;
@@ -136,6 +140,89 @@ namespace CustomSceneCreator.UI {
         public MBBindingList<ScriptVariableItemVM> VariableItems {
             get => _variableItems;
             set { if (value != _variableItems) { _variableItems = value; OnPropertyChangedWithValue(value, nameof(VariableItems)); } }
+        }
+
+        // -- value presets ------------------------------------------------------------------------
+        //
+        // A string variable is rarely free text. "Event Path" wants one of a fixed set of sound
+        // events, "LoopStartAction" one of a fixed set of animation names - and there is no way to
+        // guess either, nor a file to browse: the real lists live inside sound banks and animation
+        // data the game never exposes. What CAN be read is what the shipped scenes set them to, so
+        // the picker offers those, ordered by how often the game itself uses each one.
+        //
+        // Like the category list, this takes over the variable list's region rather than stacking a
+        // second modal - same reason, and it keeps one Escape meaning one thing.
+
+        [DataSourceProperty] public bool IsValueListOpen => _valueTarget != null;
+        [DataSourceProperty] public bool IsVariableListVisible => _valueTarget == null;
+
+        [DataSourceProperty]
+        public string ValueTitleText => _valueTarget == null
+            ? ""
+            : $"{_valueTarget.Name} - values used by shipped scenes";
+
+        [DataSourceProperty] public string ValueBackText => "Back";
+
+        [DataSourceProperty]
+        public MBBindingList<ScriptValueItemVM> ValueItems {
+            get => _valueItems;
+            set { if (value != _valueItems) { _valueItems = value; OnPropertyChangedWithValue(value, nameof(ValueItems)); } }
+        }
+
+        [DataSourceProperty]
+        public string ValueSearchText {
+            get => _valueSearchText;
+            set {
+                if (value == _valueSearchText) return;
+                _valueSearchText = value;
+                OnPropertyChangedWithValue(value, nameof(ValueSearchText));
+                RefreshValues();
+            }
+        }
+
+        public void ExecuteCloseValueList() {
+            _valueTarget = null;
+            _valueSearchText = "";
+            _valueItems.Clear();
+            OnPropertyChangedWithValue(_valueSearchText, nameof(ValueSearchText));
+            NotifyValueList();
+        }
+
+        private void OpenValueList(ScriptVariableItemVM variable) {
+            _valueTarget = variable;
+            _valueSearchText = "";
+            OnPropertyChangedWithValue(_valueSearchText, nameof(ValueSearchText));
+            RefreshValues();
+            NotifyValueList();
+        }
+
+        private void RefreshValues() {
+            _valueItems.Clear();
+            if (_valueTarget == null) return;
+
+            IEnumerable<ScriptPreset> presets = _valueTarget.Presets;
+            if (!string.IsNullOrWhiteSpace(_valueSearchText)) {
+                string q = _valueSearchText.Trim();
+                presets = presets.Where(p => p.Text.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0);
+            }
+
+            string current = _valueTarget.Value;
+            foreach (ScriptPreset preset in presets.Take(MaxRows)) {
+                _valueItems.Add(new ScriptValueItemVM(preset, preset.Text == current, ApplyValue));
+            }
+        }
+
+        /// <summary>Picking a value is the whole point - it applies and closes, no confirm step.</summary>
+        private void ApplyValue(string text) {
+            if (_valueTarget == null) return;
+            _valueTarget.SetValueExternally(text);
+            ExecuteCloseValueList();
+        }
+
+        private void NotifyValueList() {
+            OnPropertyChangedWithValue(IsValueListOpen, nameof(IsValueListOpen));
+            OnPropertyChangedWithValue(IsVariableListVisible, nameof(IsVariableListVisible));
+            OnPropertyChangedWithValue(ValueTitleText, nameof(ValueTitleText));
         }
 
         [DataSourceProperty]
@@ -253,6 +340,9 @@ namespace CustomSceneCreator.UI {
         }
 
         private void RefreshVariables() {
+            // The open value list belongs to a row that is about to be replaced.
+            if (_valueTarget != null) ExecuteCloseValueList();
+
             _variableItems.Clear();
             if (_selectedAttached == null) return;
 
@@ -265,7 +355,8 @@ namespace CustomSceneCreator.UI {
                     value => {
                         _selectedAttached.Variables[variable.Name] = value;
                         _onChanged?.Invoke();
-                    }));
+                    },
+                    OpenValueList));
             }
         }
 
@@ -369,13 +460,26 @@ namespace CustomSceneCreator.UI {
         private readonly Action<string> _onChanged;
         private string _value;
 
-        public ScriptVariableItemVM(ScriptVariable variable, string value, Action<string> onChanged) {
+        private readonly Action<ScriptVariableItemVM>? _onChoose;
+
+        public ScriptVariableItemVM(ScriptVariable variable, string value, Action<string> onChanged,
+                                    Action<ScriptVariableItemVM>? onChoose = null) {
             _variable = variable;
             _value = value ?? "";
             _onChanged = onChanged;
+            _onChoose = onChoose;
         }
 
         [DataSourceProperty] public string Name => _variable.Name;
+
+        public IReadOnlyList<ScriptPreset> Presets => _variable.Presets;
+
+        /// <summary>Only text rows get a picker: bools have buttons, and floats have no preset list.</summary>
+        [DataSourceProperty] public bool HasPresets => IsTextEditor && _variable.HasPresets;
+
+        [DataSourceProperty] public string ChooseText => $"Choose ({_variable.Presets.Count})";
+
+        public void ExecuteChoose() => _onChoose?.Invoke(this);
         [DataSourceProperty] public string TypeText => _variable.Type;
 
         /// <summary>Two clickable buttons instead of a text box.</summary>
@@ -423,6 +527,12 @@ namespace CustomSceneCreator.UI {
         public void ExecuteSetTrue() => Value = "true";
         public void ExecuteSetFalse() => Value = "false";
 
+        /// <summary>Set from the preset picker, which bypasses the bound text box.</summary>
+        public void SetValueExternally(string text) {
+            Value = text;
+            OnPropertyChangedWithValue(_value, nameof(Value));
+        }
+
         private void NotifyBool() {
             OnPropertyChangedWithValue(IsTrue, nameof(IsTrue));
             OnPropertyChangedWithValue(IsFalse, nameof(IsFalse));
@@ -430,6 +540,36 @@ namespace CustomSceneCreator.UI {
             OnPropertyChangedWithValue(FalseText, nameof(FalseText));
             OnPropertyChangedWithValue(ReadOnlyValueText, nameof(ReadOnlyValueText));
         }
+    }
+
+    /// <summary>One value the shipped scenes use, in the preset list.</summary>
+    public class ScriptValueItemVM : ViewModel {
+        private readonly ScriptPreset _preset;
+        private readonly Action<string> _onSelect;
+
+        public ScriptValueItemVM(ScriptPreset preset, bool isSelected, Action<string> onSelect) {
+            _preset = preset;
+            _isSelected = isSelected;
+            _onSelect = onSelect;
+        }
+
+        private bool _isSelected;
+
+        [DataSourceProperty] public string Text => _preset.Text;
+
+        /// <summary>
+        /// Scene count, not raw uses: one scene setting the same value on 400 torches says far less
+        /// about whether a value is generally useful than forty scenes each using it once.
+        /// </summary>
+        [DataSourceProperty] public string UsesText => $"{_preset.Scenes} scene(s)";
+
+        [DataSourceProperty]
+        public bool IsSelected {
+            get => _isSelected;
+            set { if (value != _isSelected) { _isSelected = value; OnPropertyChangedWithValue(value, nameof(IsSelected)); } }
+        }
+
+        public void ExecuteSelect() => _onSelect?.Invoke(_preset.Text);
     }
 
     public class ScriptCategoryItemVM : ViewModel {
