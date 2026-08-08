@@ -68,6 +68,7 @@ namespace CustomSceneCreator.Boot {
                         new MissionBoundaryPlacer(),
 
                         new SpikePlayerSpawnLogic(),
+                        new CampaignScreenBlockerLogic(),
                         new SceneEditingMissionLogic(target, new CatalogPlaceableProvider()),
 
                         new MissionMainAgentController(),
