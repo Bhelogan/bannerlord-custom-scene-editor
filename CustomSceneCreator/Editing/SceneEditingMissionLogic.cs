@@ -227,8 +227,13 @@ namespace CustomSceneCreator.Editing {
             // Left click is the natural place action with a visible cursor. Read through the scene
             // layer, since Gauntlet consumes mouse buttons on the global path first. F still works
             // everywhere, including the player-attached cameras where the cursor is captured.
+            // In RTS the click has to be read through the scene layer, because Gauntlet consumes mouse
+            // buttons on the global path once the cursor is visible. In the player-attached cameras
+            // there is no cursor and global input is the only source - so both paths are needed, and
+            // LMB places in every camera mode rather than only the overhead one.
             bool clickPlaced = CameraModes.Current == EditorCameraMode.Rts
-                            && (RtsCameraView.Instance?.IsKeyPressedOnScene(Keys.Place) ?? false);
+                ? (RtsCameraView.Instance?.IsKeyPressedOnScene(Keys.Place) ?? false)
+                : Input.IsKeyPressed(Keys.Place);
 
             if (clickPlaced || Input.IsKeyPressed(Keys.PlaceAlt)) { HandlePlaceKey(); return; }
 
@@ -517,6 +522,7 @@ namespace CustomSceneCreator.Editing {
             if (_mode != EditMode.Build) {
                 _mode = EditMode.Build;
                 CameraModes.FollowEditMode(true);
+                WeaponSheather.SetEditing(true);
                 EditorHud.ShowMessage("Build mode.");
             }
 
@@ -552,6 +558,7 @@ namespace CustomSceneCreator.Editing {
             // editing, third person for walking around. Turning editing on is the moment an overhead
             // view starts being useful, and turning it off is the moment it stops.
             CameraModes.FollowEditMode(_mode != EditMode.Off);
+            WeaponSheather.SetEditing(_mode != EditMode.Off);
 
             switch (_mode) {
                 case EditMode.Off:
@@ -786,6 +793,7 @@ namespace CustomSceneCreator.Editing {
         protected override void OnEndMission() {
             base.OnEndMission();
             RemoveGhost();
+            WeaponSheather.SetEditing(false);
             // Deliberately does NOT commit. OnEndMissionRequest already asked, and committing here
             // too would write the project even after the player chose Discard.
         }

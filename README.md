@@ -82,8 +82,8 @@ it for you.
 | Key | Action |
 |---|---|
 | `\` | Cycle edit mode: Off - Build - Delete - Move |
-| **LMB** | Place / delete / pick up (RTS camera) |
-| `F` | Same, from the keyboard - works in every camera mode |
+| **LMB** | Place / delete / pick up — works in every camera mode |
+| `F` | Same, from the keyboard |
 | **Hold RMB** + move mouse | Rotate the held object |
 | `Q` `E` | Rotate left / right |
 | **Left Ctrl** | Reset rotation and height offset |
@@ -105,6 +105,9 @@ view, `Shift`+`WASD` flies along the view direction. Pan speed scales with heigh
 There is no maximum placement range - if you can see it, you can build on it.
 
 Avoid rebinding onto `P` (the game's pick-up-item bind).
+
+Your character sheathes their weapons while an edit mode is active, so clicking to place does not
+swing a sword. They are drawn again as normal once editing is off.
 
 Leaving with unsaved changes offers to save first.
 

@@ -39,6 +39,7 @@ namespace CustomSceneCreator.Boot {
             var target = new SceneProjectTarget(project);
 
             CameraModes.Reset();
+            WeaponSheather.Reset();
 
             MissionInitializerRecord record = CreateRecord(sceneName, sceneLevels);
 
