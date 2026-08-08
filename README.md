@@ -79,6 +79,7 @@ The editor opens in **RTS camera** mode: look down at the site, pan around it, a
 | `F` | Same, from the keyboard - works in every camera mode |
 | **Hold RMB** + move mouse | Rotate the held object |
 | `Q` `E` | Rotate left / right |
+| **Left Ctrl** | Reset rotation and height offset |
 | `G` | Drop to ground, and re-enable ground follow |
 | `H` | Toggle ground follow (pin the height instead) |
 | `[` `]` | Previous / next placeable |
@@ -87,7 +88,6 @@ The editor opens in **RTS camera** mode: look down at the site, pan around it, a
 | `K` | Save the project |
 | Numpad `8` `2` | Tilt up / down |
 | Numpad `4` `6` | Roll left / right |
-| Numpad `0` | Reset rotation and height |
 | Numpad `5` `1` | Raise / lower |
 
 RTS camera: `WASD` pans, `Space` / `Left Alt` change height, hold `Shift` and drag to rotate the

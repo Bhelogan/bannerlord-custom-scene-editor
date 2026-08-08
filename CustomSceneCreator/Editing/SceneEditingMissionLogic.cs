@@ -223,8 +223,11 @@ namespace CustomSceneCreator.Editing {
             if (_ghost == null) return;
 
             if (Input.IsKeyPressed(Keys.ResetRotation)) {
+                // Rotation and height offset only. Ground follow is left alone on purpose: G owns
+                // that, and clearing it here would make one key quietly do two unrelated things.
                 _ghostRotation = Mat3.Identity;
                 _ghostOffset = Vec3.Zero;
+                EditorHud.ShowMessage("Rotation and height offset reset.");
                 return;
             }
 
@@ -415,6 +418,7 @@ namespace CustomSceneCreator.Editing {
                         $"Build mode. {Keys.Describe(Keys.Place)} (or {Keys.Describe(Keys.PlaceAlt)}): place. " +
                         $"{Keys.Describe(Keys.RotateTurnLeft)}/{Keys.Describe(Keys.RotateTurnRight)} or hold " +
                         $"{Keys.Describe(Keys.RotateDrag)}: rotate. " +
+                        $"{Keys.Describe(Keys.ResetRotation)}: reset. " +
                         $"{Keys.Describe(Keys.SnapToGround)}: drop to ground. " +
                         $"{Keys.Describe(Keys.ToggleGroundLock)}: ground follow. " +
                         $"{Keys.Describe(Keys.PrevPlaceable)}/{Keys.Describe(Keys.NextPlaceable)}: cycle. " +

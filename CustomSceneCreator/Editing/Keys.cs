@@ -41,7 +41,9 @@ namespace CustomSceneCreator.Editing {
         public const InputKey SnapToGround     = InputKey.G;
         public const InputKey ToggleGroundLock = InputKey.H;
 
-        public const InputKey ResetRotation = InputKey.Numpad0;
+        /// <summary>Clears rotation and height offset in one press - Homesteads binds this to Left
+        /// Ctrl, and it is reached often enough that a numpad key was the wrong home for it.</summary>
+        public const InputKey ResetRotation = InputKey.LeftControl;
         public const InputKey RotateTiltUp    = InputKey.Numpad8;
         public const InputKey RotateTiltDown  = InputKey.Numpad2;
         public const InputKey RotateRollLeft  = InputKey.Numpad4;
@@ -60,6 +62,7 @@ namespace CustomSceneCreator.Editing {
                 case InputKey.BackSlash:   return "\\";
                 case InputKey.LeftMouseButton:  return "LMB";
                 case InputKey.RightMouseButton: return "RMB";
+                case InputKey.LeftControl:      return "Left Ctrl";
                 case InputKey.Numpad0: return "Num0";
                 case InputKey.Numpad1: return "Num1";
                 case InputKey.Numpad2: return "Num2";
