@@ -565,6 +565,45 @@ Plus an **unsaved-changes guard** on leave, and **resume-last-project** on entry
 
 ---
 
+## 16b. Editor camera modes
+
+Requested 2026-08-07: some people build in first person, standing where the thing will be seen from,
+rather than looking down at a layout from above. Both are legitimate and they suit different jobs -
+free-fly for laying out a village footprint, player-attached for judging whether a doorway feels
+right.
+
+So the editor ships **three camera modes on one toggle**, not a single approach:
+
+| Mode | Use | Cost |
+|---|---|---|
+| **First person** | Eye-level judgement of scale, doorways, sightlines | ~free (see below) |
+| **Third person** | Default. Build near yourself with body context | ~free |
+| **Free fly** | Overview layout, reaching rooftops and awkward angles | port `HomesteadFreeCameraView` |
+
+The first two are close to free: `Mission.CameraIsFirstPerson` is a public settable property whose
+setter drives the native camera (`api_v1.4.5.txt:564580`). Only free-fly needs real code, and that
+already exists to port.
+
+**The design consequence is the part worth getting right, and it must land in M4 rather than after.**
+The ported editor takes its placement ray from the player's view. With three cameras that becomes
+wrong, so placement needs a single seam:
+
+```csharp
+interface IPlacementRaySource {
+    Vec3 Origin { get; }
+    Vec3 Direction { get; }
+}
+```
+
+implemented once per camera mode, with the editor logic asking it rather than reading the player.
+Retrofitting that through 1,845 ported lines afterwards is far more expensive than building it in.
+
+Two details that will otherwise bite: in first person the placement ghost must not clip into the
+camera (offset the minimum placement distance), and switching camera mode mid-placement must carry
+the held object across rather than dropping it.
+
+---
+
 ## 17. Milestones
 
 | # | Milestone | Content | Est. |
@@ -573,7 +612,7 @@ Plus an **unsaved-changes guard** on leave, and **resume-last-project** on entry
 | ~~M1~~ | ~~Boot spike~~ **DONE** | Answered: tutorial-mode campaign has no main hero/party, and main-menu boot breaks other mods' init hooks. Entry moved in-campaign (§3). | done |
 | ~~M2~~ | ~~Scene catalog~~ **PARTLY DONE** | `build_scene_catalog.ps1` done: 611 scenes, **405 multi-level**, 127 without navmesh. Browser UI + bulk load test still open (folded into M6/M7). | 0.5 d left |
 | **M3** | Dumps | `build_asset_dump.ps1` → 1.4.7 dump; regen `api_v1.4.7.txt`; re-cut categories; naval + logical flags | 1.5 d |
-| **M4** | Editor fork + API | Port editor/camera/picker onto `ISceneEditTarget`; strip tier/cost gating; write `HomesteadSceneTarget` adapter to validate the seam | 3 d |
+| **M4** | Editor fork + API | Port editor/camera/picker onto `ISceneEditTarget`; strip tier/cost gating; **three camera modes behind `IPlacementRaySource`** (16b); write `HomesteadSceneTarget` adapter to validate the seam | 3.5 d |
 | **M5** | Persistence | `SceneProject` save/load/list, autosave, resume-last, legacy template read/write | 1 d |
 | **M6** | **Browse ⇄ edit loop** (§16) | `SceneCreatorBrowserState` as a real GameState; leave-mission returns to it; persisted browser state, recents, unsaved guard | 1 d |
 | **M7** | **Build Selector** (§13) | Port picker; Tilde open; **in-picker search bar**; Source groups; pack loading; recents/favourites | 2 d |
