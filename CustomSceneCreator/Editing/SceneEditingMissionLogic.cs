@@ -143,7 +143,7 @@ namespace CustomSceneCreator.Editing {
         /// what was built last time.</summary>
         private void RestoreExistingEntities() {
             foreach (PlacedEntity entity in _target.LoadEntities()) {
-                GameEntity? spawned = Instantiate(entity.PrefabName, entity.Position, entity.Rotation);
+                GameEntity? spawned = Instantiate(entity.PrefabName, entity.Position, entity.Rotation, enablePhysics: true);
                 if (spawned == null) {
                     TraceLogger.Write(nameof(SceneEditingMissionLogic),
                         $"Could not restore '{entity.PrefabName}' - prefab missing. Left in the project.");
@@ -247,7 +247,7 @@ namespace CustomSceneCreator.Editing {
 
             // Scroll wheel raises and lowers the held object. The most-reached adjustment after
             // rotation, and the wheel is otherwise unused while an object is held.
-            float scroll = RtsCameraView.Instance?.SceneMouseScroll ?? 0f;
+            float scroll = Input.DeltaMouseScroll;
             if (MathF.Abs(scroll) > 0.0001f) {
                 _ghostOffset.z += scroll * ScrollHeightStep;
                 return;
@@ -322,7 +322,7 @@ namespace CustomSceneCreator.Editing {
             Vec3 position = _ghost!.GlobalPosition;
             Mat3 rotation = _ghost.GetFrame().rotation;
 
-            GameEntity? spawned = Instantiate(prefabName, position, rotation);
+            GameEntity? spawned = Instantiate(prefabName, position, rotation, enablePhysics: true);
             if (spawned == null) {
                 EditorHud.ShowMessage($"Could not place '{prefabName}'.", warning: true);
                 return;
@@ -401,14 +401,32 @@ namespace CustomSceneCreator.Editing {
                 if (match != null) return match;
                 current = current.Parent;
             }
+
+            // If a hit resolves to nothing we own, record what was hit - once per distinct name. If
+            // the physics registration ever regresses, this line distinguishes "the ray is not
+            // reaching our objects" from "the ray is landing on original scene geometry".
+            try {
+                string hitName = hit.IsValid ? (hit.Name ?? "?") : "(invalid)";
+                if (_unownedHitsLogged.Add(hitName)) {
+                    TraceLogger.Write(nameof(SceneEditingMissionLogic),
+                        $"Hit '{hitName}' belongs to no placed object ({_live.Count} placed).");
+                }
+            } catch { }
+
             return null;
         }
+
+        private readonly HashSet<string> _unownedHitsLogged = new();
 
         /// <summary>Radians per pixel of drag. Matches the shipped Homesteads builder.</summary>
         private const float RotateDragSensitivity = 0.005f;
 
-        /// <summary>Metres per scroll notch.</summary>
-        private const float ScrollHeightStep = 0.25f;
+        /// <summary>
+        /// Metres per unit of scroll delta. DeltaMouseScroll reports roughly 120 per notch, not 1 -
+        /// treating it as a notch count sent objects tens of metres underground on a single click.
+        /// 0.003 gives about 0.36m a notch, matching the shipped Homesteads builder.
+        /// </summary>
+        private const float ScrollHeightStep = 0.003f;
 
         private void ToggleGroundFollow() {
             _groundFollow = !_groundFollow;
@@ -597,7 +615,7 @@ namespace CustomSceneCreator.Editing {
 
             if (_ghost == null) {
                 string prefabName = _carried?.PrefabName ?? CurrentPlaceable!.PrefabName;
-                _ghost = Instantiate(prefabName, _positionLookingAt, _ghostRotation);
+                _ghost = Instantiate(prefabName, _positionLookingAt, _ghostRotation, enablePhysics: false);
                 if (_ghost == null) return;
 
                 // No physics on the preview, or it collides with the world and with the player while
@@ -637,22 +655,43 @@ namespace CustomSceneCreator.Editing {
 
         // -- scene helpers ----------------------------------------------------------------------
 
-        private GameEntity? Instantiate(string prefabName, Vec3 position, Mat3 rotation) {
+        /// <param name="enablePhysics">
+        /// False only for the preview ghost. TRUE for anything real, and it is not optional: a
+        /// prefab instantiated at runtime has no physics bodies registered until SetPhysicsState is
+        /// called on it and every child. Without bodies the object is not merely walk-through - it is
+        /// invisible to raycasts, so Delete and Move could never find anything you had built. That is
+        /// the same trap Homesteads hit with runtime ballistas having no collision and no use prompt.
+        /// </param>
+        private GameEntity? Instantiate(string prefabName, Vec3 position, Mat3 rotation, bool enablePhysics) {
             try {
                 // Editor-authored markers save under their own id but instantiate a stand-in mesh,
                 // so resolve through the registry rather than trusting the saved name to be a prefab.
                 prefabName = PlaceableRegistry.ResolveSpawnPrefab(prefabName);
                 if (!GameEntity.PrefabExists(prefabName)) return null;
+
                 MatrixFrame frame = MatrixFrame.Identity;
                 frame.rotation = rotation;
+                frame.origin = position;
+
                 GameEntity entity = GameEntity.Instantiate(Mission.Scene, prefabName, frame);
-                entity.SetLocalPosition(position);
+                // Set the whole frame rather than just the position: SetLocalPosition leaves the
+                // rotation applied at construction, which drifts for nested prefabs.
+                entity.SetGlobalFrame(in frame, true);
+
+                if (enablePhysics) ApplyPhysicsRecursive(entity);
                 return entity;
             } catch (Exception ex) {
                 TraceLogger.Write(nameof(SceneEditingMissionLogic),
                     $"Instantiate('{prefabName}') failed: {ex.GetType().Name}: {ex.Message}");
                 return null;
             }
+        }
+
+        /// <summary>Registers physics bodies on an entity and all of its children.</summary>
+        private static void ApplyPhysicsRecursive(GameEntity entity) {
+            if (entity == null) return;
+            try { entity.SetPhysicsState(true, true); } catch { }
+            foreach (GameEntity child in entity.GetChildren()) ApplyPhysicsRecursive(child);
         }
 
         private static void DestroyEntity(GameEntity? entity) {
