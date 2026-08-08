@@ -165,25 +165,43 @@ namespace CustomSceneCreator.Editing {
         private static Vec3 SnapAndValidate(Scene scene, Vec3 candidate) {
             try {
                 Vec2 flat = candidate.AsVec2;
-                float terrainHeight = scene.GetTerrainHeight(flat, true);
 
-                // Prefer the entity's own height when it is plausibly just above the ground (spawn
-                // markers usually sit a metre up); otherwise trust the terrain.
-                float z = (candidate.z > terrainHeight - 0.5f && candidate.z < terrainHeight + 3f)
-                    ? terrainHeight
-                    : terrainHeight;
+                // The Vec3 navmesh lookup is height-sensitive, so try more than one plausible Z.
+                // The candidate's own height matters for interiors, arena stands and upper floors,
+                // where the walkable surface is nowhere near the terrain; terrain height matters
+                // outdoors, where a marker may float a metre or two above the ground.
+                float terrainHeight;
+                try {
+                    terrainHeight = scene.GetTerrainHeight(flat, true);
+                } catch {
+                    terrainHeight = candidate.z;
+                }
 
-                Vec3 result = new Vec3(flat.x, flat.y, z);
-                return IsOnNavMesh(scene, result) ? result : Vec3.Invalid;
+                foreach (float z in new[] { candidate.z, terrainHeight, terrainHeight + 0.5f }) {
+                    Vec3 probe = new Vec3(flat.x, flat.y, z);
+                    if (IsOnNavMesh(scene, probe)) return probe;
+                }
+                return Vec3.Invalid;
             } catch {
                 return Vec3.Invalid;
             }
         }
 
+        /// <summary>
+        /// Scene.GetNavMeshFaceIndex has two overloads and only one of them is for mission scenes.
+        ///
+        /// The Vec2 overload takes an "isRegion1" flag and is the CAMPAIGN MAP variant - the world
+        /// map passes vec2.IsOnLand for that argument, i.e. it selects the land or sea region. Asking
+        /// a mission scene for a region-1 face is meaningless, so it never returns a valid face. That
+        /// is why every candidate was rejected on scenes that plainly had a navmesh: arena_battania_a
+        /// reported 274 faces, aserai_village_c reported 9,449, and not one position validated.
+        ///
+        /// Every in-mission call in the game itself uses the Vec3 overload. So does this now.
+        /// </summary>
         private static bool IsOnNavMesh(Scene scene, Vec3 position) {
             try {
                 PathFaceRecord record = PathFaceRecord.NullFaceRecord;
-                scene.GetNavMeshFaceIndex(ref record, position.AsVec2, false, false, true);
+                scene.GetNavMeshFaceIndex(ref record, position, checkIfDisabled: false);
                 return record.IsValid();
             } catch {
                 return false;

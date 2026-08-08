@@ -65,6 +65,9 @@
                   </Children>
                 </ScrollablePanel>
 
+                <!-- Explains what the level toggles below actually do. -->
+                <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="24" Text="@LevelHelpText" Brush="Popup.Description.Text" HorizontalAlignment="Center" IsVisible="@HasLevels" DoNotAcceptEvents="true" />
+
                 <!-- Upgrade levels for the selected scene. 405 of 611 scenes are multi-level, so
                      this row is the difference between a town rendering correctly and rendering
                      as an empty shell. -->

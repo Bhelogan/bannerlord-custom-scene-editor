@@ -68,6 +68,22 @@ namespace CustomSceneCreator.UI {
         [DataSourceProperty]
         public bool HasLevels => _levelItems.Count > 0;
 
+        /// <summary>
+        /// Explains the level row. Without this the toggles are unlabelled jargon - "level_2" and
+        /// "sally" mean nothing until you know a scene is one geometry set with named layers.
+        /// </summary>
+        [DataSourceProperty]
+        public string LevelHelpText {
+            get {
+                if (_levelItems.Count == 0) return "";
+                LevelItemVM? on = _levelItems.FirstOrDefault(l => l.IsOn);
+                return on != null
+                    ? $"{on.LevelName} - {SceneLevelInfo.Describe(on.LevelName)}"
+                    : "Scene layers ('base' is always on). Tick a tier for how developed the "
+                    + "settlement looks, or a state such as siege or raid.";
+            }
+        }
+
         [DataSourceProperty]
         public MBBindingList<SceneItemVM> SceneItems {
             get => _sceneItems;
@@ -170,6 +186,7 @@ namespace CustomSceneCreator.UI {
 
         private void OnLevelToggled() {
             OnPropertyChangedWithValue(SelectionText, nameof(SelectionText));
+            OnPropertyChangedWithValue(LevelHelpText, nameof(LevelHelpText));
         }
 
         private string SelectedLevels() {
