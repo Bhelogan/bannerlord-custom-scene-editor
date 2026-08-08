@@ -1,0 +1,346 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using CustomSceneCreator.Api;
+using CustomSceneCreator.Catalog;
+using TaleWorlds.Library;
+
+namespace CustomSceneCreator.UI {
+    /// <summary>
+    /// Scripts on one placed object: what is attached, what each one's variables are set to, and a
+    /// searchable way to add more.
+    ///
+    /// The panel opens on the object rather than the other way round. Clicking a brazier and asking
+    /// "what is on this" is the question people actually have; a bare script picker would let you
+    /// attach things but never see or remove them.
+    ///
+    /// Add mode reuses this same panel rather than stacking a second modal - the same trick the asset
+    /// picker uses for its category list, and for the same reason: no overlay positioning, no
+    /// z-order, and one Escape always means one thing.
+    /// </summary>
+    public class ScriptPanelVM : ViewModel {
+        private readonly PlacedEntity _entity;
+        private readonly Action _onClose;
+        private readonly Action _onChanged;
+
+        private MBBindingList<AttachedScriptItemVM> _attachedItems = new();
+        private MBBindingList<ScriptChoiceVM> _choiceItems = new();
+        private MBBindingList<ScriptVariableItemVM> _variableItems = new();
+
+        private readonly List<string> _categories = new();
+        private int _categoryIndex;
+        private bool _isAdding;
+        private string _searchText = "";
+
+        private AttachedScript? _selectedAttached;
+        private ScriptDefinition? _selectedChoice;
+
+        private const string AllCategories = "All";
+        private const int MaxRows = 300;
+
+        public ScriptPanelVM(PlacedEntity entity, Action onClose, Action onChanged) {
+            _entity = entity;
+            _onClose = onClose;
+            _onChanged = onChanged;
+
+            _categories.Add(AllCategories);
+            _categories.AddRange(ScriptCatalog.Categories);
+
+            RefreshAttached();
+            RefreshChoices();
+        }
+
+        // -- bindable ---------------------------------------------------------------------------
+
+        [DataSourceProperty] public string TitleText => "Scripts";
+
+        [DataSourceProperty]
+        public string SubjectText => Placeable.ToDisplayName(_entity.PrefabName);
+
+        [DataSourceProperty]
+        public string HintText => _isAdding
+            ? "Sorted by how often shipped scenes use each script. Type to search."
+            : "Attached scripts. Select one to edit its variables, or add another.";
+
+        [DataSourceProperty] public bool IsAdding => _isAdding;
+        [DataSourceProperty] public bool IsViewing => !_isAdding;
+
+        [DataSourceProperty] public string AddText => "Add Script...";
+        [DataSourceProperty] public string RemoveText => "Remove";
+        [DataSourceProperty] public string BackText => "Back";
+        [DataSourceProperty] public string ConfirmAddText => "Attach";
+        [DataSourceProperty] public string CloseText => "Close";
+
+        [DataSourceProperty]
+        public string CategoryButtonText => $"{_categories[_categoryIndex]}   ▼";
+
+        [DataSourceProperty]
+        public string StatusText {
+            get {
+                if (_isAdding) {
+                    if (_selectedChoice == null) return $"{FilteredChoices().Count()} script(s)";
+                    string preview = _selectedChoice.CanPreview
+                        ? ""
+                        : "   [will not preview here - still exported]";
+                    return $"{_selectedChoice.Name} - used {_selectedChoice.Uses:N0} times in shipped scenes, " +
+                           $"{_selectedChoice.Variables.Count} variable(s){preview}";
+                }
+                return _entity.Scripts.Count == 0
+                    ? "Nothing attached yet."
+                    : $"{_entity.Scripts.Count} script(s) attached.";
+            }
+        }
+
+        [DataSourceProperty] public bool HasAttachedSelection => _selectedAttached != null;
+        [DataSourceProperty] public bool HasChoiceSelection => _selectedChoice != null;
+
+        [DataSourceProperty]
+        public MBBindingList<AttachedScriptItemVM> AttachedItems {
+            get => _attachedItems;
+            set { if (value != _attachedItems) { _attachedItems = value; OnPropertyChangedWithValue(value, nameof(AttachedItems)); } }
+        }
+
+        [DataSourceProperty]
+        public MBBindingList<ScriptChoiceVM> ChoiceItems {
+            get => _choiceItems;
+            set { if (value != _choiceItems) { _choiceItems = value; OnPropertyChangedWithValue(value, nameof(ChoiceItems)); } }
+        }
+
+        [DataSourceProperty]
+        public MBBindingList<ScriptVariableItemVM> VariableItems {
+            get => _variableItems;
+            set { if (value != _variableItems) { _variableItems = value; OnPropertyChangedWithValue(value, nameof(VariableItems)); } }
+        }
+
+        [DataSourceProperty]
+        public string SearchText {
+            get => _searchText;
+            set {
+                if (value == _searchText) return;
+                _searchText = value;
+                OnPropertyChangedWithValue(value, nameof(SearchText));
+                RefreshChoices();
+            }
+        }
+
+        // -- commands ---------------------------------------------------------------------------
+
+        public void ExecuteBeginAdd() { _isAdding = true; RefreshChoices(); NotifyMode(); }
+        public void ExecuteBack() { _isAdding = false; NotifyMode(); }
+        public void ExecuteClose() => _onClose?.Invoke();
+
+        public void ExecuteNextCategory() {
+            _categoryIndex = (_categoryIndex + 1) % _categories.Count;
+            if (!string.IsNullOrWhiteSpace(_searchText)) {
+                _searchText = "";
+                OnPropertyChangedWithValue(_searchText, nameof(SearchText));
+            }
+            RefreshChoices();
+        }
+
+        public void ExecuteConfirmAdd() {
+            if (_selectedChoice == null) return;
+
+            // Seed each variable with the value shipped scenes use most, so an attached script starts
+            // in a state that already works rather than empty.
+            var attached = new AttachedScript { Name = _selectedChoice.Name };
+            foreach (ScriptVariable variable in _selectedChoice.Variables) {
+                if (variable.IsEntityReference) continue;   // not editable yet; see ScriptVariable
+                attached.Variables[variable.Name] = variable.Default;
+            }
+
+            _entity.Scripts.Add(attached);
+            _selectedAttached = attached;
+            _isAdding = false;
+
+            RefreshAttached();
+            RefreshVariables();
+            NotifyMode();
+            _onChanged?.Invoke();
+        }
+
+        public void ExecuteRemove() {
+            if (_selectedAttached == null) return;
+            _entity.Scripts.Remove(_selectedAttached);
+            _selectedAttached = null;
+            RefreshAttached();
+            RefreshVariables();
+            _onChanged?.Invoke();
+        }
+
+        // -- internals --------------------------------------------------------------------------
+
+        private IEnumerable<ScriptDefinition> FilteredChoices() {
+            IEnumerable<ScriptDefinition> scripts = ScriptCatalog.All;
+
+            string category = _categories[_categoryIndex];
+            if (category != AllCategories) scripts = scripts.Where(s => s.Category == category);
+
+            if (!string.IsNullOrWhiteSpace(_searchText)) {
+                string q = _searchText.Trim();
+                scripts = scripts.Where(s => s.Name.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0);
+            }
+
+            // Already ordered by usage from the catalog; keep that rather than re-sorting by name.
+            return scripts;
+        }
+
+        private void RefreshChoices() {
+            _choiceItems.Clear();
+            foreach (ScriptDefinition definition in FilteredChoices().Take(MaxRows)) {
+                _choiceItems.Add(new ScriptChoiceVM(definition, OnChoiceClicked, OnChoiceDoubleClicked,
+                    _selectedChoice?.Name == definition.Name));
+            }
+            OnPropertyChangedWithValue(CategoryButtonText, nameof(CategoryButtonText));
+            OnPropertyChangedWithValue(StatusText, nameof(StatusText));
+        }
+
+        private void RefreshAttached() {
+            _attachedItems.Clear();
+            foreach (AttachedScript script in _entity.Scripts) {
+                _attachedItems.Add(new AttachedScriptItemVM(script, OnAttachedClicked,
+                    _selectedAttached == script));
+            }
+            OnPropertyChangedWithValue(StatusText, nameof(StatusText));
+            OnPropertyChangedWithValue(HasAttachedSelection, nameof(HasAttachedSelection));
+        }
+
+        private void RefreshVariables() {
+            _variableItems.Clear();
+            if (_selectedAttached == null) return;
+
+            ScriptDefinition? definition = ScriptCatalog.Find(_selectedAttached.Name);
+            if (definition == null) return;
+
+            foreach (ScriptVariable variable in definition.Variables.OrderByDescending(v => v.Uses)) {
+                _selectedAttached.Variables.TryGetValue(variable.Name, out string? current);
+                _variableItems.Add(new ScriptVariableItemVM(variable, current ?? variable.Default,
+                    value => {
+                        _selectedAttached.Variables[variable.Name] = value;
+                        _onChanged?.Invoke();
+                    }));
+            }
+        }
+
+        private void OnAttachedClicked(AttachedScript script) {
+            _selectedAttached = script;
+            foreach (AttachedScriptItemVM item in _attachedItems) item.IsSelected = item.Script == script;
+            RefreshVariables();
+            OnPropertyChangedWithValue(HasAttachedSelection, nameof(HasAttachedSelection));
+        }
+
+        private void OnChoiceClicked(ScriptDefinition definition) {
+            _selectedChoice = definition;
+            foreach (ScriptChoiceVM item in _choiceItems) item.IsSelected = item.Name == definition.Name;
+            OnPropertyChangedWithValue(StatusText, nameof(StatusText));
+            OnPropertyChangedWithValue(HasChoiceSelection, nameof(HasChoiceSelection));
+        }
+
+        private void OnChoiceDoubleClicked(ScriptDefinition definition) {
+            OnChoiceClicked(definition);
+            ExecuteConfirmAdd();
+        }
+
+        private void NotifyMode() {
+            OnPropertyChangedWithValue(IsAdding, nameof(IsAdding));
+            OnPropertyChangedWithValue(IsViewing, nameof(IsViewing));
+            OnPropertyChangedWithValue(HintText, nameof(HintText));
+            OnPropertyChangedWithValue(StatusText, nameof(StatusText));
+        }
+    }
+
+    public class AttachedScriptItemVM : ViewModel {
+        private readonly Action<AttachedScript> _onClick;
+        private bool _isSelected;
+
+        public AttachedScriptItemVM(AttachedScript script, Action<AttachedScript> onClick, bool isSelected) {
+            Script = script;
+            _onClick = onClick;
+            _isSelected = isSelected;
+        }
+
+        public AttachedScript Script { get; }
+
+        [DataSourceProperty] public string Name => Script.Name;
+
+        [DataSourceProperty]
+        public string Note {
+            get {
+                ScriptDefinition? definition = ScriptCatalog.Find(Script.Name);
+                if (definition != null && !definition.CanPreview) return "export only";
+                return Script.Variables.Count > 0 ? $"{Script.Variables.Count} var" : "";
+            }
+        }
+
+        [DataSourceProperty]
+        public bool IsSelected {
+            get => _isSelected;
+            set { if (value != _isSelected) { _isSelected = value; OnPropertyChangedWithValue(value, nameof(IsSelected)); } }
+        }
+
+        public void ExecuteClick() => _onClick?.Invoke(Script);
+    }
+
+    public class ScriptChoiceVM : ViewModel {
+        private readonly ScriptDefinition _definition;
+        private readonly Action<ScriptDefinition> _onClick;
+        private readonly Action<ScriptDefinition> _onDoubleClick;
+        private bool _isSelected;
+
+        public ScriptChoiceVM(ScriptDefinition definition, Action<ScriptDefinition> onClick,
+                              Action<ScriptDefinition> onDoubleClick, bool isSelected) {
+            _definition = definition;
+            _onClick = onClick;
+            _onDoubleClick = onDoubleClick;
+            _isSelected = isSelected;
+        }
+
+        [DataSourceProperty] public string Name => _definition.Name;
+        [DataSourceProperty] public string UsesText => _definition.Uses.ToString("N0");
+        [DataSourceProperty] public string CategoryText => _definition.Category;
+
+        [DataSourceProperty]
+        public bool IsSelected {
+            get => _isSelected;
+            set { if (value != _isSelected) { _isSelected = value; OnPropertyChangedWithValue(value, nameof(IsSelected)); } }
+        }
+
+        public void ExecuteClick() => _onClick?.Invoke(_definition);
+        public void ExecuteDoubleClick() => _onDoubleClick?.Invoke(_definition);
+    }
+
+    /// <summary>One editable variable row.</summary>
+    public class ScriptVariableItemVM : ViewModel {
+        private readonly ScriptVariable _variable;
+        private readonly Action<string> _onChanged;
+        private string _value;
+
+        public ScriptVariableItemVM(ScriptVariable variable, string value, Action<string> onChanged) {
+            _variable = variable;
+            _value = value ?? "";
+            _onChanged = onChanged;
+        }
+
+        [DataSourceProperty] public string Name => _variable.Name;
+        [DataSourceProperty] public string TypeText => _variable.Type;
+
+        /// <summary>Entity references are shown but not editable - see ScriptVariable.</summary>
+        [DataSourceProperty] public bool IsEditable => !_variable.IsEntityReference;
+
+        [DataSourceProperty]
+        public string HintText => _variable.IsEntityReference
+            ? "links to another entity - not editable yet"
+            : _variable.Samples;
+
+        [DataSourceProperty]
+        public string Value {
+            get => _value;
+            set {
+                if (value == _value) return;
+                _value = value ?? "";
+                OnPropertyChangedWithValue(_value, nameof(Value));
+                _onChanged?.Invoke(_value);
+            }
+        }
+    }
+}

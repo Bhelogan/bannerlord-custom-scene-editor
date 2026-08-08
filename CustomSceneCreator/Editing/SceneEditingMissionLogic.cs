@@ -16,6 +16,9 @@ namespace CustomSceneCreator.Editing {
         Build = 1,
         Delete = 2,
         Move = 3,
+        /// <summary>Click a placed object to open its scripts. Its own mode rather than part of Move,
+        /// so a click never means two different things depending on hidden state.</summary>
+        Script = 4,
     }
 
     /// <summary>
@@ -216,7 +219,7 @@ namespace CustomSceneCreator.Editing {
         private void HandleInput(float dt) {
             // Nothing else may act while the picker owns input: it pauses the engine and takes focus,
             // so a stray keypress reaching here would edit the scene behind a modal panel.
-            if (UI.AssetPickerView.IsOpen || UI.ExportDialogView.IsOpen) return;
+            if (UI.AssetPickerView.IsOpen || UI.ExportDialogView.IsOpen || UI.ScriptPanelView.IsOpen) return;
 
             if (Input.IsKeyPressed(Keys.EditMode)) { CycleEditMode(); return; }
             if (_mode == EditMode.Off) return;
@@ -329,6 +332,10 @@ namespace CustomSceneCreator.Editing {
                 case EditMode.Move:
                     if (_carried != null && _ghost != null) PlaceGhost();
                     else if (_entityLookingAt.IsValid) PickUpLookedAt();
+                    break;
+
+                case EditMode.Script:
+                    if (_entityLookingAt.IsValid) OpenScriptsForLookedAt();
                     break;
             }
         }
@@ -482,6 +489,32 @@ namespace CustomSceneCreator.Editing {
         /// Saves first, then opens the dialog. Exporting a project whose last few placements are not
         /// in the file would silently produce an incomplete artifact.
         /// </summary>
+        /// <summary>
+        /// Opens the script panel on whatever is under the cursor. Re-applies the scripts to the live
+        /// entity whenever the panel changes something, so a fire lit in the panel appears on the
+        /// brazier without having to re-place it.
+        /// </summary>
+        private void OpenScriptsForLookedAt() {
+            PlacedEntity? target = FindOwner(_entityLookingAt);
+            if (target == null) {
+                EditorHud.ShowMessage("That is part of the original scene - only objects you placed can carry scripts.",
+                    warning: true);
+                return;
+            }
+
+            UI.ScriptPanelView? view = UI.ScriptPanelView.Instance;
+            if (view == null) {
+                EditorHud.ShowMessage("Script panel unavailable.", warning: true);
+                return;
+            }
+
+            view.OnScriptsChanged = changed => {
+                _isDirty = true;
+                if (changed.SceneEntity != null) ScriptAttacher.ApplyAll(changed.SceneEntity, changed);
+            };
+            view.Open(target);
+        }
+
         private void OpenExportDialog() {
             if (_target is SceneProjectTarget projectTarget) {
                 Save();
@@ -553,7 +586,7 @@ namespace CustomSceneCreator.Editing {
                 return;
             }
 
-            _mode = (EditMode)(((int)_mode + 1) % 4);
+            _mode = (EditMode)(((int)_mode + 1) % 5);
             RemoveGhost();
 
             // The camera follows the edit mode unless the player has picked one themselves: RTS for
@@ -585,6 +618,10 @@ namespace CustomSceneCreator.Editing {
                     break;
                 case EditMode.Move:
                     EditorHud.ShowMessage($"Move mode. {Keys.Describe(Keys.Place)}: pick up / put down.");
+                    break;
+                case EditMode.Script:
+                    EditorHud.ShowMessage(
+                        $"Script mode. {Keys.Describe(Keys.Place)}: open the scripts on an object.");
                     break;
             }
         }
@@ -626,6 +663,17 @@ namespace CustomSceneCreator.Editing {
                             ? $"{Keys.Describe(Keys.Place)} to delete"
                             : "Only objects you placed can be deleted",
                         UI.StatusTone.Delete);
+                    break;
+                }
+
+                case EditMode.Script: {
+                    PlacedEntity? target = _entityLookingAt.IsValid ? FindOwner(_entityLookingAt) : null;
+                    status.Set("SCRIPTS",
+                        target != null ? Placeable.ToDisplayName(target.PrefabName) : "(nothing under cursor)",
+                        target != null
+                            ? $"{target.Scripts.Count} attached   {Keys.Describe(Keys.Place)} to edit"
+                            : "Only objects you placed can carry scripts",
+                        UI.StatusTone.Move);
                     break;
                 }
 

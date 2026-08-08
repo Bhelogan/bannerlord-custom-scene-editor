@@ -8,8 +8,8 @@ needing a homestead or the Modding Kit.
 > **Status: early development, but usable.** Entered from inside a campaign (settlement menu or
 > `csc.open`). Scene browser, asset catalog, RTS/third/first-person cameras, and build/delete/move
 > with JSON project save-load are all in, plus a searchable asset picker and editor-authored marker
-> packs, and export as a reusable prefab or a whole-scene fragment. Still to come: script attachment,
-> and scene derivation.
+> packs, export as a reusable prefab or a whole-scene fragment, and script attachment. Still to come:
+> entity-reference variables, and scene derivation.
 > See [CUSTOM_SCENE_CREATOR_PLAN.md](CUSTOM_SCENE_CREATOR_PLAN.md) for the full design and
 > milestone list.
 
@@ -34,8 +34,9 @@ app around it is campaign-free.
   first-class objects with proxy meshes. Declared in `ModuleData/packs/*.xml`, so a mod or a user can
   add their own markers without a rebuild. They export under their declared name and tag, so
   `FindEntitiesWithTag("sp_enemy")` finds them.
-- **Script attachment** — attach animation, effect and spawner scripts (fires, windmills, animated
-  banners, character spawners) to placed objects, with an auto-generated variable editor.
+- **Script attachment** — in **Script** mode, click a placed object to see what scripts are on it,
+  add more from a searchable list of the 130 the game ships, and edit their variables. Attached
+  scripts preview live where they can, and are written out on export either way.
 - **Export** — project JSON, prefab XML, or a scene fragment you can paste into a real `scene.xscene`
   for the Modding Kit to bake a navmesh over.
 
@@ -64,6 +65,7 @@ Generators that read your local game install. Regenerate these after a game upda
 |---|---|
 | `tools/build_scene_catalog.ps1` | `ModuleData/scene_catalog.xml` — every scene, its module, category, upgrade levels, and missing-support-file flags |
 | `tools/build_asset_dump.ps1` | `ModuleData/bannerlord_assets_v<version>.txt` — every placeable prefab. Column layout matches the legacy dump so existing bake scripts keep working. |
+| `tools/build_script_catalog.ps1` | `ModuleData/script_catalog.xml` — every scene script, its variables, inferred types, and how often shipped scenes use it |
 
 Pass `-GameDir` if your install is not at the default path.
 
@@ -81,8 +83,8 @@ it for you.
 
 | Key | Action |
 |---|---|
-| `\` | Cycle edit mode: Off - Build - Delete - Move |
-| **LMB** | Place / delete / pick up — works in every camera mode |
+| `\` | Cycle edit mode: Off - Build - Delete - Move - Script |
+| **LMB** | Place / delete / pick up / open scripts — works in every camera mode |
 | `F` | Same, from the keyboard |
 | **Hold RMB** + move mouse | Rotate the held object |
 | `Q` `E` | Rotate left / right |
