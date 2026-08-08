@@ -20,6 +20,13 @@ namespace CustomSceneCreator.Editing {
 
         /// <summary>How many frames to keep retrying before giving up and spawning anyway.</summary>
         private const int SpawnRetryFrameBudget = 300;
+
+        /// <summary>
+        /// Frames between retries. Even the cheap resolve pass walks a ranked candidate list, so
+        /// running it every frame on a scene with thousands of entities is not free.
+        /// </summary>
+        private const int RetryEveryFrames = 20;
+
         private int _framesWaited;
 
         public override void AfterStart() {
@@ -29,6 +36,19 @@ namespace CustomSceneCreator.Editing {
                 // no movement, no camera. StartUp is the mode the shipping walk-around missions use
                 // for a free-roaming player with no battle running.
                 Mission.SetMissionMode(MissionMode.StartUp, atStart: true);
+
+                SpawnPointResolver.ResetCache();
+
+                // Decisive one-line diagnostic: if this is 0 the scene has no usable navmesh at the
+                // chosen upgrade levels, and no amount of searching will find a walkable spot. That
+                // distinguishes "our search is wrong" from "there is nothing to find".
+                try {
+                    TraceLogger.Write(nameof(SpikePlayerSpawnLogic),
+                        $"Scene navmesh face count: {Mission.Scene.GetNavMeshFaceCount()}.");
+                } catch (Exception ex) {
+                    TraceLogger.Write(nameof(SpikePlayerSpawnLogic),
+                        $"GetNavMeshFaceCount threw {ex.GetType().Name}: {ex.Message}");
+                }
 
                 TrySpawn(force: false);
             } catch (Exception ex) {
@@ -48,7 +68,10 @@ namespace CustomSceneCreator.Editing {
             if (_spawned) return;
 
             _framesWaited++;
-            TrySpawn(force: _framesWaited >= SpawnRetryFrameBudget);
+            bool force = _framesWaited >= SpawnRetryFrameBudget;
+            if (!force && _framesWaited % RetryEveryFrames != 0) return;
+
+            TrySpawn(force);
         }
 
         private void TrySpawn(bool force) {
@@ -63,12 +86,12 @@ namespace CustomSceneCreator.Editing {
         private void SpawnPlayer(bool force) {
             if (_spawned) return;
 
-            Vec3 position = SpawnPointResolver.Resolve(Mission.Scene, out string how);
+            Vec3 position = SpawnPointResolver.Resolve(Mission.Scene, allowExpensiveSearch: force, out string how);
 
             bool found = position.IsValid && position != Vec3.Zero;
             if (!found && !force) {
                 // Say it once, then stay quiet while retrying - this runs every frame.
-                if (_framesWaited == 1) {
+                if (_framesWaited <= 1) {
                     TraceLogger.Write(nameof(SpikePlayerSpawnLogic),
                         "No navmesh position yet; retrying while the scene finishes loading.");
                 }

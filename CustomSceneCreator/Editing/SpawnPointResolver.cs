@@ -28,7 +28,25 @@ namespace CustomSceneCreator.Editing {
             "sp_common", "sp_arena",
         };
 
-        public static Vec3 Resolve(Scene scene, out string how) {
+        /// <summary>
+        /// Cached entity list. A castle scene holds thousands of entities and enumerating plus
+        /// ranking them is far too expensive to redo on a retry, let alone every frame.
+        /// </summary>
+        private static List<GameEntity>? _entityCache;
+        private static Scene? _entityCacheScene;
+
+        public static void ResetCache() {
+            _entityCache = null;
+            _entityCacheScene = null;
+        }
+
+        /// <param name="allowExpensiveSearch">
+        /// Enables the outward ring search. That costs ~9,600 terrain and navmesh queries, which is
+        /// fine once but ruinous per frame - running it every tick is what stalled the retry loop
+        /// badly enough that it never reached its own deadline. Callers should pass false while
+        /// retrying and true only on the final attempt.
+        /// </param>
+        public static Vec3 Resolve(Scene scene, bool allowExpensiveSearch, out string how) {
             // 1. An authored spawn tag, if the scene has one we recognise.
             foreach (string tag in PreferredTags) {
                 Vec3? tagged = TryTag(scene, tag);
@@ -40,13 +58,7 @@ namespace CustomSceneCreator.Editing {
 
             // 2. Any entity that looks like a spawn point. Broader than the tag list and catches
             //    scene-specific names such as sergeant_attack_spawn or skirmish_respawn.
-            List<GameEntity> entities = new();
-            try {
-                scene.GetEntities(ref entities);
-            } catch (Exception ex) {
-                TraceLogger.Write(nameof(SpawnPointResolver),
-                    $"GetEntities failed ({ex.GetType().Name}: {ex.Message}).");
-            }
+            List<GameEntity> entities = GetEntitiesCached(scene);
 
             if (entities.Count > 0) {
                 // Ranked, not first-match. Villages carry dozens of sp_* entities and the first one
@@ -69,16 +81,42 @@ namespace CustomSceneCreator.Editing {
                 //    specifically because horizon/skybox entities are extreme outliers, and a median
                 //    ignores them while an average or an extent does not.
                 Vec3 median = MedianPosition(entities);
-                Vec3 fromMedian = SearchOutward(scene, median);
-                if (fromMedian.IsValid) {
+                Vec3 direct = SnapAndValidate(scene, median);
+                if (direct.IsValid) {
                     how = "median entity position";
-                    return fromMedian;
+                    return direct;
+                }
+
+                // 4. Sweep outward from the median. Expensive; final attempt only.
+                if (allowExpensiveSearch) {
+                    Vec3 swept = SearchOutward(scene, median);
+                    if (swept.IsValid) {
+                        how = "outward search from median";
+                        return swept;
+                    }
                 }
             }
 
-            // 4. Nothing worked. Return the scene origin and let the caller log loudly.
-            how = "FALLBACK origin (no navmesh position found)";
+            how = allowExpensiveSearch
+                ? "FALLBACK origin (no navmesh position found)"
+                : "not found yet (cheap pass)";
             return Vec3.Zero;
+        }
+
+        private static List<GameEntity> GetEntitiesCached(Scene scene) {
+            if (_entityCache != null && ReferenceEquals(_entityCacheScene, scene)) {
+                return _entityCache;
+            }
+            var entities = new List<GameEntity>();
+            try {
+                scene.GetEntities(ref entities);
+            } catch (Exception ex) {
+                TraceLogger.Write(nameof(SpawnPointResolver),
+                    $"GetEntities failed ({ex.GetType().Name}: {ex.Message}).");
+            }
+            _entityCache = entities;
+            _entityCacheScene = scene;
+            return entities;
         }
 
         /// <summary>
