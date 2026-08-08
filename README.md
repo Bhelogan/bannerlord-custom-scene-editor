@@ -57,6 +57,7 @@ Generators that read your local game install. Regenerate these after a game upda
 | Script | Produces |
 |---|---|
 | `tools/build_scene_catalog.ps1` | `ModuleData/scene_catalog.xml` — every scene, its module, category, upgrade levels, and missing-support-file flags |
+| `tools/build_asset_dump.ps1` | `ModuleData/bannerlord_assets_v<version>.txt` — every placeable prefab. Column layout matches the legacy dump so existing bake scripts keep working. |
 
 Pass `-GameDir` if your install is not at the default path.
 
