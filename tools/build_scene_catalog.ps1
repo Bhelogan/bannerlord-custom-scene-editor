@@ -58,10 +58,10 @@ if (-not (Test-Path $modulesRoot)) {
 # win over any settlement word appearing later in a multiplayer map name.
 $categoryRules = @(
     @{ Name = 'Multiplayer';    Pattern = '^mp_' }
-    @{ Name = 'Battle Terrain'; Pattern = '^battle_terrain|^coastal_terrain' }
+    @{ Name = 'Battle Terrain'; Pattern = '^battle_terrain|^coastal_terrain|^nord_battle_terrain|^river_bt_' }
     @{ Name = 'Arena';          Pattern = 'arena' }
     @{ Name = 'Hideout';        Pattern = 'hideout' }
-    @{ Name = 'Town';           Pattern = 'town' }
+    @{ Name = 'Town';           Pattern = 'town|_city_' }
     @{ Name = 'Castle';         Pattern = 'castle' }
     @{ Name = 'Village';        Pattern = 'village' }
     @{ Name = 'Interior';       Pattern = 'interior|tavern|dungeon|keep|house|shop|prison' }
@@ -69,6 +69,36 @@ $categoryRules = @(
     @{ Name = 'Menu & Cutscene';Pattern = '^main_menu|^character_|^inventory_|cutscene|^ibl_|popup|benchmark' }
     @{ Name = 'World Map';      Pattern = '^Main_map$' }
 )
+
+# Scenes that are not missions at all: the campaign world map, main-menu and character-screen
+# backdrops, engine tool scenes, and cutscene sets built around camera paths rather than a walkable
+# space. Opening them is not merely useless - Main_map crashed with an access violation inside
+# MapColorGradeManager.ApplyAtmosphere, a campaign-map script that has no business running in a
+# mission. They stay in the catalog (csc.open can still force one by name) but are flagged so the
+# browser does not offer them.
+$notOpenablePatterns = @(
+    '^Main_map$'
+    '^main_menu'
+    '^character_menu'
+    '^character_developer_scene$'
+    '^inventory_character_scene$'
+    '^banner_editor_scene$'
+    '^flora_editor_scene$'
+    '^ibl_shop$'
+    '^benchmark_'
+    '^rain$'
+    'popup'
+    'cutscene'
+)
+
+function Test-SceneOpenable([string] $sceneName, [string] $moduleName) {
+    foreach ($pattern in $notOpenablePatterns) {
+        if ($sceneName -match $pattern) { return $false }
+    }
+    # Cutscenes_Extended is entirely camera-path sets, not walkable spaces.
+    if ($moduleName -eq 'Cutscenes_Extended') { return $false }
+    return $true
+}
 
 function Get-SceneCategory([string] $sceneName) {
     foreach ($rule in $categoryRules) {
@@ -118,6 +148,7 @@ foreach ($moduleDir in Get-ChildItem -Path $modulesRoot -Directory) {
             Name        = $name
             Module      = $moduleDir.Name
             Category    = Get-SceneCategory $name
+            Openable    = Test-SceneOpenable $name $moduleDir.Name
             Version     = $version
             Levels      = $levels
             HasTerrain  = Test-Path (Join-Path $sceneDir.FullName 'terrain.bin')
@@ -152,6 +183,7 @@ try {
         if ($s.Version)      { $writer.WriteAttributeString('version', $s.Version) }
         # Space-separated: this is the exact form MissionInitializerRecord.SceneLevels expects.
         if ($s.Levels.Count) { $writer.WriteAttributeString('levels', ($s.Levels -join ' ')) }
+        if (-not $s.Openable)   { $writer.WriteAttributeString('openable', 'false') }
         if (-not $s.HasNavMesh) { $writer.WriteAttributeString('noNavMesh', 'true') }
         if (-not $s.HasTerrain) { $writer.WriteAttributeString('noTerrain', 'true') }
         if (-not $s.HasAtmos)   { $writer.WriteAttributeString('noAtmosphere', 'true') }
@@ -174,3 +206,4 @@ Write-Host ''
 Write-Host ('Multi-level scenes: {0}' -f (@($scenes | Where-Object { $_.Levels.Count -gt 1 }).Count))
 Write-Host ('Missing navmesh:    {0}' -f (@($scenes | Where-Object { -not $_.HasNavMesh }).Count))
 Write-Host ('Missing atmosphere: {0}' -f (@($scenes | Where-Object { -not $_.HasAtmos }).Count))
+Write-Host ('Not openable:       {0}' -f (@($scenes | Where-Object { -not $_.Openable }).Count))

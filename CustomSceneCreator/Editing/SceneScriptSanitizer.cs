@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TaleWorlds.Engine;
 using TaleWorlds.MountAndBlade;
 using TaleWorlds.MountAndBlade.Objects.Siege;
+using TaleWorlds.MountAndBlade.View.Scripts;
 
 namespace CustomSceneCreator.Editing {
     /// <summary>
@@ -48,6 +49,14 @@ namespace CustomSceneCreator.Editing {
             ("BatteringRamSpawner", s => Collect<BatteringRamSpawner>(s)),
             ("MangonelSpawner",     s => Collect<MangonelSpawner>(s)),
             ("BallistaSpawner",     s => Collect<BallistaSpawner>(s)),
+
+            // Campaign-map scripts. These belong to the world map, not to a mission, and they read
+            // map state that does not exist here. Main_map crashed with an access violation inside
+            // MapColorGradeManager.ApplyAtmosphere - not a catchable managed exception, so guarding
+            // our own code could never have helped. The browser no longer offers such scenes, but a
+            // stray copy of these scripts in an ordinary scene would be just as fatal.
+            ("MapColorGradeManager", s => Collect<MapColorGradeManager>(s)),
+            ("MapAtmosphereProbe",   s => Collect<MapAtmosphereProbe>(s)),
         };
 
         public override void EarlyStart() {

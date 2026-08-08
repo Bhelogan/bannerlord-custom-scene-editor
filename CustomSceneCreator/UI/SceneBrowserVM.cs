@@ -134,7 +134,7 @@ namespace CustomSceneCreator.UI {
 
         private IEnumerable<SceneEntry> FilteredScenes() {
             string category = _categories[_categoryIndex];
-            IEnumerable<SceneEntry> scenes = SceneCatalog.All;
+            IEnumerable<SceneEntry> scenes = SceneCatalog.Openable;
 
             if (category != AllCategories) {
                 scenes = scenes.Where(s => s.Category == category);

@@ -15,6 +15,10 @@ namespace CustomSceneCreator.Catalog {
         /// <c>MissionInitializerRecord.SceneLevels</c> wants them. Empty for single-level scenes.</summary>
         public string Levels = "";
         public bool NoNavMesh;
+        /// <summary>False for scenes that are not missions at all - the campaign world map, menu and
+        /// character-screen backdrops, engine tool scenes, cutscene camera sets. Flagged by the
+        /// catalog generator; the browser hides them, but csc.open can still force one by name.</summary>
+        public bool Openable = true;
         public bool NoTerrain;
         public bool NoAtmosphere;
 
@@ -92,8 +96,11 @@ namespace CustomSceneCreator.Catalog {
         public static SceneEntry? Find(string sceneName) =>
             All.FirstOrDefault(s => string.Equals(s.Name, sceneName, StringComparison.OrdinalIgnoreCase));
 
+        /// <summary>Scenes the browser should offer. Excludes non-mission scenes.</summary>
+        public static IEnumerable<SceneEntry> Openable => All.Where(s => s.Openable);
+
         public static IEnumerable<string> Categories =>
-            All.Select(s => s.Category).Distinct().OrderBy(c => c);
+            Openable.Select(s => s.Category).Distinct().OrderBy(c => c);
 
         private static List<SceneEntry> Load() {
             var result = new List<SceneEntry>();
@@ -119,6 +126,7 @@ namespace CustomSceneCreator.Catalog {
                             Module = el.GetAttribute("module"),
                             Category = el.GetAttribute("category"),
                             Levels = el.GetAttribute("levels"),
+                            Openable = el.GetAttribute("openable") != "false",
                             NoNavMesh = el.GetAttribute("noNavMesh") == "true",
                             NoTerrain = el.GetAttribute("noTerrain") == "true",
                             NoAtmosphere = el.GetAttribute("noAtmosphere") == "true",
@@ -127,7 +135,8 @@ namespace CustomSceneCreator.Catalog {
                 }
                 TraceLogger.Write(nameof(SceneCatalog),
                     $"Loaded {result.Count} scenes from '{path}' " +
-                    $"({result.Count(s => !s.IsWalkable)} without a navmesh).");
+                    $"({result.Count(s => !s.IsWalkable)} without a navmesh, " +
+                    $"{result.Count(s => !s.Openable)} not openable).");
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(SceneCatalog), $"Failed to parse '{path}'", ex);
             }
