@@ -598,6 +598,30 @@ interface IPlacementRaySource {
 implemented once per camera mode, with the editor logic asking it rather than reading the player.
 Retrofitting that through 1,845 ported lines afterwards is far more expensive than building it in.
 
+**Both implementations already exist in working code.**
+
+Player-attached (covers first *and* third person, because `LookDirection` is the aim direction the
+native camera already drives - so first-person build needs no new placement code at all). From the
+original mod, `Reference Mods and Bakcups/Homesteads-main/MissionLogics/HomesteadSceneEditingMissionLogic.cs:55`:
+
+```csharp
+Vec3 eyeGlobalPos = Agent.Main.GetEyeGlobalPosition();
+Vec3 maximumPos   = eyeGlobalPos + (Agent.Main.LookDirection * maximumPlaceDistance);
+Mission.Current.Scene.RayCastForClosestEntityOrTerrain(
+    eyeGlobalPos, maximumPos, out collisionDistance, out positionLookingAt, out gameEntityLookingAt);
+if (collisionDistance > maximumPlaceDistance) { positionLookingAt = Vec3.Invalid; gameEntityLookingAt = null; }
+```
+
+Free camera: same raycast, with the origin and forward taken from
+`MissionScreen.CombatCamera.Frame` (`HomesteadFreeCameraView.cs:164` already reads exactly that).
+
+**Fork the placement core from the ORIGINAL mod, not the current one.** `Homesteads-main`'s editing
+logic is **330 lines** against the shipped version's 1,845, and it is the same mechanism before it
+accumulated free-build mode, tier caches, template mode, controller bindings and category cycling.
+Starting from the small version and re-adding what we actually want is less work and far less
+inherited coupling than stripping the large one - and it is the version that already did
+first-person place-where-you-look.
+
 Two details that will otherwise bite: in first person the placement ghost must not clip into the
 camera (offset the minimum placement distance), and switching camera mode mid-placement must carry
 the held object across rather than dropping it.
