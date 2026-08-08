@@ -24,7 +24,9 @@
                 <!-- Category selector. Opens a full list in place of the assets, rather than a
                      floating popup - no overlay positioning, no z-order, and twenty categories read
                      better as a list than as a dropdown. -->
-                <ButtonWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="44" Command.Click="ExecuteToggleCategoryList" Brush="Popup.Done.Button" MarginTop="8">
+                <!-- Fixed width, not stretched: Popup.Done.Button is an ornate sprite with end caps,
+                     and stretching it the full 1200px pulls those caps into a smear. -->
+                <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="440" SuggestedHeight="44" HorizontalAlignment="Center" Command.Click="ExecuteToggleCategoryList" Brush="Popup.Done.Button" MarginTop="10">
                   <Children>
                     <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@CategoryButtonText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                   </Children>
