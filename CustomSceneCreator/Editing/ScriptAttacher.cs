@@ -33,11 +33,39 @@ namespace CustomSceneCreator.Editing {
 
         public static bool CanPreview(string scriptName) => !PreviewBlocklist.Contains(scriptName);
 
-        /// <summary>Attaches everything recorded on a placed entity. Failures are logged, never thrown.</summary>
+        /// <summary>
+        /// Attaches everything recorded on a placed entity, then initialises.
+        ///
+        /// The order matters and is the reason attached scripts did nothing before. Creating a
+        /// component with callbacks fires its init IMMEDIATELY - before any variable has been set -
+        /// so the script would initialise against defaults. Creating without callbacks avoided that
+        /// but left the script inert, attached and never started.
+        ///
+        /// GameEntity.CallScriptCallbacks is the engine's own answer: build the components, set their
+        /// variables, then initialise the lot in one pass. That is exactly what the game does when it
+        /// loads a scene, which is why a fire lit here now behaves like a fire authored in the Kit.
+        /// </summary>
         public static void ApplyAll(GameEntity entity, PlacedEntity placed) {
             if (entity == null || placed?.Scripts == null) return;
+
+            int attached = 0;
             foreach (AttachedScript script in placed.Scripts) {
-                Apply(entity, script);
+                if (Apply(entity, script)) attached++;
+            }
+
+            // Only when something was actually attached: the prefab's own scripts were already
+            // initialised at instantiation, and there is no reason to run them through it again.
+            if (attached > 0) Initialise(entity);
+        }
+
+        /// <summary>Runs init on everything attached to the entity, with variables already in place.</summary>
+        public static void Initialise(GameEntity entity) {
+            try {
+                entity.CallScriptCallbacks(registerScriptComponents: true);
+            } catch (Exception ex) {
+                TraceLogger.Write(nameof(ScriptAttacher),
+                    $"Script initialisation failed: {ex.GetType().Name}: {ex.Message}. " +
+                    "The scripts are still attached and will still export.");
             }
         }
 
@@ -52,13 +80,17 @@ namespace CustomSceneCreator.Editing {
             }
 
             try {
-                // callScriptCallbacks: false. The callbacks are the part that reaches for mission
-                // state, and skipping them gets the component onto the entity - which is what the
-                // variable editor and the exporter care about - without inviting an initialisation
-                // that has nothing to initialise against.
-                entity.CreateAndAddScriptComponent(script.Name, callScriptCallbacks: false);
-
+                // Re-applying happens every time the panel changes a value, so an unconditional
+                // create would stack a second LightCycle on the torch with each keystroke. Reuse the
+                // component if it is already there and only update its variables.
                 ScriptComponentBehavior? component = FindComponent(entity, script.Name);
+                if (component == null) {
+                    // callScriptCallbacks: false here is about ORDER, not avoidance - init has to run
+                    // after the variables are set, so ApplyAll triggers it separately once they are.
+                    entity.CreateAndAddScriptComponent(script.Name, callScriptCallbacks: false);
+                    component = FindComponent(entity, script.Name);
+                }
+
                 if (component == null) {
                     TraceLogger.Write(nameof(ScriptAttacher),
                         $"'{script.Name}' did not attach - the engine does not know that script name.");
