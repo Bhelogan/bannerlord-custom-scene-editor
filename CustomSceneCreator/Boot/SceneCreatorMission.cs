@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using CustomSceneCreator.Api;
+using CustomSceneCreator.Catalog;
 using CustomSceneCreator.Editing;
 using SandBox;
 using SandBox.Missions.MissionLogics;
@@ -19,10 +21,24 @@ namespace CustomSceneCreator.Boot {
     /// Opens the editing mission itself.
     /// </summary>
     public static class SceneCreatorMission {
-        public static Mission? Open(string sceneName, string sceneLevels) {
+        public static Mission? Open(string sceneName, string sceneLevels) =>
+            Open(sceneName, sceneLevels, null);
+
+        public static Mission? Open(string sceneName, string sceneLevels, SceneProject? project) {
             TraceLogger.Write(nameof(SceneCreatorMission),
                 $"Opening mission — scene='{sceneName}' levels='{sceneLevels}'.");
             BootProbe.LogCampaignState("SceneCreatorMission.Open");
+
+            // A project is what makes edits persist. Without one the editor still works, but its
+            // target is a throwaway - useful for looking around a scene, not for building in it.
+            project ??= new SceneProject {
+                Name = sceneName,
+                TargetScene = sceneName,
+                SceneLevels = sceneLevels ?? "",
+            };
+            var target = new SceneProjectTarget(project);
+
+            CameraModes.Reset();
 
             MissionInitializerRecord record = CreateRecord(sceneName, sceneLevels);
 
@@ -52,6 +68,7 @@ namespace CustomSceneCreator.Boot {
                         new MissionBoundaryPlacer(),
 
                         new SpikePlayerSpawnLogic(),
+                        new SceneEditingMissionLogic(target, new CatalogPlaceableProvider()),
 
                         new MissionMainAgentController(),
                         new EquipmentControllerLeaveLogic(),

@@ -27,6 +27,18 @@ namespace CustomSceneCreator.CampaignEntry {
                 : $"Failed to open '{scene}'. See CustomSceneCreator.trace.log.";
         }
 
+        [CommandLineFunctionality.CommandLineArgumentFunction("projects", "csc")]
+        public static string Projects(List<string> args) {
+            string nl = System.Environment.NewLine;
+            var all = Editing.ProjectSerializer.LoadAll();
+            if (all.Count == 0) {
+                return "No saved projects yet. They are written to:" + nl + Editing.ProjectSerializer.ProjectsPath;
+            }
+            return $"{all.Count} project(s) in {Editing.ProjectSerializer.ProjectsPath}:" + nl +
+                   string.Join(nl, all.Select(p =>
+                       $"{p.Name}  [{p.TargetScene}]  {p.Entities.Count} object(s)  {p.Modified:yyyy-MM-dd HH:mm}"));
+        }
+
         [CommandLineFunctionality.CommandLineArgumentFunction("browse", "csc")]
         public static string Browse(List<string> args) {
             UI.SceneBrowserScreen.Open();

@@ -1,0 +1,48 @@
+using System;
+
+namespace CustomSceneCreator.Catalog {
+    /// <summary>
+    /// One thing the editor can place.
+    ///
+    /// Deliberately free of the homestead model's economy fields - no build points, no item costs,
+    /// no tier. A scene editor places things because you want them there, not because you can afford
+    /// them, and carrying those fields forward would drag the gating logic with them.
+    /// </summary>
+    public class Placeable {
+        /// <summary>Prefab name passed to <c>GameEntity.Instantiate</c>. The identity of a placeable.</summary>
+        public string PrefabName = "";
+
+        public string DisplayName = "";
+        public string Category = "";
+        public string Module = "";
+
+        /// <summary>Where this came from: shipped asset, editor-authored marker, user pack. Drives
+        /// the browser's grouping and lets a pack be shown separately from base-game content.</summary>
+        public string Source = SourceBaseGame;
+
+        /// <summary>
+        /// True when the prefab has no visible geometry - spawn points, patrol points, animation
+        /// points and other logic nodes. They are not junk to filter out: they are most of the point
+        /// of a scene editor. They just need a stand-in mesh to be visible while editing.
+        /// </summary>
+        public bool IsLogical;
+
+        public bool HasPhysics;
+
+        public const string SourceBaseGame = "Base Game";
+        public const string SourceEditor = "Scene Editor";
+
+        public override string ToString() => $"{DisplayName} ({PrefabName})";
+
+        /// <summary>Turns snake_case prefab names into something readable in a list.</summary>
+        public static string ToDisplayName(string prefabName) {
+            if (string.IsNullOrEmpty(prefabName)) return "";
+            string[] words = prefabName.Split('_');
+            for (int i = 0; i < words.Length; i++) {
+                if (words[i].Length == 0) continue;
+                words[i] = char.ToUpperInvariant(words[i][0]) + words[i].Substring(1).ToLowerInvariant();
+            }
+            return string.Join(" ", words);
+        }
+    }
+}
