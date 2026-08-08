@@ -22,6 +22,8 @@ namespace CustomSceneCreator.Editing {
         public const InputKey CameraMode    = InputKey.V;
         /// <summary>Opens the asset picker. Tilde is what Homesteads uses for its building picker.</summary>
         public const InputKey AssetPicker   = InputKey.Tilde;
+        /// <summary>Lists everything placed in the scene. L for list.</summary>
+        public const InputKey Outliner      = InputKey.L;
         /// <summary>
         /// Save is Alt+S, not Ctrl+S: Ctrl is reset-rotation, so Ctrl+S would clear the rotation of
         /// whatever you are holding every time you saved. K remains as a single-key alternative.

@@ -326,12 +326,14 @@ namespace CustomSceneCreator.Editing {
         private void HandleInput(float dt) {
             // Nothing else may act while the picker owns input: it pauses the engine and takes focus,
             // so a stray keypress reaching here would edit the scene behind a modal panel.
-            if (UI.AssetPickerView.IsOpen || UI.ExportDialogView.IsOpen || UI.ScriptPanelView.IsOpen) return;
+            if (UI.AssetPickerView.IsOpen || UI.ExportDialogView.IsOpen
+                || UI.ScriptPanelView.IsOpen || UI.SceneOutlinerView.IsOpen) return;
 
             if (Input.IsKeyPressed(Keys.EditMode)) { CycleEditMode(); return; }
             if (_mode == EditMode.Off) return;
 
             if (Input.IsKeyPressed(Keys.AssetPicker)) { OpenAssetPicker(); return; }
+            if (Input.IsKeyPressed(Keys.Outliner)) { OpenOutliner(); return; }
 
             if (Input.IsKeyPressed(Keys.CameraMode)) { CameraModes.Cycle(); return; }
 
@@ -497,14 +499,19 @@ namespace CustomSceneCreator.Editing {
         }
 
         private void DeleteLookedAt() {
-            PlacedEntity? owner = _hovered;
-            if (owner == null) {
+            if (_hovered == null) {
                 // Part of the original scene, not something we placed. Deleting shipped scene
                 // geometry is a separate feature with its own persistence problem: it would have to
                 // be recorded as a removal, since the scene reloads intact next time.
                 EditorHud.ShowMessage("That is part of the original scene - only placed objects can be deleted.", warning: true);
                 return;
             }
+            Delete(_hovered);
+        }
+
+        /// <summary>Removes a placed object. Public so the outliner can act on a listed row.</summary>
+        public void Delete(PlacedEntity owner) {
+            if (owner == null) return;
 
             DestroyEntity(owner.SceneEntity);
             owner.SceneEntity = null;
@@ -515,10 +522,24 @@ namespace CustomSceneCreator.Editing {
         }
 
         private void PickUpLookedAt() {
-            PlacedEntity? owner = _hovered;
-            if (owner == null) {
+            if (_hovered == null) {
                 EditorHud.ShowMessage("That is part of the original scene - only placed objects can be moved.", warning: true);
                 return;
+            }
+            PickUp(_hovered);
+        }
+
+        /// <summary>
+        /// Lifts a placed object so it follows the cursor. Switches to Move mode, since picking
+        /// something up from a list and then finding the click does nothing would be baffling.
+        /// </summary>
+        public void PickUp(PlacedEntity owner) {
+            if (owner == null || _carried != null) return;
+
+            if (_mode != EditMode.Move) {
+                _mode = EditMode.Move;
+                CameraModes.FollowEditMode(true);
+                WeaponSheather.SetEditing(true);
             }
 
             DestroyEntity(owner.SceneEntity);
@@ -602,12 +623,17 @@ namespace CustomSceneCreator.Editing {
         /// brazier without having to re-place it.
         /// </summary>
         private void OpenScriptsForLookedAt() {
-            PlacedEntity? target = _hovered;
-            if (target == null) {
+            if (_hovered == null) {
                 EditorHud.ShowMessage("That is part of the original scene - only objects you placed can carry scripts.",
                     warning: true);
                 return;
             }
+            OpenScripts(_hovered);
+        }
+
+        /// <summary>Opens the script panel on a specific object. Public for the outliner.</summary>
+        public void OpenScripts(PlacedEntity target) {
+            if (target == null) return;
 
             UI.ScriptPanelView? view = UI.ScriptPanelView.Instance;
             if (view == null) {
@@ -620,6 +646,33 @@ namespace CustomSceneCreator.Editing {
                 if (changed.SceneEntity != null) ScriptAttacher.ApplyAll(changed.SceneEntity, changed);
             };
             view.Open(target);
+        }
+
+        /// <summary>
+        /// Everything placed in this scene, as a list.
+        ///
+        /// Clicking in the world only reaches what is visible and in front of you. A list reaches
+        /// what is buried inside a building, behind you, or too small to put a cursor on - and it is
+        /// the only way to see what a scene actually contains without walking it.
+        /// </summary>
+        private void OpenOutliner() {
+            UI.SceneOutlinerView? view = UI.SceneOutlinerView.Instance;
+            if (view == null) {
+                EditorHud.ShowMessage("Object list unavailable.", warning: true);
+                return;
+            }
+            view.Open(_live, this);
+        }
+
+        /// <summary>Moves the camera to look at an object, so a row in the list can be found in the world.</summary>
+        public void FocusOn(PlacedEntity target) {
+            if (target?.SceneEntity == null) return;
+            try {
+                RtsCameraView.Instance?.FocusOn(target.SceneEntity.GlobalPosition);
+                EditorHud.ShowMessage($"Moved to {Placeable.ToDisplayName(target.PrefabName)}.");
+            } catch (Exception ex) {
+                TraceLogger.Write(nameof(SceneEditingMissionLogic), $"FocusOn failed: {ex.Message}");
+            }
         }
 
         private void OpenExportDialog() {

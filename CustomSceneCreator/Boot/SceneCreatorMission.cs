@@ -88,6 +88,7 @@ namespace CustomSceneCreator.Boot {
                         new UI.EditorStatusView(),
                         new UI.ExportDialogView(),
                         new UI.ScriptPanelView(),
+                        new UI.SceneOutlinerView(),
                     };
                     return behaviors.ToArray();
                 });

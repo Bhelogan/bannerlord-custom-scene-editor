@@ -132,6 +132,32 @@ namespace CustomSceneCreator.Editing {
             }
         }
 
+        /// <summary>
+        /// Moves the camera to look at a point, keeping its current bearing and elevation.
+        ///
+        /// Pulled back along the view direction rather than dropped on top of the target, so the
+        /// object ends up in front of the camera instead of inside it.
+        /// </summary>
+        public void FocusOn(Vec3 target) {
+            if (!_isActive || !target.IsValid) return;
+            try {
+                const float standoff = 12f;
+
+                MatrixFrame frame = MatrixFrame.Identity;
+                frame.rotation.RotateAboutSide(MathF.PI / 2f);
+                frame.rotation.RotateAboutForward(_cameraBearing);
+                frame.rotation.RotateAboutSide(_cameraElevation);
+
+                Vec3 viewDirection = (-frame.rotation.u).NormalizedCopy();
+                _cameraPosition = target - viewDirection * standoff;
+
+                float groundZ = Mission.Scene.GetGroundHeightAtPosition(_cameraPosition + new Vec3(0f, 0f, 100f));
+                if (groundZ < 9999f) _cameraPosition.z = MathF.Max(_cameraPosition.z, groundZ + 1.5f);
+            } catch (Exception ex) {
+                TraceLogger.Write(nameof(RtsCameraView), $"FocusOn failed: {ex.Message}");
+            }
+        }
+
         private void ShowCursor(bool visible) {
             try {
                 MissionScreen.MouseVisible = visible;
