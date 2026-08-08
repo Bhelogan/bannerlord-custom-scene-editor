@@ -26,5 +26,26 @@ namespace CustomSceneCreator.CampaignEntry {
                 ? $"Opening scene creator on '{scene}'" + (levels.Length > 0 ? $" (levels: {levels})" : "") + "."
                 : $"Failed to open '{scene}'. See CustomSceneCreator.trace.log.";
         }
+
+        [CommandLineFunctionality.CommandLineArgumentFunction("browse", "csc")]
+        public static string Browse(List<string> args) {
+            UI.SceneBrowserScreen.Open();
+            return $"Opening scene browser ({Catalog.SceneCatalog.All.Count} scenes).";
+        }
+
+        [CommandLineFunctionality.CommandLineArgumentFunction("list", "csc")]
+        public static string List(List<string> args) {
+            string filter = args != null && args.Count > 0 ? args[0] : "";
+            var matches = Catalog.SceneCatalog.All
+                .Where(s => filter.Length == 0
+                         || s.Name.IndexOf(filter, System.StringComparison.OrdinalIgnoreCase) >= 0
+                         || s.Category.IndexOf(filter, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                .Take(60)
+                .Select(s => $"{s.Name}  [{s.Category}]" + (s.IsWalkable ? "" : "  (no navmesh)"))
+                .ToList();
+
+            if (matches.Count == 0) return $"No scenes matched '{filter}'.";
+            return $"{matches.Count} shown of {Catalog.SceneCatalog.All.Count}:\n" + string.Join("\n", matches);
+        }
     }
 }

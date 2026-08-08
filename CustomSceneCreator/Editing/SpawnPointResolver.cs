@@ -49,11 +49,18 @@ namespace CustomSceneCreator.Editing {
             }
 
             if (entities.Count > 0) {
-                GameEntity? spawnish = entities.FirstOrDefault(e => LooksLikeSpawnPoint(e));
-                if (spawnish != null) {
-                    Vec3 candidate = SnapAndValidate(scene, spawnish.GlobalPosition);
+                // Ranked, not first-match. Villages carry dozens of sp_* entities and the first one
+                // encountered is as likely to be sp_notable_lookout_point - which sits on a roof -
+                // as it is to be somewhere sensible.
+                foreach (GameEntity candidateEntity in entities
+                             .Select(e => new { Entity = e, Score = ScoreSpawnPoint(e) })
+                             .Where(x => x.Score > 0)
+                             .OrderByDescending(x => x.Score)
+                             .Select(x => x.Entity)
+                             .Take(40)) {
+                    Vec3 candidate = SnapAndValidate(scene, candidateEntity.GlobalPosition);
                     if (candidate.IsValid) {
-                        how = $"spawn-like entity '{spawnish.Name}'";
+                        how = $"spawn-like entity '{candidateEntity.Name}'";
                         return candidate;
                     }
                 }
@@ -74,11 +81,31 @@ namespace CustomSceneCreator.Editing {
             return Vec3.Zero;
         }
 
-        private static bool LooksLikeSpawnPoint(GameEntity entity) {
+        /// <summary>
+        /// How good a stand-in for "where a player should appear" an entity's name is. 0 means not a
+        /// spawn point at all.
+        ///
+        /// The ordering is drawn from what shipped scenes actually contain. Settlement scenes have no
+        /// &lt;tag&gt; elements at all - aserai_village_b has zero - so entity names are the only
+        /// signal available, and they vary in how safe they are: sp_notable_lookout_point is a real
+        /// spawn point on a rooftop, while sp_common_* is ground-level walkable space.
+        /// </summary>
+        private static int ScoreSpawnPoint(GameEntity entity) {
             string name = entity.Name ?? "";
-            if (name.Length == 0) return false;
-            return name.IndexOf("spawn", StringComparison.OrdinalIgnoreCase) >= 0
-                || name.StartsWith("sp_", StringComparison.OrdinalIgnoreCase);
+            if (name.Length == 0) return 0;
+
+            bool Has(string s) => name.IndexOf(s, StringComparison.OrdinalIgnoreCase) >= 0;
+
+            if (Has("sp_player")) return 100;
+            if (Has("spawnpoint") || Has("respawn")) return 80;
+            if (Has("sp_common")) return 70;
+            if (Has("sp_battle") || Has("sp_arena")) return 60;
+            if (Has("spawn")) return 50;
+            if (Has("sp_npc")) return 30;
+            // Lookouts, hangouts and guard posts are frequently elevated or enclosed.
+            if (Has("sp_notable") || Has("sp_guard") || Has("lookout")) return 15;
+            if (name.StartsWith("sp_", StringComparison.OrdinalIgnoreCase)) return 10;
+            return 0;
         }
 
         private static Vec3? TryTag(Scene scene, string tag) {

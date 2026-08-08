@@ -68,9 +68,7 @@ namespace CustomSceneCreator.CampaignEntry {
         }
 
         private static void OnConsequenceOpenEditor(MenuCallbackArgs args) {
-            // Placeholder until the scene browser lands (plan M6). Opening a known-flat scene keeps
-            // this option useful as a smoke test in the meantime.
-            SceneCreatorEntry.OpenEditor(SceneCreatorEntry.DefaultScene, sceneLevels: "");
+            UI.SceneBrowserScreen.Open();
         }
     }
 }
