@@ -114,11 +114,17 @@ Leaving with unsaved changes offers to save first.
 
 | Folder | Contents |
 |---|---|
-| `projects/` | Working files (`.json`), one per scene by default. Reopening a scene restores what you built there. `csc.projects` lists them. |
+| `projects/` | Working files (`.json`), one per scene by default. This is what you reopen to keep building. |
 | `exports/prefabs/` | Prefab XML — one reusable object, positioned relative to its own base |
 | `exports/scenes/` | Scene fragments — everything at its real position, for pasting into a `scene.xscene` |
 
-A project is the editable source you come back to; an export is a produced artifact. Prefab exports
+**A project is what you reopen; an export is a produced artifact.** The settlement menu opens the
+saved-project list, with "New - Pick a Scene" one button away. `csc.projects` lists them in the
+console and `csc.project <name>` opens one directly. A project remembers its scene and levels, so
+reopening restores the whole session rather than dropping objects into whatever scene was last used.
+
+To keep working on something you exported as a prefab, reopen the **project** it came from - the
+prefab is the finished artifact, not the source. Prefab exports
 are **also** written into `Modules/CustomSceneCreator/Prefabs/`, which is what makes them loadable by
 the game — after a restart the exported object appears in the asset picker under **Exported** and can
 be placed as a single piece.

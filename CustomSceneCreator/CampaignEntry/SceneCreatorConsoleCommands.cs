@@ -39,6 +39,29 @@ namespace CustomSceneCreator.CampaignEntry {
                        $"{p.Name}  [{p.TargetScene}]  {p.Entities.Count} object(s)  {p.Modified:yyyy-MM-dd HH:mm}"));
         }
 
+        /// <summary>Reopens a saved project on its own scene, with everything as it was left.</summary>
+        [CommandLineFunctionality.CommandLineArgumentFunction("project", "csc")]
+        public static string Project(List<string> args) {
+            string nl = System.Environment.NewLine;
+            if (args == null || args.Count == 0) {
+                return "Usage: csc.project <project_name>" + nl + "Run csc.projects to list them.";
+            }
+
+            string name = string.Join(" ", args);
+            Editing.SceneProject? project = Editing.ProjectSerializer.Load(name);
+            if (project == null) return $"No saved project named '{name}'. Run csc.projects to list them.";
+
+            return SceneCreatorEntry.OpenEditor(project.TargetScene, project.SceneLevels, project.Name)
+                ? $"Opening '{project.Name}' on '{project.TargetScene}' ({project.Entities.Count} object(s))."
+                : $"Failed to open '{project.Name}'. See CustomSceneCreator.trace.log.";
+        }
+
+        [CommandLineFunctionality.CommandLineArgumentFunction("projects_browse", "csc")]
+        public static string ProjectsBrowse(List<string> args) {
+            UI.ProjectBrowserScreen.Open();
+            return "Opening the saved-project browser.";
+        }
+
         [CommandLineFunctionality.CommandLineArgumentFunction("browse", "csc")]
         public static string Browse(List<string> args) {
             UI.SceneBrowserScreen.Open();

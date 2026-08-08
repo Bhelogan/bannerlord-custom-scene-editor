@@ -68,7 +68,10 @@ namespace CustomSceneCreator.CampaignEntry {
         }
 
         private static void OnConsequenceOpenEditor(MenuCallbackArgs args) {
-            UI.SceneBrowserScreen.Open();
+            // Opens the project list rather than the scene list. Reopening saved work is the common
+            // case once anything exists, and starting fresh is one button away from here - whereas
+            // going the other way would have meant a second menu row that is wrong most of the time.
+            UI.ProjectBrowserScreen.Open();
         }
     }
 }
