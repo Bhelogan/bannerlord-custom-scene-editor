@@ -92,7 +92,7 @@ it for you.
 | `G` | Drop to ground, and re-enable ground follow |
 | `H` | Toggle ground follow (pin the height instead) |
 | **`** | Open the asset picker: choose a category, search within it, inspect, build |
-| `L` | Open the scene contents list: everything placed, with Go To / Scripts / Pick Up / Delete |
+| `L` | Open the scene contents list: everything placed, with editable position and rotation, plus Go To / Scripts / Pick Up / Delete |
 | `[` `]` | Previous / next placeable (quick cycle without the picker) |
 | `'` | Next category |
 | `V` | Cycle camera: RTS - third person - first person |

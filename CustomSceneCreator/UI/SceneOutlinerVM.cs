@@ -5,6 +5,7 @@ using CustomSceneCreator.Api;
 using CustomSceneCreator.Catalog;
 using CustomSceneCreator.Editing;
 using TaleWorlds.Library;
+using System.Globalization;
 using TaleWorlds.MountAndBlade;
 
 namespace CustomSceneCreator.UI {
@@ -71,6 +72,61 @@ namespace CustomSceneCreator.UI {
 
         [DataSourceProperty] public bool HasSelection => _selected != null;
 
+        // -- transform ---------------------------------------------------------------------------
+        //
+        // Typed numbers are the only way to place something exactly: lining a wall up with the one
+        // beside it, or spacing race gates evenly, is arithmetic, not aim. Rotation is shown in
+        // DEGREES because that is what anyone doing that arithmetic is thinking in, and converted
+        // back on the way in.
+
+        [DataSourceProperty] public string PositionLabel => "Position (m)";
+        [DataSourceProperty] public string RotationLabel => "Rotation (degrees)";
+        [DataSourceProperty] public string XLabel => "X";
+        [DataSourceProperty] public string YLabel => "Y";
+        [DataSourceProperty] public string ZLabel => "Z";
+        [DataSourceProperty] public string YawLabel => "Yaw";
+        [DataSourceProperty] public string PitchLabel => "Pitch";
+        [DataSourceProperty] public string RollLabel => "Roll";
+
+        [DataSourceProperty]
+        public string PositionX {
+            get => Format(_selected?.Position.x ?? 0f);
+            set => SetPosition(value, axis: 0, nameof(PositionX));
+        }
+
+        [DataSourceProperty]
+        public string PositionY {
+            get => Format(_selected?.Position.y ?? 0f);
+            set => SetPosition(value, axis: 1, nameof(PositionY));
+        }
+
+        [DataSourceProperty]
+        public string PositionZ {
+            get => Format(_selected?.Position.z ?? 0f);
+            set => SetPosition(value, axis: 2, nameof(PositionZ));
+        }
+
+        /// <summary>Yaw is euler Z - the compass heading, and the one people actually adjust.</summary>
+        [DataSourceProperty]
+        public string RotationYaw {
+            get => Format(Degrees(Euler().z));
+            set => SetRotation(value, axis: 2, nameof(RotationYaw));
+        }
+
+        [DataSourceProperty]
+        public string RotationPitch {
+            get => Format(Degrees(Euler().x));
+            set => SetRotation(value, axis: 0, nameof(RotationPitch));
+        }
+
+        [DataSourceProperty]
+        public string RotationRoll {
+            get => Format(Degrees(Euler().y));
+            set => SetRotation(value, axis: 1, nameof(RotationRoll));
+        }
+
+
+
         [DataSourceProperty]
         public MBBindingList<OutlinerItemVM> Items {
             get => _items;
@@ -133,6 +189,63 @@ namespace CustomSceneCreator.UI {
 
         // -- internals --------------------------------------------------------------------------
 
+        private static string Format(float value) => value.ToString("0.###", CultureInfo.InvariantCulture);
+
+        private static float Degrees(float radians) => radians * 180f / MathF.PI;
+        private static float Radians(float degrees) => degrees * MathF.PI / 180f;
+
+        private Vec3 Euler() => _selected?.Rotation.GetEulerAngles() ?? Vec3.Zero;
+
+        private static bool TryParse(string text, out float value) =>
+            float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+
+        private void SetPosition(string text, int axis, string propertyName) {
+            if (_selected == null || !TryParse(text, out float parsed)) return;
+
+            Vec3 position = _selected.Position;
+            if (axis == 0) position.x = parsed;
+            else if (axis == 1) position.y = parsed;
+            else position.z = parsed;
+
+            _editor.UpdateTransform(_selected, position, _selected.Rotation);
+            OnPropertyChangedWithValue(text, propertyName);
+            RefreshDistances();
+        }
+
+        private void SetRotation(string text, int axis, string propertyName) {
+            if (_selected == null || !TryParse(text, out float degrees)) return;
+
+            Vec3 euler = Euler();
+            float radians = Radians(degrees);
+            if (axis == 0) euler.x = radians;
+            else if (axis == 1) euler.y = radians;
+            else euler.z = radians;
+
+            // ApplyEulerAngles ACCUMULATES onto the matrix it is called on, so it has to start from
+            // identity - which is exactly what the game does when it round-trips a rotation.
+            Mat3 rotation = Mat3.Identity;
+            rotation.ApplyEulerAngles(in euler);
+
+            _editor.UpdateTransform(_selected, _selected.Position, rotation);
+            OnPropertyChangedWithValue(text, propertyName);
+        }
+
+        /// <summary>Distances go stale once something is moved by hand.</summary>
+        private void RefreshDistances() {
+            Vec3 camera = CameraPosition;
+            foreach (OutlinerItemVM item in _items) item.RefreshDistance(camera);
+        }
+
+        /// <summary>Pushes every transform field, after selection changes.</summary>
+        private void NotifyTransform() {
+            OnPropertyChangedWithValue(PositionX, nameof(PositionX));
+            OnPropertyChangedWithValue(PositionY, nameof(PositionY));
+            OnPropertyChangedWithValue(PositionZ, nameof(PositionZ));
+            OnPropertyChangedWithValue(RotationYaw, nameof(RotationYaw));
+            OnPropertyChangedWithValue(RotationPitch, nameof(RotationPitch));
+            OnPropertyChangedWithValue(RotationRoll, nameof(RotationRoll));
+        }
+
         private Vec3 CameraPosition {
             get {
                 try {
@@ -178,6 +291,7 @@ namespace CustomSceneCreator.UI {
             foreach (OutlinerItemVM item in _items) item.IsSelected = item.Entity == entity;
             OnPropertyChangedWithValue(StatusText, nameof(StatusText));
             OnPropertyChangedWithValue(HasSelection, nameof(HasSelection));
+            NotifyTransform();
         }
 
         private void OnDoubleClicked(PlacedEntity entity) {
@@ -198,13 +312,23 @@ namespace CustomSceneCreator.UI {
             _onDoubleClick = onDoubleClick;
             _isSelected = isSelected;
 
-            DistanceText = $"{(entity.Position - camera).Length:0} m";
+            RefreshDistance(camera);
         }
 
         public PlacedEntity Entity { get; }
 
         [DataSourceProperty] public string Name => Placeable.ToDisplayName(Entity.PrefabName);
-        [DataSourceProperty] public string DistanceText { get; }
+
+        private string _distanceText = "";
+
+        [DataSourceProperty]
+        public string DistanceText {
+            get => _distanceText;
+            private set { if (value != _distanceText) { _distanceText = value; OnPropertyChangedWithValue(value, nameof(DistanceText)); } }
+        }
+
+        public void RefreshDistance(Vec3 camera) =>
+            DistanceText = $"{(Entity.Position - camera).Length:0} m";
 
         [DataSourceProperty]
         public string ScriptText => Entity.Scripts.Count == 0

@@ -664,6 +664,34 @@ namespace CustomSceneCreator.Editing {
             view.Open(_live, this);
         }
 
+        /// <summary>
+        /// Sets an object's exact position and rotation, for typed-in values.
+        ///
+        /// The whole frame is set rather than the position alone: SetLocalPosition leaves the
+        /// construction-time rotation in place, which drifts on nested prefabs - the same trap that
+        /// caught placement.
+        /// </summary>
+        public void UpdateTransform(PlacedEntity entity, Vec3 position, Mat3 rotation) {
+            if (entity == null) return;
+
+            entity.Position = position;
+            entity.Rotation = rotation;
+
+            if (entity.SceneEntity != null) {
+                try {
+                    MatrixFrame frame = MatrixFrame.Identity;
+                    frame.rotation = rotation;
+                    frame.origin = position;
+                    entity.SceneEntity.SetGlobalFrame(in frame, true);
+                } catch (Exception ex) {
+                    TraceLogger.Write(nameof(SceneEditingMissionLogic),
+                        $"UpdateTransform failed: {ex.GetType().Name}: {ex.Message}");
+                }
+            }
+
+            _isDirty = true;
+        }
+
         /// <summary>Moves the camera to look at an object, so a row in the list can be found in the world.</summary>
         public void FocusOn(PlacedEntity target) {
             if (target?.SceneEntity == null) return;
