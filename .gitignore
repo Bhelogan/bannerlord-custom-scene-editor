@@ -5,6 +5,7 @@ obj/
 .build/
 DistBuildTemp/
 Dist/
+crash reports/
 
 # User-specific
 *.user

@@ -161,7 +161,10 @@ namespace CustomSceneCreator.Editing {
             if (direct.IsValid) return direct;
 
             const float step = 8f;
-            const int maxRings = 24;   // 24 * 8m = ~192m in each direction
+            // Castle and town scenes run to several hundred metres across, and the median entity
+            // position can easily start outside the walls, so the search has to reach further than
+            // a battle map would need.
+            const int maxRings = 48;   // 48 * 8m = ~384m in each direction
 
             for (int ring = 1; ring <= maxRings; ring++) {
                 float offset = ring * step;

@@ -35,6 +35,10 @@ namespace CustomSceneCreator.Boot {
                     // free-roaming player in a non-battle scene, so it is a better starting point
                     // than a minimal list assembled by guesswork.
                     var behaviors = new List<MissionBehavior> {
+                        // MUST be first: it strips scripts that would throw during scene start, and
+                        // it can only do that from EarlyStart, before mission objects initialise.
+                        new SceneScriptSanitizer(),
+
                         new MissionOptionsComponent(),
                         new CampaignMissionComponent(),
                         new MissionBasicTeamLogic(),

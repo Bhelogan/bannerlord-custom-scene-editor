@@ -152,13 +152,17 @@ namespace CustomSceneCreator.UI {
             OnPropertyChangedWithValue(CanOpen, nameof(CanOpen));
         }
 
+        private const string BaseLevel = "base";
+
         private void RebuildLevels(SceneEntry scene) {
             _levelItems.Clear();
             foreach (string level in scene.LevelNames) {
-                // "base" alone is the default state of most scenes; pre-ticking it means a
-                // single-click open shows the scene the way the game normally would.
-                bool on = level == "base";
-                _levelItems.Add(new LevelItemVM(level, on, OnLevelToggled));
+                // "base" is deliberately not offered as a toggle. It is mask 1, the foundation layer
+                // every shipped multi-level scene builds on, and opening a scene without it strips
+                // out most of the ground and navmesh - which reads as "the editor is broken", not as
+                // "you turned off a layer". It is always included instead; see SelectedLevels.
+                if (string.Equals(level, BaseLevel, StringComparison.OrdinalIgnoreCase)) continue;
+                _levelItems.Add(new LevelItemVM(level, false, OnLevelToggled));
             }
             OnPropertyChangedWithValue(HasLevels, nameof(HasLevels));
             OnPropertyChangedWithValue(SelectionText, nameof(SelectionText));
@@ -168,8 +172,18 @@ namespace CustomSceneCreator.UI {
             OnPropertyChangedWithValue(SelectionText, nameof(SelectionText));
         }
 
-        private string SelectedLevels() =>
-            string.Join(" ", _levelItems.Where(l => l.IsOn).Select(l => l.LevelName));
+        private string SelectedLevels() {
+            if (_selected == null) return "";
+            // Single-level scenes want an empty string, not "base" - they have no level masks at all.
+            if (_selected.LevelNames.Length == 0) return "";
+
+            var levels = new List<string>();
+            if (_selected.LevelNames.Any(l => string.Equals(l, BaseLevel, StringComparison.OrdinalIgnoreCase))) {
+                levels.Add(BaseLevel);
+            }
+            levels.AddRange(_levelItems.Where(l => l.IsOn).Select(l => l.LevelName));
+            return string.Join(" ", levels);
+        }
     }
 
     public class SceneItemVM : ViewModel {

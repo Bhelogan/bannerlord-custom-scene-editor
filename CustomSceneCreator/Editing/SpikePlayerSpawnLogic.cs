@@ -18,6 +18,10 @@ namespace CustomSceneCreator.Editing {
     public class SpikePlayerSpawnLogic : MissionLogic {
         private bool _spawned;
 
+        /// <summary>How many frames to keep retrying before giving up and spawning anyway.</summary>
+        private const int SpawnRetryFrameBudget = 300;
+        private int _framesWaited;
+
         public override void AfterStart() {
             base.AfterStart();
             try {
@@ -26,33 +30,70 @@ namespace CustomSceneCreator.Editing {
                 // for a free-roaming player with no battle running.
                 Mission.SetMissionMode(MissionMode.StartUp, atStart: true);
 
-                SpawnPlayer();
+                TrySpawn(force: false);
             } catch (Exception ex) {
-                TraceLogger.WriteException(nameof(SpikePlayerSpawnLogic), "SpawnPlayer threw", ex);
+                TraceLogger.WriteException(nameof(SpikePlayerSpawnLogic), "AfterStart spawn threw", ex);
             }
         }
 
-        private void SpawnPlayer() {
+        /// <summary>
+        /// On large multi-level scenes the navmesh is not always queryable by the time AfterStart
+        /// runs, so a first attempt can legitimately find nothing walkable anywhere. Retrying across
+        /// a frame budget costs nothing when the first attempt works and rescues the case where it
+        /// does not - which is what happened on aserai_castle_002, where the player ended up at the
+        /// origin with no navmesh found at all.
+        /// </summary>
+        public override void OnMissionTick(float dt) {
+            base.OnMissionTick(dt);
             if (_spawned) return;
+
+            _framesWaited++;
+            TrySpawn(force: _framesWaited >= SpawnRetryFrameBudget);
+        }
+
+        private void TrySpawn(bool force) {
+            try {
+                SpawnPlayer(force);
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(SpikePlayerSpawnLogic), "SpawnPlayer threw", ex);
+                _spawned = true;   // stop retrying a throwing path every frame
+            }
+        }
+
+        private void SpawnPlayer(bool force) {
+            if (_spawned) return;
+
+            Vec3 position = SpawnPointResolver.Resolve(Mission.Scene, out string how);
+
+            bool found = position.IsValid && position != Vec3.Zero;
+            if (!found && !force) {
+                // Say it once, then stay quiet while retrying - this runs every frame.
+                if (_framesWaited == 1) {
+                    TraceLogger.Write(nameof(SpikePlayerSpawnLogic),
+                        "No navmesh position yet; retrying while the scene finishes loading.");
+                }
+                return;
+            }
 
             CharacterObject? character = ResolvePlayerCharacter(out string source);
             if (character == null) {
                 TraceLogger.Write(nameof(SpikePlayerSpawnLogic),
-                    "FATAL: no CharacterObject available to spawn as the player. " +
-                    "Tutorial-mode boot cannot supply a player character.");
+                    "FATAL: no CharacterObject available to spawn as the player.");
+                _spawned = true;
                 return;
             }
             TraceLogger.Write(nameof(SpikePlayerSpawnLogic),
                 $"Player character resolved via {source}: '{character.StringId}'.");
-
-            Vec3 position = SpawnPointResolver.Resolve(Mission.Scene, out string how);
             TraceLogger.Write(nameof(SpikePlayerSpawnLogic),
-                $"Spawn position resolved via {how}: ({position.x:0.##}, {position.y:0.##}, {position.z:0.##}).");
-            if (!position.IsValid || position == Vec3.Zero) {
+                $"Spawn position resolved via {how} after {_framesWaited} frame(s): " +
+                $"({position.x:0.##}, {position.y:0.##}, {position.z:0.##}).");
+
+            if (!found) {
                 TraceLogger.Write(nameof(SpikePlayerSpawnLogic),
-                    "WARNING: no navmesh-backed spawn position found. The player will likely be " +
-                    "unable to move. This scene may ship without a navmesh — check scene_catalog.xml " +
-                    "for noNavMesh on it.");
+                    "WARNING: gave up looking for a navmesh position; spawning at the origin. " +
+                    "The player will likely be unable to move. Check scene_catalog.xml for " +
+                    "noNavMesh on this scene, and check the selected upgrade levels — a scene " +
+                    "opened without its 'base' level can be missing most of its walkable ground.");
                 position = Vec3.Zero;
             }
             Vec2 direction = new Vec2(0f, 1f);
