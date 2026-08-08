@@ -2,12 +2,15 @@
 
 A standalone in-game scene editor for **Mount & Blade II: Bannerlord v1.4.7**.
 
-Open any shipped scene from the main menu, place any shipped prefab or logical marker, and export
-the result — without needing a campaign, a homestead, or the Modding Kit.
+Open any shipped scene, place any shipped prefab or logical marker, and export the result — without
+needing a homestead or the Modding Kit.
 
-> **Status: early development.** The M1 boot spike is in. There is no scene browser, asset picker or
-> export yet. See [CUSTOM_SCENE_CREATOR_PLAN.md](CUSTOM_SCENE_CREATOR_PLAN.md) for the full design
-> and milestone list.
+> **Status: early development, but usable.** Entered from inside a campaign (settlement menu or
+> `csc.open`). Scene browser, asset catalog, RTS/third/first-person cameras, and build/delete/move
+> with JSON project save-load are all in. Still to come: an asset picker UI (the palette is cycled
+> with keys today), logical placeables, script attachment, and export.
+> See [CUSTOM_SCENE_CREATOR_PLAN.md](CUSTOM_SCENE_CREATOR_PLAN.md) for the full design and
+> milestone list.
 
 ---
 
