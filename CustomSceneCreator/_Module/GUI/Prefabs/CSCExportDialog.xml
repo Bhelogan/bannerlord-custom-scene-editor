@@ -1,0 +1,53 @@
+<Prefab>
+  <Window>
+    <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="BlankWhiteSquare_9" Color="#000000CC" DoNotPassEventsToChildren="false" DoNotAcceptEvents="false">
+      <Children>
+        <Widget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="900" SuggestedHeight="600" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true">
+          <Children>
+            <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="StdAssets\Popup\canvas" IsEnabled="false" />
+            <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="StdAssets\Popup\canvas_gradient" IsEnabled="false" />
+            <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="frame_9" ExtendLeft="18" ExtendTop="18" ExtendRight="18" ExtendBottom="18" IsEnabled="false" />
+
+            <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" StackLayout.LayoutMethod="VerticalTopToBottom" MarginLeft="34" MarginRight="34" MarginTop="24" MarginBottom="24" DoNotAcceptEvents="true">
+              <Children>
+
+                <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="38" Text="@TitleText" Brush="Popup.Title.Text" HorizontalAlignment="Center" MarginTop="8" DoNotAcceptEvents="true" />
+                <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="24" Text="@SummaryText" Brush="Popup.Description.Text" HorizontalAlignment="Center" DoNotAcceptEvents="true" />
+
+                <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="22" Text="@NameLabelText" Brush="Popup.Description.Text" HorizontalAlignment="Left" MarginTop="12" DoNotAcceptEvents="true" />
+                <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="44" Sprite="BlankWhiteSquare_9" Color="#111111FF" DoNotAcceptEvents="true">
+                  <Children>
+                    <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@ExportName" Brush="Review.NameInput.Text" DoNotAcceptEvents="false" MarginLeft="12" />
+                  </Children>
+                </Widget>
+
+                <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="440" SuggestedHeight="44" HorizontalAlignment="Center" Command.Click="ExecuteExportPrefab" Brush="Popup.Done.Button" MarginTop="16">
+                  <Children>
+                    <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@PrefabButtonText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                  </Children>
+                </ButtonWidget>
+                <RichTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="CoverChildren" Text="@PrefabHelpText" Brush="Popup.Description.Text" HorizontalAlignment="Center" MarginTop="6" DoNotAcceptEvents="true" />
+
+                <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="440" SuggestedHeight="44" HorizontalAlignment="Center" Command.Click="ExecuteExportScene" Brush="Popup.Done.Button" MarginTop="14">
+                  <Children>
+                    <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@SceneButtonText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                  </Children>
+                </ButtonWidget>
+                <RichTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="CoverChildren" Text="@SceneHelpText" Brush="Popup.Description.Text" HorizontalAlignment="Center" MarginTop="6" DoNotAcceptEvents="true" />
+
+                <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="26" Text="@StatusText" Brush="Popup.Title.Text" HorizontalAlignment="Center" MarginTop="8" DoNotAcceptEvents="true" />
+
+                <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="180" SuggestedHeight="44" HorizontalAlignment="Center" Command.Click="ExecuteClose" Brush="Popup.Cancel.Button" MarginTop="8">
+                  <Children>
+                    <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@CloseText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                  </Children>
+                </ButtonWidget>
+
+              </Children>
+            </ListPanel>
+          </Children>
+        </Widget>
+      </Children>
+    </Widget>
+  </Window>
+</Prefab>

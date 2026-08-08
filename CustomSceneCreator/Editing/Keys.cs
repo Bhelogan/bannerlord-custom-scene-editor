@@ -22,7 +22,15 @@ namespace CustomSceneCreator.Editing {
         public const InputKey CameraMode    = InputKey.V;
         /// <summary>Opens the asset picker. Tilde is what Homesteads uses for its building picker.</summary>
         public const InputKey AssetPicker   = InputKey.Tilde;
+        /// <summary>
+        /// Save is Alt+S, not Ctrl+S: Ctrl is reset-rotation, so Ctrl+S would clear the rotation of
+        /// whatever you are holding every time you saved. K remains as a single-key alternative.
+        /// </summary>
+        public const InputKey SaveModifier  = InputKey.LeftAlt;
+        public const InputKey SaveWithModifier = InputKey.S;
         public const InputKey Save          = InputKey.K;
+        /// <summary>Alt+E opens the export dialog - deliberate and occasional, unlike saving.</summary>
+        public const InputKey ExportWithModifier = InputKey.E;
 
         /// <summary>Primary place action. Read through the scene layer so Gauntlet does not eat it.</summary>
         public const InputKey Place         = InputKey.LeftMouseButton;
@@ -66,6 +74,7 @@ namespace CustomSceneCreator.Editing {
                 case InputKey.RightMouseButton: return "RMB";
                 case InputKey.LeftControl:      return "Left Ctrl";
                 case InputKey.Tilde:            return "`";
+                case InputKey.LeftAlt:          return "Alt";
                 case InputKey.Numpad0: return "Num0";
                 case InputKey.Numpad1: return "Num1";
                 case InputKey.Numpad2: return "Num2";

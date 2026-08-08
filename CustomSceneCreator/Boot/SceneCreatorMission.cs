@@ -85,6 +85,7 @@ namespace CustomSceneCreator.Boot {
                         new RtsCameraView(),
                         new UI.AssetPickerView(),
                         new UI.EditorStatusView(),
+                        new UI.ExportDialogView(),
                     };
                     return behaviors.ToArray();
                 });

@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using CustomSceneCreator.Api;
 using CustomSceneCreator.Catalog;
+using TaleWorlds.Core;
 using TaleWorlds.Engine;
 using TaleWorlds.InputSystem;
+using TaleWorlds.Localization;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
 
@@ -87,6 +89,12 @@ namespace CustomSceneCreator.Editing {
         private PlacedEntity? _carried;
 
         private readonly List<PlacedEntity> _live = new();
+
+        /// <summary>
+        /// Unsaved changes. Tracked rather than always saving on exit so leaving can offer a real
+        /// choice - and so the exit prompt does not appear after a session where nothing changed.
+        /// </summary>
+        private bool _isDirty;
 
         public SceneEditingMissionLogic(ISceneEditTarget target, IPlaceableProvider provider) {
             _target = target;
@@ -207,7 +215,7 @@ namespace CustomSceneCreator.Editing {
         private void HandleInput(float dt) {
             // Nothing else may act while the picker owns input: it pauses the engine and takes focus,
             // so a stray keypress reaching here would edit the scene behind a modal panel.
-            if (UI.AssetPickerView.IsOpen) return;
+            if (UI.AssetPickerView.IsOpen || UI.ExportDialogView.IsOpen) return;
 
             if (Input.IsKeyPressed(Keys.EditMode)) { CycleEditMode(); return; }
             if (_mode == EditMode.Off) return;
@@ -224,9 +232,14 @@ namespace CustomSceneCreator.Editing {
 
             if (clickPlaced || Input.IsKeyPressed(Keys.PlaceAlt)) { HandlePlaceKey(); return; }
 
-            if (Input.IsKeyPressed(Keys.Save)) {
-                _target.Commit();
-                EditorHud.ShowMessage($"Saved. {_live.Count} object(s).");
+            bool savePressed = Input.IsKeyPressed(Keys.Save)
+                            || (Input.IsKeyDown(Keys.SaveModifier) && Input.IsKeyPressed(Keys.SaveWithModifier));
+            if (savePressed) { Save(); return; }
+
+            // Alt+E rather than a bare key: E is rotate-right, and export is rare enough that it
+            // belongs behind a modifier.
+            if (Input.IsKeyDown(Keys.SaveModifier) && Input.IsKeyPressed(Keys.ExportWithModifier)) {
+                OpenExportDialog();
                 return;
             }
 
@@ -337,6 +350,7 @@ namespace CustomSceneCreator.Editing {
                 _target.OnEntityAdded(_carried);
                 _live.Add(_carried);
                 _carried = null;
+                _isDirty = true;
             } else {
                 var placed = new PlacedEntity {
                     PrefabName = prefabName,
@@ -346,6 +360,7 @@ namespace CustomSceneCreator.Editing {
                 };
                 _target.OnEntityAdded(placed);
                 _live.Add(placed);
+                _isDirty = true;
             }
 
             RemoveGhost();
@@ -366,6 +381,7 @@ namespace CustomSceneCreator.Editing {
             owner.SceneEntity = null;
             _live.Remove(owner);
             _target.OnEntityRemoved(owner);
+            _isDirty = true;
             EditorHud.ShowCount(_live.Count);
         }
 
@@ -380,6 +396,7 @@ namespace CustomSceneCreator.Editing {
             owner.SceneEntity = null;
             _live.Remove(owner);
             _target.OnEntityRemoved(owner);
+            _isDirty = true;
 
             _carried = owner;
             _ghostRotation = owner.Rotation;
@@ -444,6 +461,19 @@ namespace CustomSceneCreator.Editing {
             _ghostOffset = Vec3.Zero;
             _groundFollow = true;
             EditorHud.ShowMessage("Dropped to ground; ground follow ON.");
+        }
+
+        /// <summary>
+        /// Saves first, then opens the dialog. Exporting a project whose last few placements are not
+        /// in the file would silently produce an incomplete artifact.
+        /// </summary>
+        private void OpenExportDialog() {
+            if (_target is SceneProjectTarget projectTarget) {
+                Save();
+                UI.ExportDialogView.Instance?.Open(projectTarget.Project);
+            } else {
+                EditorHud.ShowMessage("Export is only available for editor projects.", warning: true);
+            }
         }
 
         private void OpenAssetPicker() {
@@ -705,14 +735,51 @@ namespace CustomSceneCreator.Editing {
             }
         }
 
+        /// <summary>Writes the project and says so. A save that gives no sign it happened is one you
+        /// end up doing three times.</summary>
+        private void Save() {
+            try {
+                _target.Commit();
+                _isDirty = false;
+                EditorHud.ShowMessage($"Saved '{_target.DisplayName}' - {_live.Count} object(s).");
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(SceneEditingMissionLogic), "Save failed", ex);
+                EditorHud.ShowMessage("Save FAILED - see CustomSceneCreator.trace.log.", warning: true);
+            }
+        }
+
+        /// <summary>
+        /// Offers to save on the way out when there are unsaved changes.
+        ///
+        /// canLeave MUST be reported true even though we are asking a question: the engine's leave
+        /// loop bails on the first behaviour that says false and never shows the inquiry at all, so
+        /// returning false here would silently block leaving instead of prompting. The inquiry itself
+        /// is what gates the exit.
+        /// </summary>
+        public override InquiryData OnEndMissionRequest(out bool canLeave) {
+            canLeave = true;
+            if (!_isDirty || _live.Count == 0) return null;
+
+            return new InquiryData(
+                new TextObject("{=CSC_UnsavedTitle}Unsaved Changes").ToString(),
+                new TextObject("{=CSC_UnsavedText}You have unsaved changes to this scene. Save before leaving?")
+                    .ToString(),
+                true, true,
+                new TextObject("{=CSC_UnsavedSave}Save and Leave").ToString(),
+                new TextObject("{=CSC_UnsavedDiscard}Discard").ToString(),
+                () => Save(),
+                () => {
+                    _isDirty = false;
+                    TraceLogger.Write(nameof(SceneEditingMissionLogic),
+                        $"Left without saving; {_live.Count} placed object(s) discarded.");
+                });
+        }
+
         protected override void OnEndMission() {
             base.OnEndMission();
             RemoveGhost();
-            try {
-                _target.Commit();
-            } catch (Exception ex) {
-                TraceLogger.WriteException(nameof(SceneEditingMissionLogic), "Commit on exit failed", ex);
-            }
+            // Deliberately does NOT commit. OnEndMissionRequest already asked, and committing here
+            // too would write the project even after the player chose Discard.
         }
     }
 }

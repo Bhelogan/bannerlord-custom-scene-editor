@@ -15,11 +15,24 @@ namespace CustomSceneCreator.Editing {
     /// </summary>
     public static class ProjectSerializer {
         private const string FolderName = "CustomSceneCreator";
-        private static string? _cachedPath;
+        private static string? _cachedRoot;
 
-        public static string ProjectsPath {
+        /// <summary>
+        /// Everything the editor writes, under Documents so it survives a mod update or reinstall and
+        /// can be shared by sending one file.
+        ///
+        ///   CustomSceneCreator/
+        ///     projects/          working files you reopen and keep editing
+        ///     exports/prefabs/   reusable objects (also written into the module so the game loads them)
+        ///     exports/scenes/    whole-scene fragments for the Modding Kit
+        ///
+        /// Projects and exports are deliberately separate: a project is the editable source you come
+        /// back to, an export is a produced artifact. Mixing them means never being sure which file
+        /// is the one worth keeping.
+        /// </summary>
+        public static string RootPath {
             get {
-                if (_cachedPath != null) return _cachedPath;
+                if (_cachedRoot != null) return _cachedRoot;
 
                 string documents;
                 try {
@@ -27,19 +40,53 @@ namespace CustomSceneCreator.Editing {
                 } catch {
                     documents = "";
                 }
+                if (string.IsNullOrEmpty(documents)) documents = Path.GetTempPath();
 
-                if (string.IsNullOrEmpty(documents)) {
-                    documents = Path.GetTempPath();
-                }
-
-                _cachedPath = Path.Combine(documents, "Mount and Blade II Bannerlord", FolderName);
+                _cachedRoot = Path.Combine(documents, "Mount and Blade II Bannerlord", FolderName);
                 try {
-                    Directory.CreateDirectory(_cachedPath);
+                    Directory.CreateDirectory(_cachedRoot);
                 } catch (Exception ex) {
                     TraceLogger.Write(nameof(ProjectSerializer),
-                        $"Could not create projects folder '{_cachedPath}': {ex.Message}");
+                        $"Could not create '{_cachedRoot}': {ex.Message}");
                 }
-                return _cachedPath;
+                return _cachedRoot;
+            }
+        }
+
+        public static string ProjectsPath => EnsureSubfolder("projects");
+        public static string PrefabExportsPath => EnsureSubfolder(Path.Combine("exports", "prefabs"));
+        public static string SceneExportsPath => EnsureSubfolder(Path.Combine("exports", "scenes"));
+
+        private static string EnsureSubfolder(string relative) {
+            string path = Path.Combine(RootPath, relative);
+            try {
+                if (!Directory.Exists(path)) {
+                    Directory.CreateDirectory(path);
+                    MigrateLooseProjects(path, relative);
+                }
+            } catch (Exception ex) {
+                TraceLogger.Write(nameof(ProjectSerializer), $"Could not create '{path}': {ex.Message}");
+            }
+            return path;
+        }
+
+        /// <summary>
+        /// Earlier builds wrote projects straight into the root folder. Move them rather than
+        /// stranding them: someone who has already built something should not have to be told their
+        /// work is in the wrong place.
+        /// </summary>
+        private static void MigrateLooseProjects(string projectsPath, string relative) {
+            if (relative != "projects") return;
+            try {
+                foreach (string file in Directory.GetFiles(RootPath, "*.json")) {
+                    string destination = Path.Combine(projectsPath, Path.GetFileName(file));
+                    if (File.Exists(destination)) continue;
+                    File.Move(file, destination);
+                    TraceLogger.Write(nameof(ProjectSerializer),
+                        $"Moved existing project '{Path.GetFileName(file)}' into projects/.");
+                }
+            } catch (Exception ex) {
+                TraceLogger.Write(nameof(ProjectSerializer), $"Project migration skipped: {ex.Message}");
             }
         }
 

@@ -91,7 +91,8 @@ it for you.
 | `[` `]` | Previous / next placeable (quick cycle without the picker) |
 | `'` | Next category |
 | `V` | Cycle camera: RTS - third person - first person |
-| `K` | Save the project |
+| **Alt+S** or `K` | Save the project (confirmation shown) |
+| **Alt+E** | Export: prefab, or whole scene |
 | Numpad `8` `2` | Tilt up / down |
 | Numpad `4` `6` | Roll left / right |
 | Numpad `5` `1` | Raise / lower |
@@ -103,9 +104,22 @@ There is no maximum placement range - if you can see it, you can build on it.
 
 Avoid rebinding onto `P` (the game's pick-up-item bind).
 
-Projects are saved as JSON to
-`Documents\Mount and Blade II Bannerlord\CustomSceneCreator\`, one per scene by default, so
-reopening a scene restores what you built there. `csc.projects` lists them.
+Leaving with unsaved changes offers to save first.
+
+## Where things are written
+
+`Documents\Mount and Blade II Bannerlord\CustomSceneCreator\`
+
+| Folder | Contents |
+|---|---|
+| `projects/` | Working files (`.json`), one per scene by default. Reopening a scene restores what you built there. `csc.projects` lists them. |
+| `exports/prefabs/` | Prefab XML — one reusable object, positioned relative to its own base |
+| `exports/scenes/` | Scene fragments — everything at its real position, for pasting into a `scene.xscene` |
+
+A project is the editable source you come back to; an export is a produced artifact. Prefab exports
+are **also** written into `Modules/CustomSceneCreator/Prefabs/`, which is what makes them loadable by
+the game — after a restart the exported object appears in the asset picker under **Exported** and can
+be placed as a single piece.
 
 ## Logging
 
