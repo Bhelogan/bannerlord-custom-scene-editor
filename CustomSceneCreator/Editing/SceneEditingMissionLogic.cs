@@ -332,6 +332,14 @@ namespace CustomSceneCreator.Editing {
             string prefabName = _carried?.PrefabName ?? placeable?.PrefabName ?? "";
             if (prefabName.Length == 0) return;
 
+            // Exported this session: on disk, but the game only reads prefab XML at startup.
+            if (placeable != null && placeable.RequiresRestart) {
+                EditorHud.ShowMessage(
+                    $"'{placeable.DisplayName}' was exported this session - restart the game to place it.",
+                    warning: true);
+                return;
+            }
+
             Vec3 position = _ghost!.GlobalPosition;
             Mat3 rotation = _ghost.GetFrame().rotation;
 
@@ -635,7 +643,7 @@ namespace CustomSceneCreator.Editing {
         // -- ghost ------------------------------------------------------------------------------
 
         private void UpdateGhost() {
-            bool wantGhost = (_mode == EditMode.Build && CurrentPlaceable != null)
+            bool wantGhost = (_mode == EditMode.Build && CurrentPlaceable != null && !CurrentPlaceable.RequiresRestart)
                           || (_mode == EditMode.Move && _carried != null);
 
             if (!wantGhost || !_positionLookingAt.IsValid) {

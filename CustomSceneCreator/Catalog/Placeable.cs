@@ -59,6 +59,13 @@ namespace CustomSceneCreator.Catalog {
         /// <summary>Tag written on export, so code can find these with FindEntitiesWithTag.</summary>
         public string ExportTag = "";
 
+        /// <summary>
+        /// True for something exported this session: the XML is on disk, but the game only reads
+        /// prefab files at startup, so it cannot be instantiated until a restart. Listed anyway -
+        /// an empty category right after exporting would read as the export having failed.
+        /// </summary>
+        public bool RequiresRestart;
+
         /// <summary>What to hand GameEntity.Instantiate.</summary>
         public string SpawnPrefabName => ProxyPrefab.Length > 0 ? ProxyPrefab : PrefabName;
 

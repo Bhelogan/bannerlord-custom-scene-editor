@@ -129,6 +129,10 @@ namespace CustomSceneCreator.UI {
                 lines.Add($"Module:    {_selected.Module}");
                 if (_selected.Mobility.Length > 0) lines.Add($"Mobility:  {_selected.Mobility}");
 
+                if (_selected.RequiresRestart) {
+                    lines.Add("Status:    exported this session - restart the game to place it");
+                }
+
                 lines.Add(_selected.IsLogical
                     ? "Geometry:  none - marker / logic node"
                     : $"Meshes:    {Wrap(_selected.Meshes)}");
@@ -332,7 +336,8 @@ namespace CustomSceneCreator.UI {
 
         [DataSourceProperty]
         public string Note =>
-            _placeable.IsLogical ? "marker"
+            _placeable.RequiresRestart ? "restart to use"
+            : _placeable.IsLogical ? "marker"
             : _placeable.HasPhysics ? ""
             : "no collision";
 

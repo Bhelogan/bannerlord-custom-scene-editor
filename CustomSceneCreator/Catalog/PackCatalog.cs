@@ -24,6 +24,12 @@ namespace CustomSceneCreator.Catalog {
 
         public static IReadOnlyList<Placeable> All => _placeables ??= Load();
 
+        /// <summary>Drops the cache so a just-exported prefab appears without leaving the scene.</summary>
+        public static void Invalidate() => _placeables = null;
+
+        /// <summary>Category holding whatever is in exports/prefabs.</summary>
+        public const string ExportedCategory = "My Prefabs";
+
         private static List<Placeable> Load() {
             var result = new List<Placeable>();
             string dir = ResolvePacksDir();
@@ -83,8 +89,48 @@ namespace CustomSceneCreator.Catalog {
                 }
             }
 
+            LoadExportedPrefabs(result);
+
             TraceLogger.Write(nameof(PackCatalog), $"{result.Count} editor-authored placeable(s) loaded.");
             return result;
+        }
+
+        /// <summary>
+        /// Everything in exports/prefabs, as its own category.
+        ///
+        /// Read from the folder rather than from a generated pack file: the folder IS the list, so
+        /// there is nothing to keep in sync and dropping someone else's exported prefab in works
+        /// without editing anything.
+        /// </summary>
+        private static void LoadExportedPrefabs(List<Placeable> result) {
+            try {
+                string dir = Editing.ProjectSerializer.PrefabExportsPath;
+                if (!System.IO.Directory.Exists(dir)) return;
+
+                foreach (string file in System.IO.Directory.GetFiles(dir, "*.xml").OrderBy(f => f)) {
+                    string id = IOPath.GetFileNameWithoutExtension(file);
+                    if (id.Length == 0) continue;
+                    if (result.Any(p => string.Equals(p.PrefabName, id, StringComparison.OrdinalIgnoreCase))) continue;
+
+                    // The game reads prefab XML only at startup, so something exported a moment ago
+                    // is on disk but not yet instantiable. Listed either way, flagged, so the
+                    // category is not mysteriously empty right after an export.
+                    bool loaded = GameEntity.PrefabExists(id);
+
+                    result.Add(new Placeable {
+                        PrefabName = id,
+                        DisplayName = Placeable.ToDisplayName(id),
+                        Category = ExportedCategory,
+                        Module = "CustomSceneCreator",
+                        Source = Placeable.SourceEditor,
+                        RequiresRestart = !loaded,
+                        HasPhysics = true,
+                        Meshes = loaded ? id : "",
+                    });
+                }
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(PackCatalog), "Could not read exported prefabs", ex);
+            }
         }
 
         private static string Fallback(string value, string fallback) =>

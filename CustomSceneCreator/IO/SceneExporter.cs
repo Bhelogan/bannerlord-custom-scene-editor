@@ -102,7 +102,9 @@ namespace CustomSceneCreator.IO {
                 TraceLogger.Write(nameof(SceneExporter), $"Documents copy failed: {ex.Message}");
             }
 
-            RegisterExportedPrefab(name);
+            // The picker reads the exports folder directly, so the new prefab shows up straight
+            // away - flagged until a restart, since the game only reads prefab XML at startup.
+            Catalog.PackCatalog.Invalidate();
 
             TraceLogger.Write(nameof(SceneExporter),
                 $"Exported prefab '{name}' ({project.Entities.Count} parts) to {path}");
@@ -110,47 +112,8 @@ namespace CustomSceneCreator.IO {
                 Success = true,
                 Path = path,
                 Message = $"Prefab '{name}' exported ({project.Entities.Count} parts). " +
-                          "Restart the game to place it as a single object.",
+                          "It is listed under 'My Prefabs'; restart the game to place it.",
             };
-        }
-
-        /// <summary>
-        /// Adds the exported prefab to a pack so it appears in the asset picker next session.
-        ///
-        /// Kept in its own file rather than csc_core.xml, which ships with the mod and would be
-        /// overwritten on update.
-        /// </summary>
-        private static void RegisterExportedPrefab(string name) {
-            try {
-                string dir = ModulePath(IOPath.Combine("ModuleData", "packs"));
-                if (dir.Length == 0) return;
-                IODirectory.CreateDirectory(dir);
-                string path = IOPath.Combine(dir, "csc_exported.xml");
-
-                var entries = new List<string>();
-                if (IOFile.Exists(path)) {
-                    foreach (string line in IOFile.ReadAllLines(path)) {
-                        string trimmed = line.Trim();
-                        if (trimmed.StartsWith("<Placeable ", StringComparison.Ordinal)
-                            && !trimmed.Contains($"id=\"{name}\"")) {
-                            entries.Add(trimmed);
-                        }
-                    }
-                }
-                entries.Add($"<Placeable id=\"{Escape(name)}\" display=\"{Escape(Placeable.ToDisplayName(name))}\" " +
-                            $"category=\"Exported\" proxy=\"{Escape(name)}\" />");
-
-                var sb = new StringBuilder();
-                sb.AppendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
-                sb.AppendLine("<!-- Prefabs exported from the editor. Regenerated on each export. -->");
-                sb.AppendLine("<Placeables>");
-                foreach (string entry in entries) sb.AppendLine("  " + entry);
-                sb.AppendLine("</Placeables>");
-                IOFile.WriteAllText(path, sb.ToString(), Encoding.UTF8);
-            } catch (Exception ex) {
-                // Not fatal: the prefab XML is written either way, this only affects discoverability.
-                TraceLogger.Write(nameof(SceneExporter), $"Could not register exported prefab: {ex.Message}");
-            }
         }
 
         // -- scene fragment ----------------------------------------------------------------------
