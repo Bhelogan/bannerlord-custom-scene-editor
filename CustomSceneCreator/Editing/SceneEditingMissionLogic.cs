@@ -62,6 +62,16 @@ namespace CustomSceneCreator.Editing {
         // and compared by pointer, since GameEntity exposes .WeakEntity to bridge across.
         private WeakGameEntity _entityLookingAt = WeakGameEntity.Invalid;
 
+        /// <summary>
+        /// The placed object under the cursor, resolved WITHOUT relying on physics.
+        ///
+        /// Many props ship with no collision shape - candle_flame and torch_a_wm_only_flame among
+        /// them - so no physics body exists to raycast against and they were simply unselectable.
+        /// Testing the ray against each placed object's bounding box instead works for everything
+        /// we put there, whether or not the prefab has collision.
+        /// </summary>
+        private PlacedEntity? _hovered;
+
         // The translucent preview of the thing about to be placed.
         private GameEntity? _ghost;
         private Mat3 _ghostRotation = Mat3.Identity;
@@ -186,6 +196,7 @@ namespace CustomSceneCreator.Editing {
             if (_mode == EditMode.Off) {
                 _positionLookingAt = Vec3.Invalid;
                 _entityLookingAt = WeakGameEntity.Invalid;
+                _hovered = null;
                 return;
             }
 
@@ -213,7 +224,103 @@ namespace CustomSceneCreator.Editing {
             if (distance < source.MinimumDistance) {
                 _positionLookingAt = Vec3.Invalid;
                 _entityLookingAt = WeakGameEntity.Invalid;
+                distance = float.MaxValue;
             }
+
+            _hovered = ResolveHovered(origin, source.Direction, distance);
+        }
+
+        /// <summary>
+        /// Decides which placed object the cursor is on.
+        ///
+        /// The physics hit wins when it lands on something we placed, since it is exact. The
+        /// bounding-box test covers the rest - props with no collision, and props standing in front
+        /// of something solid, where the physics ray reports the wall behind and never mentions the
+        /// candle in front. Whichever is CLOSER along the ray wins, so a small object is never lost
+        /// to the large one behind it.
+        /// </summary>
+        private PlacedEntity? ResolveHovered(Vec3 origin, Vec3 direction, float physicsDistance) {
+            PlacedEntity? fromPhysics = _entityLookingAt.IsValid ? FindOwner(_entityLookingAt) : null;
+
+            PlacedEntity? fromBox = FindPlacedByRay(origin, direction, out float boxDistance);
+            if (fromBox != null && (fromPhysics == null || boxDistance <= physicsDistance)) return fromBox;
+
+            return fromPhysics;
+        }
+
+        /// <summary>Half a metre minimum on each axis, so thin props stay clickable.</summary>
+        private const float MinimumPickSize = 0.5f;
+
+        /// <summary>Nearest placed object whose bounding box the ray enters.</summary>
+        private PlacedEntity? FindPlacedByRay(Vec3 origin, Vec3 direction, out float distance) {
+            distance = float.MaxValue;
+            PlacedEntity? best = null;
+
+            foreach (PlacedEntity placed in _live) {
+                if (placed.SceneEntity == null) continue;
+
+                Vec3 min, max;
+                try {
+                    min = placed.SceneEntity.GlobalBoxMin;
+                    max = placed.SceneEntity.GlobalBoxMax;
+                } catch {
+                    continue;
+                }
+                if (!min.IsValid || !max.IsValid) continue;
+
+                // A candle is a couple of centimetres across and near impossible to put a cursor on
+                // at its true size. Padding to a minimum clickable volume costs nothing and is the
+                // difference between selectable and not.
+                Pad(ref min, ref max, MinimumPickSize);
+
+                if (RayHitsBox(origin, direction, min, max, out float hit) && hit < distance) {
+                    distance = hit;
+                    best = placed;
+                }
+            }
+
+            return best;
+        }
+
+        private static void Pad(ref Vec3 min, ref Vec3 max, float minimumSize) {
+            float half = minimumSize * 0.5f;
+            if (max.x - min.x < minimumSize) { float c = (min.x + max.x) * 0.5f; min.x = c - half; max.x = c + half; }
+            if (max.y - min.y < minimumSize) { float c = (min.y + max.y) * 0.5f; min.y = c - half; max.y = c + half; }
+            if (max.z - min.z < minimumSize) { float c = (min.z + max.z) * 0.5f; min.z = c - half; max.z = c + half; }
+        }
+
+        /// <summary>
+        /// Slab-method ray/box intersection. Returns the distance along the ray to the near face, and
+        /// false when the ray misses or the box lies behind the camera.
+        /// </summary>
+        private static bool RayHitsBox(Vec3 origin, Vec3 direction, Vec3 min, Vec3 max, out float distance) {
+            distance = 0f;
+            float near = 0f;
+            float far = float.MaxValue;
+
+            for (int axis = 0; axis < 3; axis++) {
+                float o = axis == 0 ? origin.x : axis == 1 ? origin.y : origin.z;
+                float d = axis == 0 ? direction.x : axis == 1 ? direction.y : direction.z;
+                float lo = axis == 0 ? min.x : axis == 1 ? min.y : min.z;
+                float hi = axis == 0 ? max.x : axis == 1 ? max.y : max.z;
+
+                if (MathF.Abs(d) < 1e-6f) {
+                    // Parallel to this slab: a miss unless the origin already sits inside it.
+                    if (o < lo || o > hi) return false;
+                    continue;
+                }
+
+                float t1 = (lo - o) / d;
+                float t2 = (hi - o) / d;
+                if (t1 > t2) { float swap = t1; t1 = t2; t2 = swap; }
+
+                if (t1 > near) near = t1;
+                if (t2 < far) far = t2;
+                if (near > far) return false;
+            }
+
+            distance = near;
+            return far >= 0f;
         }
 
         private void HandleInput(float dt) {
@@ -326,16 +433,16 @@ namespace CustomSceneCreator.Editing {
                     break;
 
                 case EditMode.Delete:
-                    if (_entityLookingAt.IsValid) DeleteLookedAt();
+                    if (_hovered != null) DeleteLookedAt();
                     break;
 
                 case EditMode.Move:
                     if (_carried != null && _ghost != null) PlaceGhost();
-                    else if (_entityLookingAt.IsValid) PickUpLookedAt();
+                    else if (_hovered != null) PickUpLookedAt();
                     break;
 
                 case EditMode.Script:
-                    if (_entityLookingAt.IsValid) OpenScriptsForLookedAt();
+                    if (_hovered != null) OpenScriptsForLookedAt();
                     break;
             }
         }
@@ -390,7 +497,7 @@ namespace CustomSceneCreator.Editing {
         }
 
         private void DeleteLookedAt() {
-            PlacedEntity? owner = FindOwner(_entityLookingAt);
+            PlacedEntity? owner = _hovered;
             if (owner == null) {
                 // Part of the original scene, not something we placed. Deleting shipped scene
                 // geometry is a separate feature with its own persistence problem: it would have to
@@ -408,7 +515,7 @@ namespace CustomSceneCreator.Editing {
         }
 
         private void PickUpLookedAt() {
-            PlacedEntity? owner = FindOwner(_entityLookingAt);
+            PlacedEntity? owner = _hovered;
             if (owner == null) {
                 EditorHud.ShowMessage("That is part of the original scene - only placed objects can be moved.", warning: true);
                 return;
@@ -495,7 +602,7 @@ namespace CustomSceneCreator.Editing {
         /// brazier without having to re-place it.
         /// </summary>
         private void OpenScriptsForLookedAt() {
-            PlacedEntity? target = FindOwner(_entityLookingAt);
+            PlacedEntity? target = _hovered;
             if (target == null) {
                 EditorHud.ShowMessage("That is part of the original scene - only objects you placed can carry scripts.",
                     warning: true);
@@ -656,7 +763,7 @@ namespace CustomSceneCreator.Editing {
                 }
 
                 case EditMode.Delete: {
-                    PlacedEntity? target = _entityLookingAt.IsValid ? FindOwner(_entityLookingAt) : null;
+                    PlacedEntity? target = _hovered;
                     status.Set("DELETE",
                         target != null ? Placeable.ToDisplayName(target.PrefabName) : "(nothing under cursor)",
                         target != null
@@ -667,7 +774,7 @@ namespace CustomSceneCreator.Editing {
                 }
 
                 case EditMode.Script: {
-                    PlacedEntity? target = _entityLookingAt.IsValid ? FindOwner(_entityLookingAt) : null;
+                    PlacedEntity? target = _hovered;
                     status.Set("SCRIPTS",
                         target != null ? Placeable.ToDisplayName(target.PrefabName) : "(nothing under cursor)",
                         target != null
@@ -684,7 +791,7 @@ namespace CustomSceneCreator.Editing {
                             $"{Keys.Describe(Keys.Place)} to put down   {Keys.Describe(Keys.RotateDrag)} drag to rotate",
                             UI.StatusTone.Move);
                     } else {
-                        PlacedEntity? target = _entityLookingAt.IsValid ? FindOwner(_entityLookingAt) : null;
+                        PlacedEntity? target = _hovered;
                         status.Set("MOVE",
                             target != null ? Placeable.ToDisplayName(target.PrefabName) : "(nothing under cursor)",
                             target != null
