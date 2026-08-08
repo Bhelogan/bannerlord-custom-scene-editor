@@ -357,7 +357,13 @@ namespace CustomSceneCreator.UI {
         public void ExecuteDoubleClick() => _onDoubleClick?.Invoke(_definition);
     }
 
-    /// <summary>One editable variable row.</summary>
+    /// <summary>
+    /// One editable variable row.
+    ///
+    /// The editor shown depends on the inferred type, because typing "true" into a text box is both
+    /// slower and easier to get wrong than clicking it - and with the type only inferred from
+    /// observed values, showing it as a control is also the clearest way to say what the type IS.
+    /// </summary>
     public class ScriptVariableItemVM : ViewModel {
         private readonly ScriptVariable _variable;
         private readonly Action<string> _onChanged;
@@ -372,13 +378,32 @@ namespace CustomSceneCreator.UI {
         [DataSourceProperty] public string Name => _variable.Name;
         [DataSourceProperty] public string TypeText => _variable.Type;
 
+        /// <summary>Two clickable buttons instead of a text box.</summary>
+        [DataSourceProperty] public bool IsBoolEditor => _variable.Type == "bool";
+
+        /// <summary>A text box: floats, strings, and anything the generator could not classify.</summary>
+        [DataSourceProperty] public bool IsTextEditor => !IsBoolEditor && !_variable.IsEntityReference;
+
         /// <summary>Entity references are shown but not editable - see ScriptVariable.</summary>
-        [DataSourceProperty] public bool IsEditable => !_variable.IsEntityReference;
+        [DataSourceProperty] public bool IsReadOnly => _variable.IsEntityReference;
+
+        [DataSourceProperty] public string TrueText => "true";
+        [DataSourceProperty] public string FalseText => "false";
+
+        [DataSourceProperty] public bool IsTrue => _value == "true";
+        [DataSourceProperty] public bool IsFalse => !IsTrue;
 
         [DataSourceProperty]
-        public string HintText => _variable.IsEntityReference
-            ? "links to another entity - not editable yet"
-            : _variable.Samples;
+        public string HintText {
+            get {
+                if (_variable.IsEntityReference) return "links to another entity - not editable yet";
+                if (IsBoolEditor) return "";
+                return _variable.Samples.Length > 0 ? $"e.g. {_variable.Samples}" : "";
+            }
+        }
+
+        /// <summary>Shown for read-only rows, where there is no input box to display the value in.</summary>
+        [DataSourceProperty] public string ReadOnlyValueText => _value;
 
         [DataSourceProperty]
         public string Value {
@@ -387,8 +412,18 @@ namespace CustomSceneCreator.UI {
                 if (value == _value) return;
                 _value = value ?? "";
                 OnPropertyChangedWithValue(_value, nameof(Value));
+                NotifyBool();
                 _onChanged?.Invoke(_value);
             }
+        }
+
+        public void ExecuteSetTrue() => Value = "true";
+        public void ExecuteSetFalse() => Value = "false";
+
+        private void NotifyBool() {
+            OnPropertyChangedWithValue(IsTrue, nameof(IsTrue));
+            OnPropertyChangedWithValue(IsFalse, nameof(IsFalse));
+            OnPropertyChangedWithValue(ReadOnlyValueText, nameof(ReadOnlyValueText));
         }
     }
 

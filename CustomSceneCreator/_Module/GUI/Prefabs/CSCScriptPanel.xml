@@ -125,20 +125,48 @@
                           <Children>
                             <ListPanel Id="VarInner" DataSource="{VariableItems}" WidthSizePolicy="StretchToParent" HeightSizePolicy="CoverChildren" StackLayout.LayoutMethod="VerticalTopToBottom">
                               <ItemTemplate>
-                                <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="62" Sprite="BlankWhiteSquare_9" Color="#0C0C0CDD" MarginBottom="4" DoNotAcceptEvents="true">
+                                <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="76" Sprite="BlankWhiteSquare_9" Color="#0C0C0CDD" MarginBottom="4" DoNotAcceptEvents="true">
                                   <Children>
-                                    <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="26" StackLayout.LayoutMethod="HorizontalLeftToRight" VerticalAlignment="Top" MarginLeft="10" MarginTop="4" DoNotAcceptEvents="true">
+                                    <!-- Two stacked rows. The value and the hint used to share one
+                                         bottom-aligned slot and drew on top of each other. -->
+                                    <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" StackLayout.LayoutMethod="VerticalTopToBottom" MarginLeft="12" MarginRight="12" MarginTop="6" MarginBottom="6" DoNotAcceptEvents="true">
                                       <Children>
-                                        <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="260" Text="@Name" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
-                                        <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="110" Text="@TypeText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+
+                                        <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="26" StackLayout.LayoutMethod="HorizontalLeftToRight" DoNotAcceptEvents="true">
+                                          <Children>
+                                            <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="280" Text="@Name" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                            <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="90" Text="@TypeText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                            <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@HintText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                          </Children>
+                                        </ListPanel>
+
+                                        <!-- Bools: click the value rather than typing it. -->
+                                        <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="32" StackLayout.LayoutMethod="HorizontalLeftToRight" IsVisible="@IsBoolEditor" MarginTop="4">
+                                          <Children>
+                                            <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="150" Command.Click="ExecuteSetTrue" IsSelected="@IsTrue" Brush="Saveload.SaveList.Item" MarginRight="8">
+                                              <Children>
+                                                <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@TrueText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                              </Children>
+                                            </ButtonWidget>
+                                            <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="150" Command.Click="ExecuteSetFalse" IsSelected="@IsFalse" Brush="Saveload.SaveList.Item">
+                                              <Children>
+                                                <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@FalseText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                              </Children>
+                                            </ButtonWidget>
+                                          </Children>
+                                        </ListPanel>
+
+                                        <!-- Everything else: a text box. -->
+                                        <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="30" Sprite="BlankWhiteSquare_9" Color="#111111FF" IsVisible="@IsTextEditor" MarginTop="4" DoNotAcceptEvents="true">
+                                          <Children>
+                                            <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@Value" Brush="Review.NameInput.Text" DoNotAcceptEvents="false" MarginLeft="8" />
+                                          </Children>
+                                        </Widget>
+
+                                        <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="30" Text="@ReadOnlyValueText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="@IsReadOnly" MarginTop="4" DoNotAcceptEvents="true" />
+
                                       </Children>
                                     </ListPanel>
-                                    <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="26" Sprite="BlankWhiteSquare_9" Color="#111111FF" VerticalAlignment="Bottom" MarginLeft="10" MarginRight="10" MarginBottom="4" IsVisible="@IsEditable" DoNotAcceptEvents="true">
-                                      <Children>
-                                        <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@Value" Brush="Review.NameInput.Text" DoNotAcceptEvents="false" MarginLeft="8" />
-                                      </Children>
-                                    </Widget>
-                                    <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="24" Text="@HintText" Brush="Popup.Description.Text" VerticalAlignment="Bottom" MarginLeft="10" MarginBottom="4" IsVisible="@IsEditable" DoNotAcceptEvents="true" />
                                   </Children>
                                 </Widget>
                               </ItemTemplate>
