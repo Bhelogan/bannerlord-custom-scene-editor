@@ -387,8 +387,11 @@ namespace CustomSceneCreator.UI {
         /// <summary>Entity references are shown but not editable - see ScriptVariable.</summary>
         [DataSourceProperty] public bool IsReadOnly => _variable.IsEntityReference;
 
-        [DataSourceProperty] public string TrueText => "true";
-        [DataSourceProperty] public string FalseText => "false";
+        // The chosen option is marked in the text as well as highlighted behind it. A brush's selected
+        // state is easy to miss on two adjacent buttons, and a variable being silently the wrong way
+        // round is the kind of thing you only discover when the script does nothing in game.
+        [DataSourceProperty] public string TrueText => IsTrue ? "> true" : "true";
+        [DataSourceProperty] public string FalseText => IsFalse ? "> false" : "false";
 
         [DataSourceProperty] public bool IsTrue => _value == "true";
         [DataSourceProperty] public bool IsFalse => !IsTrue;
@@ -423,6 +426,8 @@ namespace CustomSceneCreator.UI {
         private void NotifyBool() {
             OnPropertyChangedWithValue(IsTrue, nameof(IsTrue));
             OnPropertyChangedWithValue(IsFalse, nameof(IsFalse));
+            OnPropertyChangedWithValue(TrueText, nameof(TrueText));
+            OnPropertyChangedWithValue(FalseText, nameof(FalseText));
             OnPropertyChangedWithValue(ReadOnlyValueText, nameof(ReadOnlyValueText));
         }
     }

@@ -143,13 +143,19 @@
                                         <!-- Bools: click the value rather than typing it. -->
                                         <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="32" StackLayout.LayoutMethod="HorizontalLeftToRight" IsVisible="@IsBoolEditor" MarginTop="4">
                                           <Children>
-                                            <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="150" Command.Click="ExecuteSetTrue" IsSelected="@IsTrue" Brush="Saveload.SaveList.Item" MarginRight="8">
+                                            <!-- The chosen option is drawn with its own lit background rather than
+                                                 relying on the brush's selected state, which was invisible here. -->
+                                            <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="150" Command.Click="ExecuteSetTrue" MarginRight="8">
                                               <Children>
+                                                <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="BlankWhiteSquare_9" Color="#2A2118FF" DoNotAcceptEvents="true" />
+                                                <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="BlankWhiteSquare_9" Color="#C8A05AFF" AlphaFactor="0.55" IsVisible="@IsTrue" DoNotAcceptEvents="true" />
                                                 <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@TrueText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                                               </Children>
                                             </ButtonWidget>
-                                            <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="150" Command.Click="ExecuteSetFalse" IsSelected="@IsFalse" Brush="Saveload.SaveList.Item">
+                                            <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="150" Command.Click="ExecuteSetFalse">
                                               <Children>
+                                                <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="BlankWhiteSquare_9" Color="#2A2118FF" DoNotAcceptEvents="true" />
+                                                <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="BlankWhiteSquare_9" Color="#C8A05AFF" AlphaFactor="0.55" IsVisible="@IsFalse" DoNotAcceptEvents="true" />
                                                 <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@FalseText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                                               </Children>
                                             </ButtonWidget>

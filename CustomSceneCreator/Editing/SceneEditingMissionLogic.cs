@@ -330,10 +330,14 @@ namespace CustomSceneCreator.Editing {
                 || UI.ScriptPanelView.IsOpen || UI.SceneOutlinerView.IsOpen) return;
 
             if (Input.IsKeyPressed(Keys.EditMode)) { CycleEditMode(); return; }
+
+            // Listing what is in the scene is a read, not an edit, so it works with the editor idle
+            // too - otherwise you have to enter a build mode just to look at your own work.
+            if (Input.IsKeyPressed(Keys.Outliner)) { OpenOutliner(); return; }
+
             if (_mode == EditMode.Off) return;
 
             if (Input.IsKeyPressed(Keys.AssetPicker)) { OpenAssetPicker(); return; }
-            if (Input.IsKeyPressed(Keys.Outliner)) { OpenOutliner(); return; }
 
             if (Input.IsKeyPressed(Keys.CameraMode)) { CameraModes.Cycle(); return; }
 
@@ -785,7 +789,8 @@ namespace CustomSceneCreator.Editing {
 
             switch (_mode) {
                 case EditMode.Off:
-                    EditorHud.ShowMessage("Editing off.");
+                    EditorHud.ShowMessage(
+                        $"Editing off. {Keys.Describe(Keys.Outliner)}: scene contents.");
                     break;
                 case EditMode.Build:
                     EditorHud.ShowMessage(
@@ -798,6 +803,7 @@ namespace CustomSceneCreator.Editing {
                         $"{Keys.Describe(Keys.PrevPlaceable)}/{Keys.Describe(Keys.NextPlaceable)}: cycle. " +
                         $"{Keys.Describe(Keys.NextCategory)}: category. " +
                         $"{Keys.Describe(Keys.AssetPicker)}: asset picker. " +
+                        $"{Keys.Describe(Keys.Outliner)}: scene contents. " +
                         $"{Keys.Describe(Keys.CameraMode)}: camera. {Keys.Describe(Keys.Save)}: save.");
                     AnnouncePlaceable();
                     break;
