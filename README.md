@@ -63,47 +63,36 @@ Pass `-GameDir` if your install is not at the default path.
 
 ## Editor controls
 
-Hardcoded for now; these become MCM settings later.
+Matched to Homesteads Reloaded's RTS builder where it has an equivalent. Hardcoded for now; these
+become MCM settings later.
 
-### Modes
+The editor opens in **RTS camera** mode: look down at the site, pan around it, and place where the
+**cursor** is. `V` cycles to third and first person, where placement follows your aim instead.
 
 | Key | Action |
 |---|---|
 | `\` | Cycle edit mode: Off - Build - Delete - Move |
-| `V` | Cycle camera: RTS - third person - first person |
-
-The editor opens in **RTS camera** by default. In that mode placement follows the mouse **cursor**;
-in the two player-attached modes it follows your aim, which is what makes first-person building work
-with no separate code path.
-
-### RTS camera
-
-| Input | Action |
-|---|---|
-| `W` `A` `S` `D` | Pan (height stays constant) |
-| `Shift` + `WASD` | Fly along the view direction |
-| `Shift` + drag mouse | Rotate the camera |
-| `Space` / `Left Alt` | Raise / lower |
-| Left click | Place / delete / pick up |
-
-Pan speed scales with height, so the same input works for inspecting a doorway and for laying out a
-village.
-
-### Placing
-
-| Key | Action |
-|---|---|
-| `Q` | Place / delete / pick up (works in every camera mode) |
+| **LMB** | Place / delete / pick up (RTS camera) |
+| `F` | Same, from the keyboard - works in every camera mode |
+| **Hold RMB** + move mouse | Rotate the held object |
+| `Q` `E` | Rotate left / right |
+| `G` | Drop to ground, and re-enable ground follow |
+| `H` | Toggle ground follow (pin the height instead) |
 | `[` `]` | Previous / next placeable |
 | `'` | Next category |
+| `V` | Cycle camera: RTS - third person - first person |
 | `K` | Save the project |
-| Numpad `7` `9` | Turn left / right |
 | Numpad `8` `2` | Tilt up / down |
 | Numpad `4` `6` | Roll left / right |
 | Numpad `0` | Reset rotation and height |
-| Numpad `5` `1` | Raise / lower the held object |
+| Numpad `5` `1` | Raise / lower |
 
-Avoid rebinding onto `P` (the game's pick-up-item bind) or `F` (interact).
+RTS camera: `WASD` pans, `Space` / `Left Alt` change height, hold `Shift` and drag to rotate the
+view, `Shift`+`WASD` flies along the view direction. Pan speed scales with height.
+
+There is no maximum placement range - if you can see it, you can build on it.
+
+Avoid rebinding onto `P` (the game's pick-up-item bind).
 
 Projects are saved as JSON to
 `Documents\Mount and Blade II Bannerlord\CustomSceneCreator\`, one per scene by default, so

@@ -42,7 +42,14 @@ namespace CustomSceneCreator.Editing {
         private IPlacementRaySource RaySource => CameraModes.ActiveRaySource;
 
         private EditMode _mode = EditMode.Off;
-        private const float MaxPlaceDistance = 30f;
+
+        /// <summary>
+        /// How far the placement ray reaches. Deliberately long: the RTS camera is routinely a few
+        /// hundred metres from the site, and the old 30m cap meant the preview simply vanished at
+        /// any useful overview height. Range is not a game rule here - if you can see it, you can
+        /// build on it.
+        /// </summary>
+        private const float MaxPlaceDistance = 2000f;
 
         // What the ray is currently hitting.
         private Vec3 _positionLookingAt = Vec3.Invalid;
@@ -54,6 +61,14 @@ namespace CustomSceneCreator.Editing {
         private GameEntity? _ghost;
         private Mat3 _ghostRotation = Mat3.Identity;
         private Vec3 _ghostOffset = Vec3.Zero;
+
+        /// <summary>
+        /// When true the preview sits on whatever the ray hits, so it walks up and down terrain as
+        /// the cursor moves. When false its height is pinned, which is what you want for a row of
+        /// windows, a floating walkway, or anything that must stay level across uneven ground.
+        /// </summary>
+        private bool _groundFollow = true;
+        private float _lockedHeight;
 
         // Palette state.
         private List<string> _categories = new();
@@ -173,8 +188,9 @@ namespace CustomSceneCreator.Editing {
             Mission.Scene.RayCastForClosestEntityOrTerrain(
                 origin, target, out distance, out _positionLookingAt, out _entityLookingAt);
 
-            // Too far, or too close to the camera to be useful.
-            if (distance > MaxPlaceDistance || distance < source.MinimumDistance) {
+            // Only a near cut-off, and only because a first-person ghost placed at arm's length
+            // fills the screen. There is deliberately no far limit.
+            if (distance < source.MinimumDistance) {
                 _positionLookingAt = Vec3.Invalid;
                 _entityLookingAt = WeakGameEntity.Invalid;
             }
@@ -187,12 +203,12 @@ namespace CustomSceneCreator.Editing {
             if (Input.IsKeyPressed(Keys.CameraMode)) { CameraModes.Cycle(); return; }
 
             // Left click is the natural place action with a visible cursor. Read through the scene
-            // layer, since Gauntlet consumes mouse buttons on the global path first. Q still works in
-            // every mode, so nothing depends on the cursor being over open world.
+            // layer, since Gauntlet consumes mouse buttons on the global path first. F still works
+            // everywhere, including the player-attached cameras where the cursor is captured.
             bool clickPlaced = CameraModes.Current == EditorCameraMode.Rts
-                            && (RtsCameraView.Instance?.IsKeyPressedOnScene(InputKey.LeftMouseButton) ?? false);
+                            && (RtsCameraView.Instance?.IsKeyPressedOnScene(Keys.Place) ?? false);
 
-            if (clickPlaced || Input.IsKeyPressed(Keys.Place)) { HandlePlaceKey(); return; }
+            if (clickPlaced || Input.IsKeyPressed(Keys.PlaceAlt)) { HandlePlaceKey(); return; }
 
             if (Input.IsKeyPressed(Keys.Save)) {
                 _target.Commit();
@@ -200,12 +216,24 @@ namespace CustomSceneCreator.Editing {
                 return;
             }
 
+            if (Input.IsKeyPressed(Keys.ToggleGroundLock)) { ToggleGroundFollow(); return; }
+            if (Input.IsKeyPressed(Keys.SnapToGround))     { SnapToGround();       return; }
+
             // Everything past here only means something with a ghost on screen.
             if (_ghost == null) return;
 
             if (Input.IsKeyPressed(Keys.ResetRotation)) {
                 _ghostRotation = Mat3.Identity;
                 _ghostOffset = Vec3.Zero;
+                return;
+            }
+
+            // Right button held: drag horizontally to spin the object. Free rotation like this is
+            // far quicker than tapping a key for every few degrees, and the RTS camera already
+            // freezes the placement ray while the button is down so the preview holds still.
+            float dragYaw = RtsCameraView.Instance?.GetRotateDragDelta() ?? 0f;
+            if (MathF.Abs(dragYaw) > 0.0001f) {
+                _ghostRotation.RotateAboutUp(-dragYaw * RotateDragSensitivity);
                 return;
             }
 
@@ -333,6 +361,27 @@ namespace CustomSceneCreator.Editing {
             return null;
         }
 
+        /// <summary>Sensitivity of right-drag rotation, in radians per pixel of mouse movement.</summary>
+        private const float RotateDragSensitivity = 0.01f;
+
+        private void ToggleGroundFollow() {
+            _groundFollow = !_groundFollow;
+            if (!_groundFollow && _ghost != null) {
+                // Pin at wherever the preview is right now, so toggling never makes it jump.
+                _lockedHeight = _ghost.GlobalPosition.z;
+            }
+            EditorHud.ShowMessage(_groundFollow
+                ? "Ground follow ON - objects sit on whatever is under the cursor."
+                : $"Ground follow OFF - height pinned at {_lockedHeight:0.0}. " +
+                  $"{Keys.Describe(Keys.SnapToGround)} to drop back to the ground.");
+        }
+
+        private void SnapToGround() {
+            _ghostOffset = Vec3.Zero;
+            _groundFollow = true;
+            EditorHud.ShowMessage("Dropped to ground; ground follow ON.");
+        }
+
         private void CyclePlaceable(int delta) {
             if (_currentCategoryPlaceables.Count == 0) return;
             _placeableIndex = ((_placeableIndex + delta) % _currentCategoryPlaceables.Count
@@ -363,7 +412,11 @@ namespace CustomSceneCreator.Editing {
                     break;
                 case EditMode.Build:
                     EditorHud.ShowMessage(
-                        $"Build mode. {Keys.Describe(Keys.Place)}: place. " +
+                        $"Build mode. {Keys.Describe(Keys.Place)} (or {Keys.Describe(Keys.PlaceAlt)}): place. " +
+                        $"{Keys.Describe(Keys.RotateTurnLeft)}/{Keys.Describe(Keys.RotateTurnRight)} or hold " +
+                        $"{Keys.Describe(Keys.RotateDrag)}: rotate. " +
+                        $"{Keys.Describe(Keys.SnapToGround)}: drop to ground. " +
+                        $"{Keys.Describe(Keys.ToggleGroundLock)}: ground follow. " +
                         $"{Keys.Describe(Keys.PrevPlaceable)}/{Keys.Describe(Keys.NextPlaceable)}: cycle. " +
                         $"{Keys.Describe(Keys.NextCategory)}: category. " +
                         $"{Keys.Describe(Keys.CameraMode)}: camera. {Keys.Describe(Keys.Save)}: save.");
@@ -402,7 +455,9 @@ namespace CustomSceneCreator.Editing {
                 TintGhost();
             }
 
-            _ghost.SetLocalPosition(_positionLookingAt + _ghostOffset);
+            Vec3 ghostPosition = _positionLookingAt + _ghostOffset;
+            if (!_groundFollow) ghostPosition.z = _lockedHeight + _ghostOffset.z;
+            _ghost.SetLocalPosition(ghostPosition);
             MatrixFrame frame = _ghost.GetFrame();
             frame.rotation = _ghostRotation;
             _ghost.SetFrame(ref frame);

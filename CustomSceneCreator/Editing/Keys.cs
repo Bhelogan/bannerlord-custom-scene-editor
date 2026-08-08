@@ -12,24 +12,40 @@ namespace CustomSceneCreator.Editing {
     /// InputKey.Q is the key labelled A.
     /// </summary>
     public static class Keys {
-        // BackSlash, not P: P is the game's own "pick up item" bind, so using it meant every mode
-        // switch also grabbed equipment off the ground.
+        // Matched to Homesteads Reloaded's shipped scheme wherever it has one, so anyone coming from
+        // the RTS builder there does not have to relearn the editor.
+        //   BackSlash - edit mode      (P was the game's own pick-up-item bind)
+        //   Q / E     - yaw the object (the rotation people actually use constantly)
+        //   G / H     - ground snap / ground-follow toggle
+        //   LMB       - place          (RMB held + mouse = rotate)
         public const InputKey EditMode      = InputKey.BackSlash;
-        public const InputKey Place         = InputKey.Q;
         public const InputKey CameraMode    = InputKey.V;
         public const InputKey Save          = InputKey.K;
+
+        /// <summary>Primary place action. Read through the scene layer so Gauntlet does not eat it.</summary>
+        public const InputKey Place         = InputKey.LeftMouseButton;
+        /// <summary>Keyboard fallback, and what Homesteads binds by default. Also the only way to
+        /// place while a player-attached camera has the cursor captured.</summary>
+        public const InputKey PlaceAlt      = InputKey.F;
+
+        /// <summary>Held to rotate the held object with horizontal mouse movement.</summary>
+        public const InputKey RotateDrag    = InputKey.RightMouseButton;
 
         public const InputKey PrevPlaceable = InputKey.OpenBraces;    // [
         public const InputKey NextPlaceable = InputKey.CloseBraces;   // ]
         public const InputKey NextCategory  = InputKey.Apostrophe;    // '
+
+        public const InputKey RotateTurnLeft  = InputKey.Q;
+        public const InputKey RotateTurnRight = InputKey.E;
+
+        public const InputKey SnapToGround     = InputKey.G;
+        public const InputKey ToggleGroundLock = InputKey.H;
 
         public const InputKey ResetRotation = InputKey.Numpad0;
         public const InputKey RotateTiltUp    = InputKey.Numpad8;
         public const InputKey RotateTiltDown  = InputKey.Numpad2;
         public const InputKey RotateRollLeft  = InputKey.Numpad4;
         public const InputKey RotateRollRight = InputKey.Numpad6;
-        public const InputKey RotateTurnLeft  = InputKey.Numpad7;
-        public const InputKey RotateTurnRight = InputKey.Numpad9;
 
         public const InputKey MoveUp   = InputKey.Numpad5;
         public const InputKey MoveDown = InputKey.Numpad1;
@@ -42,6 +58,8 @@ namespace CustomSceneCreator.Editing {
                 case InputKey.Apostrophe:  return "'";
                 case InputKey.Slash:       return "/";
                 case InputKey.BackSlash:   return "\\";
+                case InputKey.LeftMouseButton:  return "LMB";
+                case InputKey.RightMouseButton: return "RMB";
                 case InputKey.Numpad0: return "Num0";
                 case InputKey.Numpad1: return "Num1";
                 case InputKey.Numpad2: return "Num2";

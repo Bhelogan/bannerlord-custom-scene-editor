@@ -244,6 +244,12 @@ namespace CustomSceneCreator.Editing {
                     _needsAgentFreeze = false;
                 }
 
+                // Re-assert the cursor every frame rather than only on entry. Alt-tabbing away and
+                // back leaves the game having re-captured the mouse, which reads as the pointer
+                // being stuck to the centre of the screen and makes the RTS camera unusable until
+                // the mode is toggled. Both calls are cheap and idempotent.
+                ShowCursor(true);
+
                 TrackShiftDrag();
                 RefreshMouseRay();
             } catch (Exception ex) {
@@ -305,6 +311,23 @@ namespace CustomSceneCreator.Editing {
             _isActive
             && !(_shiftHeld && _shiftWasDrag)
             && (MissionScreen?.SceneLayer?.Input?.IsKeyPressed(key) ?? false);
+
+        /// <summary>
+        /// Horizontal mouse movement while the right button is held, for rotating the held object.
+        /// Zero whenever the button is up, so callers can treat any non-zero value as intent.
+        ///
+        /// Shift+drag is excluded because that gesture already belongs to the camera; without the
+        /// check, rotating the view would also spin whatever you were holding.
+        /// </summary>
+        public float GetRotateDragDelta() {
+            if (!_isActive || (_shiftHeld && _shiftWasDrag)) return 0f;
+            try {
+                if (!(MissionScreen?.SceneLayer?.Input?.IsKeyDown(Keys.RotateDrag) ?? false)) return 0f;
+                return MissionScreen.SceneLayer.Input.GetMouseMoveX();
+            } catch {
+                return 0f;
+            }
+        }
 
         private void RefreshMouseRay() {
             if (IsFreezingRay) return;   // keep the last valid ray
