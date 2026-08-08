@@ -71,9 +71,14 @@ namespace CustomSceneCreator.UI {
                 int shown = _items.Count;
                 int total = Filtered().Count();
                 string category = _categories[_categoryIndex];
-                return total > shown
-                    ? $"{category}  (showing {shown} of {total})"
-                    : $"{category}  ({total})";
+
+                // Say plainly that the category is being bypassed, so a search returning things from
+                // elsewhere does not look like the pager is broken.
+                string label = IsSearching
+                    ? $"Search \"{_searchText.Trim()}\" - all categories"
+                    : category;
+
+                return total > shown ? $"{label}  (showing {shown} of {total})" : $"{label}  ({total})";
             }
         }
 
@@ -136,8 +141,22 @@ namespace CustomSceneCreator.UI {
 
         // -- commands ---------------------------------------------------------------------------
 
-        public void ExecuteNextCategory() { _categoryIndex = (_categoryIndex + 1) % _categories.Count; RefreshList(); }
-        public void ExecutePrevCategory() { _categoryIndex = (_categoryIndex - 1 + _categories.Count) % _categories.Count; RefreshList(); }
+        public void ExecuteNextCategory() => StepCategory(1);
+        public void ExecutePrevCategory() => StepCategory(-1);
+
+        /// <summary>
+        /// Paging categories clears an active search. With search covering everything, leaving the
+        /// box populated would mean the pager only reordered results - a control that looks like it
+        /// does nothing. Paging is how you say "show me this category instead".
+        /// </summary>
+        private void StepCategory(int delta) {
+            _categoryIndex = ((_categoryIndex + delta) % _categories.Count + _categories.Count) % _categories.Count;
+            if (IsSearching) {
+                _searchText = "";
+                OnPropertyChangedWithValue(_searchText, nameof(SearchText));
+            }
+            RefreshList();
+        }
 
         public void ExecuteBuild() {
             if (_selected == null) return;
@@ -152,19 +171,35 @@ namespace CustomSceneCreator.UI {
 
         // -- internals --------------------------------------------------------------------------
 
+        private bool IsSearching => !string.IsNullOrWhiteSpace(_searchText);
+
+        /// <summary>
+        /// A search covers the WHOLE catalog and ignores the selected category.
+        ///
+        /// Intersecting the two is the intuitive implementation and the wrong behaviour: you search
+        /// for something precisely because you do not know which of nineteen categories it lives in,
+        /// so filtering the results by a category you happened to be paged to mostly returns nothing
+        /// and looks like the asset does not exist.
+        /// </summary>
         private IEnumerable<Placeable> Filtered() {
             IEnumerable<Placeable> items = _all;
 
-            string category = _categories[_categoryIndex];
-            if (category != AllCategories) items = items.Where(p => p.Category == category);
-
-            if (!string.IsNullOrWhiteSpace(_searchText)) {
+            if (IsSearching) {
                 string q = _searchText.Trim();
                 items = items.Where(p =>
                     p.PrefabName.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0 ||
                     p.DisplayName.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0 ||
                     p.Tags.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0);
+                // Matches in the category you are already on first - if you were browsing Vegetation
+                // and searched "oak", the oaks should be at the top - then everything else.
+                string current = _categories[_categoryIndex];
+                return items
+                    .OrderByDescending(p => current != AllCategories && p.Category == current)
+                    .ThenBy(p => p.DisplayName);
             }
+
+            string category = _categories[_categoryIndex];
+            if (category != AllCategories) items = items.Where(p => p.Category == category);
 
             return items.OrderBy(p => p.DisplayName);
         }
