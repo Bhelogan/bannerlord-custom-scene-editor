@@ -87,7 +87,7 @@ it for you.
 | **Left Ctrl** | Reset rotation and height offset |
 | `G` | Drop to ground, and re-enable ground follow |
 | `H` | Toggle ground follow (pin the height instead) |
-| **`** | Open the asset picker: search, browse, inspect, build |
+| **`** | Open the asset picker: choose a category, search within it, inspect, build |
 | `[` `]` | Previous / next placeable (quick cycle without the picker) |
 | `'` | Next category |
 | `V` | Cycle camera: RTS - third person - first person |

@@ -461,10 +461,10 @@ namespace CustomSceneCreator.Editing {
         /// from another category has to move the category too - otherwise the cycle keys would
         /// immediately jump away from what was just chosen.
         /// </summary>
-        private void ChooseFromPicker(Placeable placeable, IReadOnlyList<Placeable> filtered) {
+        private void ChooseFromPicker(Placeable placeable, IReadOnlyList<Placeable> filtered, string scopeLabel) {
             if (filtered != null && filtered.Count > 0) {
                 _cycleSet = filtered.ToList();
-                _cycleLabel = _cycleSet.Count == 1 ? placeable.Category : "Search results";
+                _cycleLabel = string.IsNullOrWhiteSpace(scopeLabel) ? placeable.Category : scopeLabel;
             } else {
                 int categoryIndex = _categories.IndexOf(placeable.Category);
                 if (categoryIndex >= 0) SelectCategory(categoryIndex);

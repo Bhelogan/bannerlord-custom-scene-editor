@@ -15,7 +15,7 @@ namespace CustomSceneCreator.UI {
     /// catalog rather than only the current category.
     /// </summary>
     public class AssetPickerVM : ViewModel {
-        private readonly Action<Placeable, IReadOnlyList<Placeable>> _onBuild;
+        private readonly Action<Placeable, IReadOnlyList<Placeable>, string> _onBuild;
         private readonly Action _onClose;
         private readonly List<Placeable> _all;
 
@@ -23,6 +23,8 @@ namespace CustomSceneCreator.UI {
         private int _categoryIndex;
 
         private MBBindingList<AssetItemVM> _items = new();
+        private MBBindingList<CategoryItemVM> _categoryItems = new();
+        private bool _isCategoryListOpen;
         private string _searchText = "";
         private Placeable? _selected;
 
@@ -30,7 +32,7 @@ namespace CustomSceneCreator.UI {
         private const int MaxRows = 400;
 
         public AssetPickerVM(IEnumerable<Placeable> placeables,
-                             Action<Placeable, IReadOnlyList<Placeable>> onBuild,
+                             Action<Placeable, IReadOnlyList<Placeable>, string> onBuild,
                              Action onClose,
                              string initialSearch,
                              string initialCategory) {
@@ -48,8 +50,13 @@ namespace CustomSceneCreator.UI {
             int categoryIndex = _categories.IndexOf(initialCategory ?? "");
             if (categoryIndex >= 0) _categoryIndex = categoryIndex;
 
+            RebuildCategoryItems();
             RefreshList();
         }
+
+        /// <summary>What the cycle keys will be walking after this, in words the HUD can show.</summary>
+        public string ScopeLabel =>
+            IsSearching ? $"{_categories[_categoryIndex]}: \"{_searchText.Trim()}\"" : _categories[_categoryIndex];
 
         /// <summary>Current filter state, so it can be restored next time the picker opens.</summary>
         public string CurrentSearch => _searchText;
@@ -60,26 +67,46 @@ namespace CustomSceneCreator.UI {
         [DataSourceProperty] public string TitleText => "Assets";
         [DataSourceProperty] public string BuildText => "Build";
         [DataSourceProperty] public string CloseText => "Close";
-        [DataSourceProperty] public string NextCategoryText => ">";
-        [DataSourceProperty] public string PrevCategoryText => "<";
         [DataSourceProperty] public string HintText =>
-            "Type to search. Double-click an asset to build it, or select and press Build. Esc closes.";
+            "Type to search within the selected category. Double-click an asset to build it, " +
+            "or select and press Build. Esc closes.";
 
+        /// <summary>Label on the category button. The arrow doubles as the affordance that it opens.</summary>
         [DataSourceProperty]
-        public string CategoryText {
+        public string CategoryButtonText => $"{_categories[_categoryIndex]}   ▼";
+
+        /// <summary>Result count, kept separate from the button so the button label stays stable.</summary>
+        [DataSourceProperty]
+        public string ResultCountText {
             get {
                 int shown = _items.Count;
                 int total = Filtered().Count();
-                string category = _categories[_categoryIndex];
-
-                // Say plainly that the category is being bypassed, so a search returning things from
-                // elsewhere does not look like the pager is broken.
-                string label = IsSearching
-                    ? $"Search \"{_searchText.Trim()}\" - all categories"
-                    : category;
-
-                return total > shown ? $"{label}  (showing {shown} of {total})" : $"{label}  ({total})";
+                string scope = IsSearching ? $"matching \"{_searchText.Trim()}\"" : "in this category";
+                return total > shown
+                    ? $"{total} {scope} - showing first {shown}"
+                    : $"{total} {scope}";
             }
+        }
+
+        [DataSourceProperty]
+        public bool IsCategoryListOpen {
+            get => _isCategoryListOpen;
+            set {
+                if (value == _isCategoryListOpen) return;
+                _isCategoryListOpen = value;
+                OnPropertyChangedWithValue(value, nameof(IsCategoryListOpen));
+                OnPropertyChangedWithValue(IsAssetListVisible, nameof(IsAssetListVisible));
+            }
+        }
+
+        /// <summary>The two lists share the same region, so exactly one is visible at a time.</summary>
+        [DataSourceProperty]
+        public bool IsAssetListVisible => !_isCategoryListOpen;
+
+        [DataSourceProperty]
+        public MBBindingList<CategoryItemVM> CategoryItems {
+            get => _categoryItems;
+            set { if (value != _categoryItems) { _categoryItems = value; OnPropertyChangedWithValue(value, nameof(CategoryItems)); } }
         }
 
         [DataSourceProperty] public bool HasSelection => _selected != null;
@@ -141,20 +168,27 @@ namespace CustomSceneCreator.UI {
 
         // -- commands ---------------------------------------------------------------------------
 
-        public void ExecuteNextCategory() => StepCategory(1);
-        public void ExecutePrevCategory() => StepCategory(-1);
-
         /// <summary>
-        /// Paging categories clears an active search. With search covering everything, leaving the
-        /// box populated would mean the pager only reordered results - a control that looks like it
-        /// does nothing. Paging is how you say "show me this category instead".
+        /// Shows the category list in place of the asset list rather than as a floating popup.
+        /// Reusing the same region avoids overlay positioning and z-order entirely, and with twenty
+        /// categories the full-height list is easier to read than a dropdown would be.
         /// </summary>
-        private void StepCategory(int delta) {
-            _categoryIndex = ((_categoryIndex + delta) % _categories.Count + _categories.Count) % _categories.Count;
+        public void ExecuteToggleCategoryList() {
+            IsCategoryListOpen = !IsCategoryListOpen;
+        }
+
+        private void SelectCategory(int index) {
+            _categoryIndex = ((index % _categories.Count) + _categories.Count) % _categories.Count;
+
+            // Changing category resets the search: the search was scoped to the category you are
+            // leaving, so carrying it over would show a filtered slice of somewhere you just left.
             if (IsSearching) {
                 _searchText = "";
                 OnPropertyChangedWithValue(_searchText, nameof(SearchText));
             }
+
+            IsCategoryListOpen = false;
+            RebuildCategoryItems();
             RefreshList();
         }
 
@@ -163,7 +197,7 @@ namespace CustomSceneCreator.UI {
             // Hand back the whole filtered set, not just the selection: the cycle keys should walk
             // the list you were just looking at. Cycling back into all 6,400 prefabs after searching
             // for one thing throws away the filtering you just did.
-            _onBuild?.Invoke(_selected, Filtered().ToList());
+            _onBuild?.Invoke(_selected, Filtered().ToList(), ScopeLabel);
             _onClose?.Invoke();
         }
 
@@ -174,15 +208,15 @@ namespace CustomSceneCreator.UI {
         private bool IsSearching => !string.IsNullOrWhiteSpace(_searchText);
 
         /// <summary>
-        /// A search covers the WHOLE catalog and ignores the selected category.
-        ///
-        /// Intersecting the two is the intuitive implementation and the wrong behaviour: you search
-        /// for something precisely because you do not know which of nineteen categories it lives in,
-        /// so filtering the results by a category you happened to be paged to mostly returns nothing
-        /// and looks like the asset does not exist.
+        /// The selected category is the scope; search narrows within it. "All" is a real category in
+        /// the list, so searching everything is a deliberate choice rather than an accident of which
+        /// category you happened to be on.
         /// </summary>
         private IEnumerable<Placeable> Filtered() {
             IEnumerable<Placeable> items = _all;
+
+            string category = _categories[_categoryIndex];
+            if (category != AllCategories) items = items.Where(p => p.Category == category);
 
             if (IsSearching) {
                 string q = _searchText.Trim();
@@ -190,16 +224,7 @@ namespace CustomSceneCreator.UI {
                     p.PrefabName.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0 ||
                     p.DisplayName.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0 ||
                     p.Tags.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0);
-                // Matches in the category you are already on first - if you were browsing Vegetation
-                // and searched "oak", the oaks should be at the top - then everything else.
-                string current = _categories[_categoryIndex];
-                return items
-                    .OrderByDescending(p => current != AllCategories && p.Category == current)
-                    .ThenBy(p => p.DisplayName);
             }
-
-            string category = _categories[_categoryIndex];
-            if (category != AllCategories) items = items.Where(p => p.Category == category);
 
             return items.OrderBy(p => p.DisplayName);
         }
@@ -208,11 +233,27 @@ namespace CustomSceneCreator.UI {
             _items.Clear();
             // Capped: binding several thousand widgets stalls the UI for seconds, and nobody scrolls
             // past a few hundred anyway. Narrowing the search is the intended way to reach the rest,
-            // and CategoryText says plainly when the list is truncated.
+            // and ResultCountText says plainly when the list is truncated.
             foreach (Placeable p in Filtered().Take(MaxRows)) {
                 _items.Add(new AssetItemVM(p, OnItemClicked, OnItemDoubleClicked, _selected?.PrefabName == p.PrefabName));
             }
-            OnPropertyChangedWithValue(CategoryText, nameof(CategoryText));
+            OnPropertyChangedWithValue(CategoryButtonText, nameof(CategoryButtonText));
+            OnPropertyChangedWithValue(ResultCountText, nameof(ResultCountText));
+        }
+
+        private void RebuildCategoryItems() {
+            _categoryItems.Clear();
+            for (int i = 0; i < _categories.Count; i++) {
+                int index = i;
+                string name = _categories[i];
+                // Counts on each row turn the list into a map of the catalog - you can see at a
+                // glance where the content actually is.
+                int count = name == AllCategories
+                    ? _all.Count
+                    : _all.Count(p => p.Category == name);
+                _categoryItems.Add(new CategoryItemVM(name, count, index == _categoryIndex,
+                    () => SelectCategory(index)));
+            }
         }
 
         private void OnItemClicked(Placeable placeable) {
@@ -303,5 +344,28 @@ namespace CustomSceneCreator.UI {
 
         public void ExecuteClick() => _onClick?.Invoke(_placeable);
         public void ExecuteDoubleClick() => _onDoubleClick?.Invoke(_placeable);
+    }
+
+    public class CategoryItemVM : ViewModel {
+        private readonly Action _onSelect;
+        private bool _isSelected;
+
+        public CategoryItemVM(string name, int count, bool isSelected, Action onSelect) {
+            Name = name;
+            CountText = count.ToString();
+            _isSelected = isSelected;
+            _onSelect = onSelect;
+        }
+
+        [DataSourceProperty] public string Name { get; }
+        [DataSourceProperty] public string CountText { get; }
+
+        [DataSourceProperty]
+        public bool IsSelected {
+            get => _isSelected;
+            set { if (value != _isSelected) { _isSelected = value; OnPropertyChangedWithValue(value, nameof(IsSelected)); } }
+        }
+
+        public void ExecuteSelect() => _onSelect?.Invoke();
     }
 }

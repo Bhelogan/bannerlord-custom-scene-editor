@@ -35,7 +35,7 @@ namespace CustomSceneCreator.UI {
         /// Set by the editor logic. Receives the chosen asset AND the filtered list it came from, so
         /// the cycle keys can continue walking the same results afterwards.
         /// </summary>
-        public Action<Placeable, IReadOnlyList<Placeable>>? OnAssetChosen;
+        public Action<Placeable, IReadOnlyList<Placeable>, string>? OnAssetChosen;
 
         // Filter state survives close/reopen. Static because the view is recreated per mission and
         // this is a user preference, not mission state.
@@ -101,9 +101,9 @@ namespace CustomSceneCreator.UI {
             _dataSource = null;
         }
 
-        private void Choose(Placeable placeable, IReadOnlyList<Placeable> filtered) {
+        private void Choose(Placeable placeable, IReadOnlyList<Placeable> filtered, string scopeLabel) {
             try {
-                OnAssetChosen?.Invoke(placeable, filtered);
+                OnAssetChosen?.Invoke(placeable, filtered, scopeLabel);
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(AssetPickerView), "OnAssetChosen threw", ex);
             }
