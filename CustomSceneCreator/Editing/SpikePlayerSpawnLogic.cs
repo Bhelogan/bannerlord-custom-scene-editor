@@ -21,6 +21,11 @@ namespace CustomSceneCreator.Editing {
         public override void AfterStart() {
             base.AfterStart();
             try {
+                // Without this the mission sits in its default mode and the player has no control:
+                // no movement, no camera. StartUp is the mode the shipping walk-around missions use
+                // for a free-roaming player with no battle running.
+                Mission.SetMissionMode(MissionMode.StartUp, atStart: true);
+
                 SpawnPlayer();
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(SpikePlayerSpawnLogic), "SpawnPlayer threw", ex);
@@ -40,7 +45,16 @@ namespace CustomSceneCreator.Editing {
             TraceLogger.Write(nameof(SpikePlayerSpawnLogic),
                 $"Player character resolved via {source}: '{character.StringId}'.");
 
-            Vec3 position = FindSpawnPosition();
+            Vec3 position = SpawnPointResolver.Resolve(Mission.Scene, out string how);
+            TraceLogger.Write(nameof(SpikePlayerSpawnLogic),
+                $"Spawn position resolved via {how}: ({position.x:0.##}, {position.y:0.##}, {position.z:0.##}).");
+            if (!position.IsValid || position == Vec3.Zero) {
+                TraceLogger.Write(nameof(SpikePlayerSpawnLogic),
+                    "WARNING: no navmesh-backed spawn position found. The player will likely be " +
+                    "unable to move. This scene may ship without a navmesh — check scene_catalog.xml " +
+                    "for noNavMesh on it.");
+                position = Vec3.Zero;
+            }
             Vec2 direction = new Vec2(0f, 1f);
 
             AgentBuildData buildData = new AgentBuildData(character)
@@ -98,38 +112,5 @@ namespace CustomSceneCreator.Editing {
             return null;
         }
 
-        /// <summary>
-        /// Prefers an authored spawn point, then the scene's own centre, then the origin.  Dropping
-        /// the player at the origin of an arbitrary scene often means dropping them off the map, so
-        /// the ground-height lookup matters more than it looks.
-        /// </summary>
-        private Vec3 FindSpawnPosition() {
-            foreach (string tag in new[] { "sp_player", "spawnpoint_player", "sp_player_1" }) {
-                try {
-                    GameEntity? entity = Mission.Scene.FindEntitiesWithTag(tag).FirstOrDefault();
-                    if (entity != null) {
-                        TraceLogger.Write(nameof(SpikePlayerSpawnLogic), $"Using spawn tag '{tag}'.");
-                        return entity.GlobalPosition;
-                    }
-                } catch {
-                    // FindEntitiesWithTag throws on some scenes rather than returning empty.
-                }
-            }
-
-            try {
-                Vec3 min, max;
-                Mission.Scene.GetBoundingBox(out min, out max);
-                Vec2 centre = new Vec2((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
-                float height = Mission.Scene.GetTerrainHeight(centre, true);
-                TraceLogger.Write(nameof(SpikePlayerSpawnLogic),
-                    $"No spawn tag found; using scene centre ({centre.x:0.##}, {centre.y:0.##}) " +
-                    $"at terrain height {height:0.##}.");
-                return new Vec3(centre.x, centre.y, height);
-            } catch (Exception ex) {
-                TraceLogger.Write(nameof(SpikePlayerSpawnLogic),
-                    $"Scene-centre lookup failed ({ex.GetType().Name}); falling back to origin.");
-                return Vec3.Zero;
-            }
-        }
     }
 }

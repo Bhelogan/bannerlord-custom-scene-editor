@@ -30,21 +30,32 @@ namespace CustomSceneCreator.Boot {
                 "CustomSceneCreator",
                 record,
                 mission => {
+                    // Mirrors the behaviour set the shipping homestead walk-around uses, minus its
+                    // homestead-specific logics. That configuration is known to give a controllable
+                    // free-roaming player in a non-battle scene, so it is a better starting point
+                    // than a minimal list assembled by guesswork.
                     var behaviors = new List<MissionBehavior> {
                         new MissionOptionsComponent(),
+                        new CampaignMissionComponent(),
                         new MissionBasicTeamLogic(),
                         new BasicLeaveMissionLogic(),
                         new MissionSingleplayerViewHandler(),
                         new MissionAgentLookHandler(),
+                        new HeroSkillHandler(),
                         new MissionFacialAnimationHandler(),
+                        new AgentHumanAILogic(),
+                        // Populates Mission.Boundaries; several view handlers assume it exists.
+                        new MissionBoundaryPlacer(),
 
-                        // Spike-only: spawns the player and reports what it had to fall back to.
                         new SpikePlayerSpawnLogic(),
 
                         new MissionMainAgentController(),
+                        new EquipmentControllerLeaveLogic(),
+                        ViewCreator.CreateMissionLeaveView(),
                         ViewCreator.CreateMissionAgentStatusUIHandler(mission),
                         ViewCreator.CreateMissionSingleplayerEscapeMenu(false),
                         ViewCreator.CreateOptionsUIHandler(),
+                        ViewCreator.CreatePhotoModeView(),
                     };
                     return behaviors.ToArray();
                 });
