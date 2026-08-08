@@ -1,0 +1,21 @@
+<Prefab>
+  <Window>
+    <!-- Passive overlay. DoNotAcceptEvents everywhere: this must never swallow a click meant for
+         placing an object. -->
+    <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" DoNotAcceptEvents="true" DoNotPassEventsToChildren="false" IsVisible="@IsVisible">
+      <Children>
+        <Widget WidthSizePolicy="Fixed" HeightSizePolicy="CoverChildren" SuggestedWidth="470" HorizontalAlignment="Left" VerticalAlignment="Top" MarginLeft="26" MarginTop="26" Sprite="BlankWhiteSquare_9" Color="#000000AA" DoNotAcceptEvents="true">
+          <Children>
+            <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="CoverChildren" StackLayout.LayoutMethod="VerticalTopToBottom" MarginLeft="14" MarginRight="14" MarginTop="10" MarginBottom="10" DoNotAcceptEvents="true">
+              <Children>
+                <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="24" Text="@ModeText" Color="@ModeColor" Brush="Popup.Description.Text" HorizontalAlignment="Left" DoNotAcceptEvents="true" />
+                <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="30" Text="@PrimaryText" Brush="Popup.Title.Text" HorizontalAlignment="Left" DoNotAcceptEvents="true" />
+                <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="22" Text="@DetailText" Brush="Popup.Description.Text" HorizontalAlignment="Left" DoNotAcceptEvents="true" />
+              </Children>
+            </ListPanel>
+          </Children>
+        </Widget>
+      </Children>
+    </Widget>
+  </Window>
+</Prefab>

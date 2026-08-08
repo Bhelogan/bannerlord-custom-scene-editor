@@ -164,6 +164,7 @@ namespace CustomSceneCreator.Editing {
                 UpdateLookTarget();
                 HandleInput(dt);
                 UpdateGhost();
+                UpdateStatus();
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(SceneEditingMissionLogic), "Tick failed", ex);
             }
@@ -244,13 +245,39 @@ namespace CustomSceneCreator.Editing {
                 return;
             }
 
-            // Right button held: drag horizontally to spin the object. Free rotation like this is
-            // far quicker than tapping a key for every few degrees, and the RTS camera already
-            // freezes the placement ray while the button is down so the preview holds still.
-            float dragYaw = RtsCameraView.Instance?.GetRotateDragDelta() ?? 0f;
-            if (MathF.Abs(dragYaw) > 0.0001f) {
-                _ghostRotation.RotateAboutUp(-dragYaw * RotateDragSensitivity);
+            // Scroll wheel raises and lowers the held object. The most-reached adjustment after
+            // rotation, and the wheel is otherwise unused while an object is held.
+            float scroll = RtsCameraView.Instance?.SceneMouseScroll ?? 0f;
+            if (MathF.Abs(scroll) > 0.0001f) {
+                _ghostOffset.z += scroll * ScrollHeightStep;
                 return;
+            }
+
+            // Right button held: rock the object on CAMERA-relative axes.
+            //
+            // Rotating about the object's own axes is the obvious implementation and feels wrong in
+            // use: once something is yawed, "drag up" tilts it in a direction that has nothing to do
+            // with the screen. Rolling about the camera's horizontal forward vector and tilting about
+            // its horizontal right vector means the drag always matches what you see, whatever the
+            // object's current orientation.
+            //
+            // Yaw is deliberately absent here - that is Q/E. Duplicating it on the drag, which is
+            // what this did before, wastes the gesture and leaves the other two axes unreachable
+            // without the numpad.
+            RtsCameraView? camera = RtsCameraView.Instance;
+            if (camera != null && camera.IsRotateDragging) {
+                float dragX = camera.SceneMouseMoveX;
+                float dragY = camera.SceneMouseMoveY;
+
+                if (MathF.Abs(dragX) > 0.0001f) {
+                    Vec3 rollAxis = camera.CameraForwardHorizontal;
+                    _ghostRotation.RotateAboutAnArbitraryVector(in rollAxis, dragX * RotateDragSensitivity);
+                }
+                if (MathF.Abs(dragY) > 0.0001f) {
+                    Vec3 tiltAxis = camera.CameraRightHorizontal;
+                    _ghostRotation.RotateAboutAnArbitraryVector(in tiltAxis, dragY * RotateDragSensitivity);
+                }
+                // No early return: placing on the same frame as a drag should still work.
             }
 
             if (Input.IsKeyDown(Keys.RotateTiltUp))    { _ghostRotation.RotateAboutSide(dt);     return; }
@@ -377,8 +404,11 @@ namespace CustomSceneCreator.Editing {
             return null;
         }
 
-        /// <summary>Sensitivity of right-drag rotation, in radians per pixel of mouse movement.</summary>
-        private const float RotateDragSensitivity = 0.01f;
+        /// <summary>Radians per pixel of drag. Matches the shipped Homesteads builder.</summary>
+        private const float RotateDragSensitivity = 0.005f;
+
+        /// <summary>Metres per scroll notch.</summary>
+        private const float ScrollHeightStep = 0.25f;
 
         private void ToggleGroundFollow() {
             _groundFollow = !_groundFollow;
@@ -491,6 +521,66 @@ namespace CustomSceneCreator.Editing {
                 case EditMode.Move:
                     EditorHud.ShowMessage($"Move mode. {Keys.Describe(Keys.Place)}: pick up / put down.");
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Keeps the top-left readout answering "what happens if I click now".
+        ///
+        /// In Move this deliberately reports the CARRIED object rather than whatever is under the
+        /// cursor: mid-move the cursor sweeps across other objects, and naming those would make the
+        /// panel flicker through things you are not acting on.
+        /// </summary>
+        private void UpdateStatus() {
+            UI.EditorStatusVM? status = UI.EditorStatusView.Instance?.DataSource;
+            if (status == null) return;
+
+            if (_mode == EditMode.Off) {
+                status.IsVisible = false;
+                return;
+            }
+            status.IsVisible = true;
+
+            switch (_mode) {
+                case EditMode.Build: {
+                    Placeable? p = CurrentPlaceable;
+                    status.Set("BUILD",
+                        p?.DisplayName ?? "(nothing selected)",
+                        p != null
+                            ? $"{_cycleLabel}  {_placeableIndex + 1}/{_cycleSet.Count}   {Keys.Describe(Keys.AssetPicker)} for assets"
+                            : $"{Keys.Describe(Keys.AssetPicker)} to choose an asset",
+                        UI.StatusTone.Build);
+                    break;
+                }
+
+                case EditMode.Delete: {
+                    PlacedEntity? target = _entityLookingAt.IsValid ? FindOwner(_entityLookingAt) : null;
+                    status.Set("DELETE",
+                        target != null ? Placeable.ToDisplayName(target.PrefabName) : "(nothing under cursor)",
+                        target != null
+                            ? $"{Keys.Describe(Keys.Place)} to delete"
+                            : "Only objects you placed can be deleted",
+                        UI.StatusTone.Delete);
+                    break;
+                }
+
+                case EditMode.Move: {
+                    if (_carried != null) {
+                        status.Set("MOVE - carrying",
+                            Placeable.ToDisplayName(_carried.PrefabName),
+                            $"{Keys.Describe(Keys.Place)} to put down   {Keys.Describe(Keys.RotateDrag)} drag to rotate",
+                            UI.StatusTone.Move);
+                    } else {
+                        PlacedEntity? target = _entityLookingAt.IsValid ? FindOwner(_entityLookingAt) : null;
+                        status.Set("MOVE",
+                            target != null ? Placeable.ToDisplayName(target.PrefabName) : "(nothing under cursor)",
+                            target != null
+                                ? $"{Keys.Describe(Keys.Place)} to pick up"
+                                : "Only objects you placed can be moved",
+                            UI.StatusTone.Move);
+                    }
+                    break;
+                }
             }
         }
 

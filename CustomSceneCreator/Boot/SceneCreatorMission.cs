@@ -83,6 +83,7 @@ namespace CustomSceneCreator.Boot {
                         // only the view layer gets a say in.
                         new RtsCameraView(),
                         new UI.AssetPickerView(),
+                        new UI.EditorStatusView(),
                     };
                     return behaviors.ToArray();
                 });

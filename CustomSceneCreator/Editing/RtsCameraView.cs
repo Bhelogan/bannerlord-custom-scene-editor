@@ -332,13 +332,52 @@ namespace CustomSceneCreator.Editing {
         /// Shift+drag is excluded because that gesture already belongs to the camera; without the
         /// check, rotating the view would also spin whatever you were holding.
         /// </summary>
-        public float GetRotateDragDelta() {
-            if (!_isActive || (_shiftHeld && _shiftWasDrag)) return 0f;
-            try {
-                if (!(MissionScreen?.SceneLayer?.Input?.IsKeyDown(Keys.RotateDrag) ?? false)) return 0f;
-                return MissionScreen.SceneLayer.Input.GetMouseMoveX();
-            } catch {
-                return 0f;
+        public bool IsRotateDragging =>
+            _isActive
+            && !(_shiftHeld && _shiftWasDrag)
+            && (MissionScreen?.SceneLayer?.Input?.IsKeyDown(Keys.RotateDrag) ?? false);
+
+        public float SceneMouseMoveX =>
+            _isActive && MissionScreen?.SceneLayer != null
+                ? MissionScreen.SceneLayer.Input.GetMouseMoveX() : 0f;
+
+        public float SceneMouseMoveY =>
+            _isActive && MissionScreen?.SceneLayer != null
+                ? MissionScreen.SceneLayer.Input.GetMouseMoveY() : 0f;
+
+        public float SceneMouseScroll =>
+            _isActive && MissionScreen?.SceneLayer != null
+                ? MissionScreen.SceneLayer.Input.GetDeltaMouseScroll() : 0f;
+
+        /// <summary>
+        /// The camera's horizontal right vector. Used as the TILT axis for drag rotation, so tilting
+        /// always reads as "forward/back relative to how I am looking at it" no matter which way the
+        /// object is already yawed. Using the object's own side axis instead makes the drag feel
+        /// arbitrary as soon as the object is turned.
+        /// </summary>
+        public Vec3 CameraRightHorizontal {
+            get {
+                if (!_isActive || MissionScreen?.CombatCamera == null) return new Vec3(1f, 0f, 0f);
+                // The camera never rolls, so its side vector is already horizontal.
+                Vec3 side = MissionScreen.CombatCamera.Frame.rotation.s;
+                side.z = 0f;
+                float length = side.Length;
+                return length > 0.001f ? side * (1f / length) : new Vec3(1f, 0f, 0f);
+            }
+        }
+
+        /// <summary>
+        /// The camera's horizontal forward vector - its compass heading. Used as the ROLL axis, so
+        /// dragging sideways rocks the object left and right as seen from the camera.
+        /// </summary>
+        public Vec3 CameraForwardHorizontal {
+            get {
+                if (!_isActive || MissionScreen?.CombatCamera == null) return new Vec3(0f, 1f, 0f);
+                // -rotation.u is the full 3D view direction; flatten it to a heading.
+                Vec3 forward = -MissionScreen.CombatCamera.Frame.rotation.u;
+                forward.z = 0f;
+                float length = forward.Length;
+                return length > 0.001f ? forward * (1f / length) : new Vec3(0f, 1f, 0f);
             }
         }
 
