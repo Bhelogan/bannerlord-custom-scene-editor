@@ -71,9 +71,15 @@ namespace CustomSceneCreator.Editing {
         private float _lockedHeight;
 
         // Palette state.
+        //
+        // _cycleSet is what [ and ] walk. It is normally the current category, but choosing from the
+        // asset picker replaces it with the picker's FILTERED results - so after searching "cart" and
+        // building one, the cycle keys step through the other carts instead of dumping you back into
+        // all 6,400 prefabs.
         private List<string> _categories = new();
         private int _categoryIndex;
-        private List<Placeable> _currentCategoryPlaceables = new();
+        private List<Placeable> _cycleSet = new();
+        private string _cycleLabel = "";
         private int _placeableIndex;
 
         /// <summary>Set while an existing object has been picked up in Move mode, so placing it puts
@@ -89,10 +95,10 @@ namespace CustomSceneCreator.Editing {
 
         public EditMode Mode => _mode;
         public Placeable? CurrentPlaceable =>
-            _currentCategoryPlaceables.Count > 0 && _placeableIndex < _currentCategoryPlaceables.Count
-                ? _currentCategoryPlaceables[_placeableIndex]
+            _cycleSet.Count > 0 && _placeableIndex < _cycleSet.Count
+                ? _cycleSet[_placeableIndex]
                 : null;
-        public string CurrentCategory => _categories.Count > 0 ? _categories[_categoryIndex] : "";
+        public string CurrentCategory => _cycleLabel;
         public int PlacedCount => _live.Count;
 
         public override void AfterStart() {
@@ -124,10 +130,11 @@ namespace CustomSceneCreator.Editing {
         private void SelectCategory(int index) {
             _categoryIndex = ((index % _categories.Count) + _categories.Count) % _categories.Count;
             string category = _categories[_categoryIndex];
-            _currentCategoryPlaceables = _provider.GetPlaceables()
+            _cycleSet = _provider.GetPlaceables()
                 .Where(p => p.Category == category)
                 .OrderBy(p => p.DisplayName)
                 .ToList();
+            _cycleLabel = category;
             _placeableIndex = 0;
             RemoveGhost();
         }
@@ -406,13 +413,18 @@ namespace CustomSceneCreator.Editing {
         /// from another category has to move the category too - otherwise the cycle keys would
         /// immediately jump away from what was just chosen.
         /// </summary>
-        private void ChooseFromPicker(Placeable placeable) {
-            int categoryIndex = _categories.IndexOf(placeable.Category);
-            if (categoryIndex >= 0 && categoryIndex != _categoryIndex) SelectCategory(categoryIndex);
+        private void ChooseFromPicker(Placeable placeable, IReadOnlyList<Placeable> filtered) {
+            if (filtered != null && filtered.Count > 0) {
+                _cycleSet = filtered.ToList();
+                _cycleLabel = _cycleSet.Count == 1 ? placeable.Category : "Search results";
+            } else {
+                int categoryIndex = _categories.IndexOf(placeable.Category);
+                if (categoryIndex >= 0) SelectCategory(categoryIndex);
+            }
 
-            int index = _currentCategoryPlaceables.FindIndex(
+            int index = _cycleSet.FindIndex(
                 p => string.Equals(p.PrefabName, placeable.PrefabName, StringComparison.OrdinalIgnoreCase));
-            if (index >= 0) _placeableIndex = index;
+            _placeableIndex = index >= 0 ? index : 0;
 
             // Picking an asset is a build intent; drop straight into build mode rather than making
             // the user also remember to switch.
@@ -426,9 +438,9 @@ namespace CustomSceneCreator.Editing {
         }
 
         private void CyclePlaceable(int delta) {
-            if (_currentCategoryPlaceables.Count == 0) return;
-            _placeableIndex = ((_placeableIndex + delta) % _currentCategoryPlaceables.Count
-                               + _currentCategoryPlaceables.Count) % _currentCategoryPlaceables.Count;
+            if (_cycleSet.Count == 0) return;
+            _placeableIndex = ((_placeableIndex + delta) % _cycleSet.Count
+                               + _cycleSet.Count) % _cycleSet.Count;
             RemoveGhost();
             AnnouncePlaceable();
         }
@@ -436,8 +448,8 @@ namespace CustomSceneCreator.Editing {
         private void AnnouncePlaceable() {
             Placeable? p = CurrentPlaceable;
             EditorHud.ShowSelection(CurrentCategory,
-                p != null ? p.DisplayName : "(empty category)",
-                _placeableIndex + 1, _currentCategoryPlaceables.Count);
+                p != null ? p.DisplayName : "(nothing here)",
+                _placeableIndex + 1, _cycleSet.Count);
         }
 
         private void CycleEditMode() {

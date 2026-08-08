@@ -31,8 +31,16 @@ namespace CustomSceneCreator.UI {
         private GauntletLayer? _layer;
         private AssetPickerVM? _dataSource;
 
-        /// <summary>Set by the editor logic so a chosen asset becomes the active placeable.</summary>
-        public Action<Placeable>? OnAssetChosen;
+        /// <summary>
+        /// Set by the editor logic. Receives the chosen asset AND the filtered list it came from, so
+        /// the cycle keys can continue walking the same results afterwards.
+        /// </summary>
+        public Action<Placeable, IReadOnlyList<Placeable>>? OnAssetChosen;
+
+        // Filter state survives close/reopen. Static because the view is recreated per mission and
+        // this is a user preference, not mission state.
+        private static string _lastSearch = "";
+        private static string _lastCategory = "";
 
         public override void OnMissionScreenInitialize() {
             base.OnMissionScreenInitialize();
@@ -49,7 +57,7 @@ namespace CustomSceneCreator.UI {
             if (IsOpen || MissionScreen == null) return;
 
             try {
-                _dataSource = new AssetPickerVM(placeables, Choose, Close);
+                _dataSource = new AssetPickerVM(placeables, Choose, Close, _lastSearch, _lastCategory);
 
                 _layer = new GauntletLayer("CSCAssetPicker", 4000) { IsFocusLayer = true };
                 _layer.InputRestrictions.SetInputRestrictions();
@@ -73,6 +81,12 @@ namespace CustomSceneCreator.UI {
             if (!IsOpen) return;
             IsOpen = false;
 
+            // Remember the filter before the view model goes away.
+            if (_dataSource != null) {
+                _lastSearch = _dataSource.CurrentSearch;
+                _lastCategory = _dataSource.CurrentCategory;
+            }
+
             try { MBCommon.UnPauseGameEngine(); } catch { }
 
             if (_layer != null) {
@@ -87,9 +101,9 @@ namespace CustomSceneCreator.UI {
             _dataSource = null;
         }
 
-        private void Choose(Placeable placeable) {
+        private void Choose(Placeable placeable, IReadOnlyList<Placeable> filtered) {
             try {
-                OnAssetChosen?.Invoke(placeable);
+                OnAssetChosen?.Invoke(placeable, filtered);
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(AssetPickerView), "OnAssetChosen threw", ex);
             }

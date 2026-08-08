@@ -62,7 +62,11 @@ namespace CustomSceneCreator.Editing {
             }
         }
 
-        /// <summary>Called when a mission starts so a mode does not leak between sessions.</summary>
+        /// <summary>
+        /// Called when a mission starts so a mode does not leak between sessions. Only the declared
+        /// mode is reset here - the camera view for the new mission does not exist yet, and syncs
+        /// itself to this on its first tick.
+        /// </summary>
         public static void Reset() {
             Current = EditorCameraMode.Rts;
         }

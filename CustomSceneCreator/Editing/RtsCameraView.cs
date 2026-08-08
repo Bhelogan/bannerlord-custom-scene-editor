@@ -37,6 +37,7 @@ namespace CustomSceneCreator.Editing {
 
         private bool _isActive;
         private bool _needsAgentFreeze;
+        private bool _initialSyncDone;
 
         private Vec3 _cameraPosition;
         private float _cameraBearing;
@@ -236,6 +237,19 @@ namespace CustomSceneCreator.Editing {
 
         public override void OnMissionScreenTick(float dt) {
             base.OnMissionScreenTick(dt);
+
+            // CameraModes defaults to RTS, but nothing had ever told the CAMERA that: SetActive is
+            // only called from CameraModes.Set, so on entering a scene the mode said "RTS" while the
+            // view was still the agent-follow one. That is why cycling V three times was needed to
+            // reach a mode you were supposedly already in.
+            //
+            // Done on first tick rather than at initialize because MissionScreen.CombatCamera and the
+            // player agent are not necessarily ready yet when the view is created.
+            if (!_initialSyncDone) {
+                _initialSyncDone = true;
+                if (CameraModes.Current == EditorCameraMode.Rts) SetActive(true);
+            }
+
             if (!_isActive) return;
 
             try {

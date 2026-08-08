@@ -15,7 +15,7 @@ namespace CustomSceneCreator.UI {
     /// catalog rather than only the current category.
     /// </summary>
     public class AssetPickerVM : ViewModel {
-        private readonly Action<Placeable> _onBuild;
+        private readonly Action<Placeable, IReadOnlyList<Placeable>> _onBuild;
         private readonly Action _onClose;
         private readonly List<Placeable> _all;
 
@@ -29,7 +29,11 @@ namespace CustomSceneCreator.UI {
         private const string AllCategories = "All";
         private const int MaxRows = 400;
 
-        public AssetPickerVM(IEnumerable<Placeable> placeables, Action<Placeable> onBuild, Action onClose) {
+        public AssetPickerVM(IEnumerable<Placeable> placeables,
+                             Action<Placeable, IReadOnlyList<Placeable>> onBuild,
+                             Action onClose,
+                             string initialSearch,
+                             string initialCategory) {
             _all = placeables.ToList();
             _onBuild = onBuild;
             _onClose = onClose;
@@ -37,8 +41,19 @@ namespace CustomSceneCreator.UI {
             _categories.Add(AllCategories);
             _categories.AddRange(_all.Select(p => p.Category).Distinct().OrderBy(c => c));
 
+            // Reopening should land you back where you were. Searching for "cart", building one, then
+            // having to retype it to build the next is the kind of friction that makes a tool feel
+            // hostile.
+            _searchText = initialSearch ?? "";
+            int categoryIndex = _categories.IndexOf(initialCategory ?? "");
+            if (categoryIndex >= 0) _categoryIndex = categoryIndex;
+
             RefreshList();
         }
+
+        /// <summary>Current filter state, so it can be restored next time the picker opens.</summary>
+        public string CurrentSearch => _searchText;
+        public string CurrentCategory => _categories[_categoryIndex];
 
         // -- bindable ---------------------------------------------------------------------------
 
@@ -126,7 +141,10 @@ namespace CustomSceneCreator.UI {
 
         public void ExecuteBuild() {
             if (_selected == null) return;
-            _onBuild?.Invoke(_selected);
+            // Hand back the whole filtered set, not just the selection: the cycle keys should walk
+            // the list you were just looking at. Cycling back into all 6,400 prefabs after searching
+            // for one thing throws away the filtering you just did.
+            _onBuild?.Invoke(_selected, Filtered().ToList());
             _onClose?.Invoke();
         }
 
