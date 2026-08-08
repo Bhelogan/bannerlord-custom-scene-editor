@@ -47,8 +47,8 @@ namespace CustomSceneCreator.Api {
         IEnumerable<Placeable> GetPlaceables();
     }
 
-    /// <summary>The whole base-game catalog, unfiltered.</summary>
+    /// <summary>Everything placeable: editor-authored packs first, then the base-game catalog.</summary>
     public class CatalogPlaceableProvider : IPlaceableProvider {
-        public IEnumerable<Placeable> GetPlaceables() => AssetCatalog.All;
+        public IEnumerable<Placeable> GetPlaceables() => PlaceableRegistry.All;
     }
 }

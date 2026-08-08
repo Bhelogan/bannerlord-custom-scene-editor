@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Editor-authored placeables that the base game has no prefab for.
+
+  Each renders in the editor as its "proxy" mesh so it can be seen and clicked, and exports as an
+  entity named by "exportName" and tagged with "exportTag" - which is how mod code finds them later
+  (Mission.Scene.FindEntitiesWithTag("sp_enemy") and so on).
+
+  {index} in exportName is replaced with a per-type counter on export, giving sp_enemy_1, sp_enemy_2
+  and so on. That numbering convention is what the scene-authoring guide recommends, and it is what
+  makes a group of markers addressable rather than an anonymous pile.
+
+  Proxies are deliberately base-game editor meshes: editor_cube and editor_cylinder ship with the
+  game, exist in every install, and read clearly as "this is a marker, not scenery".
+
+  Add your own file alongside this one - anything in ModuleData/packs/*.xml is picked up. Do not edit
+  csc_core.xml itself if you can avoid it; a mod update will overwrite it.
+-->
+<Placeables>
+
+  <!-- Spawn points ------------------------------------------------------------------------ -->
+  <Placeable id="csc_player_spawn" display="Player Spawn" category="Editor Markers"
+             proxy="editor_cylinder" exportName="sp_player_{index}" exportTag="sp_player" />
+
+  <Placeable id="csc_ally_spawn" display="Ally Spawn" category="Editor Markers"
+             proxy="editor_cube" exportName="sp_ally_{index}" exportTag="sp_ally" />
+
+  <Placeable id="csc_enemy_spawn" display="Enemy Spawn" category="Editor Markers"
+             proxy="editor_cube" exportName="sp_enemy_{index}" exportTag="sp_enemy" />
+
+  <Placeable id="csc_neutral_spawn" display="Neutral / NPC Spawn" category="Editor Markers"
+             proxy="editor_cube" exportName="sp_npc_{index}" exportTag="sp_npc" />
+
+  <!-- Navigation -------------------------------------------------------------------------- -->
+  <Placeable id="csc_nav_node" display="Navigation Node" category="Editor Markers"
+             proxy="editor_cylinder" exportName="nav_node_{index}" exportTag="nav_node" />
+
+  <Placeable id="csc_patrol_point" display="Patrol Point" category="Editor Markers"
+             proxy="editor_cylinder" exportName="patrol_point_{index}" exportTag="patrol_point" />
+
+  <!-- Race track -------------------------------------------------------------------------- -->
+  <Placeable id="csc_race_start" display="Race Start" category="Editor Markers"
+             proxy="editor_cube" exportName="race_start" exportTag="race_start" />
+
+  <Placeable id="csc_race_gate" display="Race Gate" category="Editor Markers"
+             proxy="editor_cylinder" exportName="race_gate_{index}" exportTag="race_gate" />
+
+  <Placeable id="csc_race_finish" display="Race Finish" category="Editor Markers"
+             proxy="editor_cube" exportName="race_finish" exportTag="race_finish" />
+
+  <!-- Areas ------------------------------------------------------------------------------- -->
+  <Placeable id="csc_boundary" display="Boundary Marker" category="Editor Markers"
+             proxy="editor_cube" exportName="boundary_{index}" exportTag="boundary" />
+
+</Placeables>

@@ -288,7 +288,7 @@ namespace CustomSceneCreator.Editing {
         }
 
         private void PlaceGhost() {
-            Placeable? placeable = _carried != null ? AssetCatalog.Find(_carried.PrefabName) : CurrentPlaceable;
+            Placeable? placeable = _carried != null ? PlaceableRegistry.Find(_carried.PrefabName) : CurrentPlaceable;
             string prefabName = _carried?.PrefabName ?? placeable?.PrefabName ?? "";
             if (prefabName.Length == 0) return;
 
@@ -543,6 +543,9 @@ namespace CustomSceneCreator.Editing {
 
         private GameEntity? Instantiate(string prefabName, Vec3 position, Mat3 rotation) {
             try {
+                // Editor-authored markers save under their own id but instantiate a stand-in mesh,
+                // so resolve through the registry rather than trusting the saved name to be a prefab.
+                prefabName = PlaceableRegistry.ResolveSpawnPrefab(prefabName);
                 if (!GameEntity.PrefabExists(prefabName)) return null;
                 MatrixFrame frame = MatrixFrame.Identity;
                 frame.rotation = rotation;

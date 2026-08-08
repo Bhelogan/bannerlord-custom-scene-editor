@@ -43,6 +43,25 @@ namespace CustomSceneCreator.Catalog {
         /// its script, and some of them assume a mission type we are not in.</summary>
         public bool HasScripts => Scripts.Length > 0;
 
+        // -- editor-authored placeables (packs) --------------------------------------------------
+
+        /// <summary>
+        /// Prefab actually instantiated. For editor-authored markers this is a stand-in mesh
+        /// (editor_cube, editor_cylinder) so the thing is visible while building; the real identity
+        /// stays <see cref="PrefabName"/>, which is what gets saved and exported.
+        /// </summary>
+        public string ProxyPrefab = "";
+
+        /// <summary>Entity name pattern written on export, e.g. <c>sp_enemy_{index}</c>. Empty for
+        /// base-game prefabs, which export under their own name.</summary>
+        public string ExportName = "";
+
+        /// <summary>Tag written on export, so code can find these with FindEntitiesWithTag.</summary>
+        public string ExportTag = "";
+
+        /// <summary>What to hand GameEntity.Instantiate.</summary>
+        public string SpawnPrefabName => ProxyPrefab.Length > 0 ? ProxyPrefab : PrefabName;
+
         public const string SourceBaseGame = "Base Game";
         public const string SourceEditor = "Scene Editor";
 

@@ -35,6 +35,7 @@ namespace CustomSceneCreator.Catalog {
         // external bake scripts and a silent off-by-one here would be hard to spot.
         private const int ColName = 0;
         private const int ColModule = 1;
+        private const int ColPrefabFile = 2;
         private const int ColCategory = 4;
         private const int ColHasPhysics = 5;
         private const int ColPhysicsShapes = 7;
@@ -56,7 +57,7 @@ namespace CustomSceneCreator.Catalog {
                 return result;
             }
 
-            int rows = 0, missing = 0, duplicates = 0;
+            int rows = 0, missing = 0, duplicates = 0, skipped = 0;
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             try {
@@ -75,6 +76,14 @@ namespace CustomSceneCreator.Catalog {
                     if (prefabName.Length == 0) continue;
                     if (!seen.Add(prefabName)) { duplicates++; continue; }
 
+                    string prefabFile = Column(parts, ColPrefabFile);
+
+                    // Campaign-map icon meshes. 470 of them, and none belongs in a scene - they are
+                    // world-map UI, the same class of thing as the non-openable scenes the browser
+                    // already hides. Dropping them turns Misc from a 572-entry landfill into a
+                    // 141-entry leftovers bucket.
+                    if (IsCampaignMapIcon(prefabName, prefabFile)) { skipped++; continue; }
+
                     // The dump is a snapshot; the running game is the authority.
                     if (!GameEntity.PrefabExists(prefabName)) { missing++; continue; }
 
@@ -84,7 +93,7 @@ namespace CustomSceneCreator.Catalog {
                         PrefabName = prefabName,
                         DisplayName = Placeable.ToDisplayName(prefabName),
                         Module = parts[ColModule].Trim(),
-                        Category = MapCategory(parts[ColCategory].Trim(), prefabName, meshes.Length == 0),
+                        Category = MapCategory(parts[ColCategory].Trim(), prefabName, prefabFile, meshes.Length == 0),
                         HasPhysics = parts[ColHasPhysics].Trim().Equals("yes", StringComparison.OrdinalIgnoreCase),
                         IsLogical = meshes.Length == 0,
                         Source = Placeable.SourceBaseGame,
@@ -103,27 +112,52 @@ namespace CustomSceneCreator.Catalog {
             TraceLogger.Write(nameof(AssetCatalog),
                 $"Loaded {result.Count} placeables from '{IOPath.GetFileName(path)}' " +
                 $"({rows} rows, {missing} no longer in the game, {duplicates} duplicate names, " +
+                $"{skipped} campaign-map icons skipped, " +
                 $"{result.Count(p => p.IsLogical)} logical/marker).");
 
             return result;
         }
 
+        /// <summary>Campaign-map icon meshes - world-map UI, not scene content.</summary>
+        private static bool IsCampaignMapIcon(string prefabName, string prefabFile) =>
+            prefabFile.IndexOf("map_icon", StringComparison.OrdinalIgnoreCase) >= 0
+            || prefabName.StartsWith("map_icon", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Cultures the game organises its architecture by, and so do we.</summary>
+        private static readonly string[] Cultures =
+            { "aserai", "battania", "empire", "khuzait", "nord", "sturgia", "vlandia" };
+
         /// <summary>
-        /// Re-cuts the dump's file-derived category into something a scene author looks for.
+        /// Re-cuts the dump's file-derived category into something a scene author navigates by.
         ///
-        /// The dump infers category from the prefab FILE, which groups by how TaleWorlds organised
-        /// their source, not by what a thing is. Prefab names are the better signal for the handful
-        /// of cases that matter most - markers especially, since those are scattered across files.
+        /// The dump takes its category from the prefab FILE, which groups by how TaleWorlds organised
+        /// their source. Left alone that puts HALF the catalog - 3,141 of 6,311 - into one
+        /// "architecture" bucket, so paging into it narrows nothing.
+        ///
+        /// Architecture is therefore split by CULTURE, which is how those files are already arranged
+        /// and how someone building a themed settlement thinks. The modular kit (building_details /
+        /// bd_*) is split out separately: walls, roofs and doorways are pieces you assemble, not
+        /// buildings you place, and they are used at a completely different moment.
         /// </summary>
-        private static string MapCategory(string dumpCategory, string prefabName, bool isLogical) {
+        private static string MapCategory(string dumpCategory, string prefabName, string prefabFile, bool isLogical) {
             string name = prefabName.ToLowerInvariant();
+            string file = prefabFile.ToLowerInvariant();
 
             if (isLogical || name.StartsWith("sp_") || name.Contains("spawn") || name.StartsWith("editor_")) {
                 return "Markers & Logic";
             }
 
+            if (dumpCategory == "architecture") {
+                if (file.Contains("building_details") || name.StartsWith("bd_")) return "Building Parts";
+                foreach (string culture in Cultures) {
+                    if (file.Contains(culture) || name.StartsWith(culture)) {
+                        return "Buildings - " + char.ToUpperInvariant(culture[0]) + culture.Substring(1);
+                    }
+                }
+                return "Buildings - Other";
+            }
+
             switch (dumpCategory) {
-                case "architecture": return "Buildings";
                 case "vegetation":   return "Vegetation";
                 case "terrain":      return "Terrain & Rocks";
                 case "siege":        return "Siege";
