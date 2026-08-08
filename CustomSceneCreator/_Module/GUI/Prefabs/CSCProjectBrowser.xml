@@ -29,8 +29,17 @@
                           <ItemTemplate>
                             <ButtonWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="44" Command.Click="ExecuteClick" Command.DoubleClick="ExecuteDoubleClick" IsSelected="@IsSelected" Brush="Saveload.SaveList.Item" MarginBottom="4">
                               <Children>
-                                <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@Name" Brush="Popup.Button.Text" HorizontalAlignment="Left" VerticalAlignment="Center" MarginLeft="16" DoNotAcceptEvents="true" />
-                                <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="420" Text="@DetailText" Brush="Popup.Description.Text" HorizontalAlignment="Right" VerticalAlignment="Center" MarginRight="16" DoNotAcceptEvents="true" />
+                                <!-- Columns in a horizontal panel. A StretchToParent TextWidget centres
+                                     its text across the WHOLE row, so two of them draw on top of each
+                                     other; fixed slots keep each string in its own space. -->
+                                <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" StackLayout.LayoutMethod="HorizontalLeftToRight" MarginLeft="14" MarginRight="14" DoNotAcceptEvents="true">
+                                  <Children>
+                                    <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="260" Text="@Name" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                    <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="90" Text="@CountText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                    <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="240" Text="@SceneText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                    <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="180" Text="@ModifiedText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                  </Children>
+                                </ListPanel>
                               </Children>
                             </ButtonWidget>
                           </ItemTemplate>

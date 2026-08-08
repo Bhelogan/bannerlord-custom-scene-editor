@@ -47,10 +47,14 @@
                       <Children>
                         <ListPanel Id="InnerPanel" DataSource="{SceneItems}" WidthSizePolicy="StretchToParent" HeightSizePolicy="CoverChildren" StackLayout.LayoutMethod="VerticalTopToBottom">
                           <ItemTemplate>
-                            <ButtonWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="42" Command.Click="ExecuteClick" IsSelected="@IsSelected" Brush="Saveload.SaveList.Item" MarginBottom="4">
+<ButtonWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="42" Command.Click="ExecuteClick" IsSelected="@IsSelected" Brush="Saveload.SaveList.Item" MarginBottom="4">
                               <Children>
-                                <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@SceneName" Brush="Popup.Button.Text" HorizontalAlignment="Left" VerticalAlignment="Center" MarginLeft="14" DoNotAcceptEvents="true" />
-                                <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="260" Text="@DetailText" Brush="Popup.Description.Text" HorizontalAlignment="Right" VerticalAlignment="Center" MarginRight="14" DoNotAcceptEvents="true" />
+                                <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" StackLayout.LayoutMethod="HorizontalLeftToRight" MarginLeft="14" MarginRight="14" DoNotAcceptEvents="true">
+                                  <Children>
+                                    <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="440" Text="@SceneName" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                    <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="300" Text="@DetailText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                  </Children>
+                                </ListPanel>
                               </Children>
                             </ButtonWidget>
                           </ItemTemplate>

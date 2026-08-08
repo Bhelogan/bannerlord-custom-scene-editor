@@ -128,9 +128,11 @@ namespace CustomSceneCreator.UI {
 
         [DataSourceProperty] public string Name => _project.Name;
 
-        [DataSourceProperty]
-        public string DetailText =>
-            $"{_project.Entities.Count} obj   {_project.TargetScene}   {_project.Modified:yyyy-MM-dd HH:mm}";
+        // Separate columns rather than one packed string: each gets its own fixed slot in the row,
+        // which is what stops them overlapping.
+        [DataSourceProperty] public string CountText => $"{_project.Entities.Count} obj";
+        [DataSourceProperty] public string SceneText => _project.TargetScene;
+        [DataSourceProperty] public string ModifiedText => _project.Modified.ToString("yyyy-MM-dd HH:mm");
 
         [DataSourceProperty]
         public bool IsSelected {
