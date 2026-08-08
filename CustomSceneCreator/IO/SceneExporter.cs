@@ -177,12 +177,48 @@ namespace CustomSceneCreator.IO {
                     sb.AppendLine($"{indent}    <tag name=\"{Escape(placeable.ExportTag)}\"/>");
                     sb.AppendLine($"{indent}  </tags>");
                 }
+                AppendScripts(sb, entity, indent + "  ");
                 sb.AppendLine($"{indent}</game_entity>");
             } else {
                 sb.AppendLine($"{indent}<game_entity prefab=\"{Escape(entity.Prefab)}\">");
                 sb.AppendLine($"{indent}  {transform}");
+                AppendScripts(sb, entity, indent + "  ");
                 sb.AppendLine($"{indent}</game_entity>");
             }
+        }
+
+        /// <summary>
+        /// Writes attached scripts in the shape the engine reads them back:
+        ///
+        ///   &lt;scripts&gt;&lt;script name="LightCycle"&gt;&lt;variables&gt;
+        ///     &lt;variable name="alwaysBurn" value="true"/&gt;
+        ///
+        /// This is the half that makes attachment worth anything - a fire attached in the editor is
+        /// only a fire in the finished scene if it survives the write-out.
+        /// </summary>
+        private static void AppendScripts(StringBuilder sb, Editing.ProjectEntity entity, string indent) {
+            if (entity.Scripts == null || entity.Scripts.Count == 0) return;
+
+            sb.AppendLine($"{indent}<scripts>");
+            foreach (Editing.ProjectScript script in entity.Scripts) {
+                if (string.IsNullOrWhiteSpace(script.Name)) continue;
+
+                bool hasVariables = script.Variables != null && script.Variables.Count > 0;
+                if (!hasVariables) {
+                    sb.AppendLine($"{indent}  <script name=\"{Escape(script.Name)}\"/>");
+                    continue;
+                }
+
+                sb.AppendLine($"{indent}  <script name=\"{Escape(script.Name)}\">");
+                sb.AppendLine($"{indent}    <variables>");
+                foreach (KeyValuePair<string, string> variable in script.Variables) {
+                    sb.AppendLine($"{indent}      <variable name=\"{Escape(variable.Key)}\" " +
+                                  $"value=\"{Escape(variable.Value)}\"/>");
+                }
+                sb.AppendLine($"{indent}    </variables>");
+                sb.AppendLine($"{indent}  </script>");
+            }
+            sb.AppendLine($"{indent}</scripts>");
         }
 
         /// <summary>Replaces {index} with a per-pattern counter, giving sp_enemy_1, sp_enemy_2, ...</summary>

@@ -3,6 +3,24 @@ using CustomSceneCreator.Catalog;
 using TaleWorlds.Library;
 
 namespace CustomSceneCreator.Api {
+    /// <summary>
+    /// A scene script attached to a placed object - a fire on a brazier, a turn on a windmill.
+    ///
+    /// Variables are kept as strings keyed by name rather than typed fields: the catalog is mined
+    /// from shipped scenes, so the set of variables a script takes is data, not something that can be
+    /// known at compile time. The catalog says what type each one is meant to be; this just carries
+    /// whatever was entered.
+    /// </summary>
+    public class AttachedScript {
+        public string Name = "";
+        public Dictionary<string, string> Variables = new();
+
+        public AttachedScript Clone() => new AttachedScript {
+            Name = Name,
+            Variables = new Dictionary<string, string>(Variables),
+        };
+    }
+
     /// <summary>One placed object: what it is, and where it sits.</summary>
     public class PlacedEntity {
         public string PrefabName = "";
@@ -14,6 +32,9 @@ namespace CustomSceneCreator.Api {
         /// <summary>Stable identity, needed by scripts whose variables reference other entities -
         /// AnimationPoint's PairEntity holds a GUID of its partner. Assigned on placement.</summary>
         public string Id = "";
+
+        /// <summary>Scripts attached to this object. Written out on export.</summary>
+        public List<AttachedScript> Scripts = new();
 
         /// <summary>The live entity in the scene, when there is one. Not persisted.</summary>
         public TaleWorlds.Engine.GameEntity? SceneEntity;

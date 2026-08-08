@@ -6,6 +6,12 @@ using Newtonsoft.Json;
 using TaleWorlds.Library;
 
 namespace CustomSceneCreator.Editing {
+    /// <summary>Serialisable form of an attached script.</summary>
+    public class ProjectScript {
+        public string Name = "";
+        public Dictionary<string, string> Variables = new();
+    }
+
     /// <summary>Serialisable form of one placed object.</summary>
     public class ProjectEntity {
         public string Id = "";
@@ -17,7 +23,14 @@ namespace CustomSceneCreator.Editing {
         public float[] RotU = { 0, 0, 1 };
         public float[] RotS = { 1, 0, 0 };
 
+        /// <summary>Attached scene scripts, name -> variables. Empty for most objects.</summary>
+        public List<ProjectScript> Scripts = new();
+
         public static ProjectEntity From(PlacedEntity e) => new ProjectEntity {
+            Scripts = e.Scripts.Select(s => new ProjectScript {
+                Name = s.Name,
+                Variables = new Dictionary<string, string>(s.Variables),
+            }).ToList(),
             Id = e.Id,
             Prefab = e.PrefabName,
             Pos = new[] { e.Position.x, e.Position.y, e.Position.z },
@@ -28,6 +41,11 @@ namespace CustomSceneCreator.Editing {
 
         public PlacedEntity To() => new PlacedEntity {
             Id = Id,
+            Scripts = (Scripts ?? new List<ProjectScript>())
+                .Select(s => new AttachedScript {
+                    Name = s.Name,
+                    Variables = new Dictionary<string, string>(s.Variables ?? new Dictionary<string, string>()),
+                }).ToList(),
             PrefabName = Prefab,
             Position = new Vec3(Pos[0], Pos[1], Pos[2]),
             Rotation = new Mat3(

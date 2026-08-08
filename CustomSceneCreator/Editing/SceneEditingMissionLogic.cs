@@ -158,6 +158,7 @@ namespace CustomSceneCreator.Editing {
                     continue;
                 }
                 entity.SceneEntity = spawned;
+                ScriptAttacher.ApplyAll(spawned, entity);
                 _live.Add(entity);
             }
         }
@@ -360,6 +361,7 @@ namespace CustomSceneCreator.Editing {
                 _carried.Position = position;
                 _carried.Rotation = rotation;
                 _carried.SceneEntity = spawned;
+                ScriptAttacher.ApplyAll(spawned, _carried);
                 _target.OnEntityAdded(_carried);
                 _live.Add(_carried);
                 _carried = null;
