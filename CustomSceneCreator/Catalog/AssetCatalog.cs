@@ -37,7 +37,12 @@ namespace CustomSceneCreator.Catalog {
         private const int ColModule = 1;
         private const int ColCategory = 4;
         private const int ColHasPhysics = 5;
+        private const int ColPhysicsShapes = 7;
         private const int ColMeshes = 11;
+        private const int ColScripts = 12;
+        private const int ColTags = 13;
+        private const int ColMobility = 15;
+        private const int ColChildNames = 18;
         private const int MinColumns = 12;
 
         private static List<Placeable> Load() {
@@ -83,6 +88,12 @@ namespace CustomSceneCreator.Catalog {
                         HasPhysics = parts[ColHasPhysics].Trim().Equals("yes", StringComparison.OrdinalIgnoreCase),
                         IsLogical = meshes.Length == 0,
                         Source = Placeable.SourceBaseGame,
+                        Meshes = meshes,
+                        PhysicsShapes = Column(parts, ColPhysicsShapes),
+                        Scripts = Column(parts, ColScripts),
+                        Tags = Column(parts, ColTags),
+                        Mobility = Column(parts, ColMobility),
+                        ChildNames = Column(parts, ColChildNames),
                     });
                 }
             } catch (Exception ex) {
@@ -126,6 +137,10 @@ namespace CustomSceneCreator.Catalog {
                 default:             return "Misc";
             }
         }
+
+        /// <summary>Trailing columns are absent on older dumps, so read defensively.</summary>
+        private static string Column(string[] parts, int index) =>
+            index < parts.Length ? parts[index].Trim() : "";
 
         private static string ResolveDumpPath() {
             foreach (string dir in new[] {

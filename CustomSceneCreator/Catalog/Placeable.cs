@@ -29,6 +29,20 @@ namespace CustomSceneCreator.Catalog {
 
         public bool HasPhysics;
 
+        // Descriptive detail, straight from the dump. Shown in the picker's info pane: for a scene
+        // author, "what meshes does this have and does it collide" is the useful question, where the
+        // homestead builder showed economy stats.
+        public string Meshes = "";
+        public string PhysicsShapes = "";
+        public string Scripts = "";
+        public string Tags = "";
+        public string ChildNames = "";
+        public string Mobility = "";
+
+        /// <summary>Prefabs carrying scripts are not measured in the picker - instantiating one runs
+        /// its script, and some of them assume a mission type we are not in.</summary>
+        public bool HasScripts => Scripts.Length > 0;
+
         public const string SourceBaseGame = "Base Game";
         public const string SourceEditor = "Scene Editor";
 

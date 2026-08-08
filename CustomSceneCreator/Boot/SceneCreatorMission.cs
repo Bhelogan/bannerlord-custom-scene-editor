@@ -82,6 +82,7 @@ namespace CustomSceneCreator.Boot {
                         // A MissionView, not a MissionLogic: it has to override the camera, which
                         // only the view layer gets a say in.
                         new RtsCameraView(),
+                        new UI.AssetPickerView(),
                     };
                     return behaviors.ToArray();
                 });

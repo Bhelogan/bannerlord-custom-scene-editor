@@ -7,8 +7,8 @@ needing a homestead or the Modding Kit.
 
 > **Status: early development, but usable.** Entered from inside a campaign (settlement menu or
 > `csc.open`). Scene browser, asset catalog, RTS/third/first-person cameras, and build/delete/move
-> with JSON project save-load are all in. Still to come: an asset picker UI (the palette is cycled
-> with keys today), logical placeables, script attachment, and export.
+> with JSON project save-load are all in, plus a searchable asset picker. Still to come: logical
+> placeables, script attachment, and export.
 > See [CUSTOM_SCENE_CREATOR_PLAN.md](CUSTOM_SCENE_CREATOR_PLAN.md) for the full design and
 > milestone list.
 
@@ -82,7 +82,8 @@ The editor opens in **RTS camera** mode: look down at the site, pan around it, a
 | **Left Ctrl** | Reset rotation and height offset |
 | `G` | Drop to ground, and re-enable ground follow |
 | `H` | Toggle ground follow (pin the height instead) |
-| `[` `]` | Previous / next placeable |
+| **`** | Open the asset picker: search, browse, inspect, build |
+| `[` `]` | Previous / next placeable (quick cycle without the picker) |
 | `'` | Next category |
 | `V` | Cycle camera: RTS - third person - first person |
 | `K` | Save the project |

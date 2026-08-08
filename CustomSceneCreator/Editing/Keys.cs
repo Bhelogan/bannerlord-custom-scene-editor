@@ -20,6 +20,8 @@ namespace CustomSceneCreator.Editing {
         //   LMB       - place          (RMB held + mouse = rotate)
         public const InputKey EditMode      = InputKey.BackSlash;
         public const InputKey CameraMode    = InputKey.V;
+        /// <summary>Opens the asset picker. Tilde is what Homesteads uses for its building picker.</summary>
+        public const InputKey AssetPicker   = InputKey.Tilde;
         public const InputKey Save          = InputKey.K;
 
         /// <summary>Primary place action. Read through the scene layer so Gauntlet does not eat it.</summary>
@@ -63,6 +65,7 @@ namespace CustomSceneCreator.Editing {
                 case InputKey.LeftMouseButton:  return "LMB";
                 case InputKey.RightMouseButton: return "RMB";
                 case InputKey.LeftControl:      return "Left Ctrl";
+                case InputKey.Tilde:            return "`";
                 case InputKey.Numpad0: return "Num0";
                 case InputKey.Numpad1: return "Num1";
                 case InputKey.Numpad2: return "Num2";

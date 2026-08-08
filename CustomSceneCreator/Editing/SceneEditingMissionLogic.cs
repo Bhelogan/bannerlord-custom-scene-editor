@@ -197,8 +197,14 @@ namespace CustomSceneCreator.Editing {
         }
 
         private void HandleInput(float dt) {
+            // Nothing else may act while the picker owns input: it pauses the engine and takes focus,
+            // so a stray keypress reaching here would edit the scene behind a modal panel.
+            if (UI.AssetPickerView.IsOpen) return;
+
             if (Input.IsKeyPressed(Keys.EditMode)) { CycleEditMode(); return; }
             if (_mode == EditMode.Off) return;
+
+            if (Input.IsKeyPressed(Keys.AssetPicker)) { OpenAssetPicker(); return; }
 
             if (Input.IsKeyPressed(Keys.CameraMode)) { CameraModes.Cycle(); return; }
 
@@ -385,6 +391,40 @@ namespace CustomSceneCreator.Editing {
             EditorHud.ShowMessage("Dropped to ground; ground follow ON.");
         }
 
+        private void OpenAssetPicker() {
+            UI.AssetPickerView? view = UI.AssetPickerView.Instance;
+            if (view == null) {
+                EditorHud.ShowMessage("Asset picker unavailable.", warning: true);
+                return;
+            }
+            view.OnAssetChosen = ChooseFromPicker;
+            view.Open(_provider.GetPlaceables());
+        }
+
+        /// <summary>
+        /// Makes a picked asset the active one. The palette is per-category, so selecting something
+        /// from another category has to move the category too - otherwise the cycle keys would
+        /// immediately jump away from what was just chosen.
+        /// </summary>
+        private void ChooseFromPicker(Placeable placeable) {
+            int categoryIndex = _categories.IndexOf(placeable.Category);
+            if (categoryIndex >= 0 && categoryIndex != _categoryIndex) SelectCategory(categoryIndex);
+
+            int index = _currentCategoryPlaceables.FindIndex(
+                p => string.Equals(p.PrefabName, placeable.PrefabName, StringComparison.OrdinalIgnoreCase));
+            if (index >= 0) _placeableIndex = index;
+
+            // Picking an asset is a build intent; drop straight into build mode rather than making
+            // the user also remember to switch.
+            if (_mode != EditMode.Build) {
+                _mode = EditMode.Build;
+                EditorHud.ShowMessage("Build mode.");
+            }
+
+            RemoveGhost();
+            AnnouncePlaceable();
+        }
+
         private void CyclePlaceable(int delta) {
             if (_currentCategoryPlaceables.Count == 0) return;
             _placeableIndex = ((_placeableIndex + delta) % _currentCategoryPlaceables.Count
@@ -423,6 +463,7 @@ namespace CustomSceneCreator.Editing {
                         $"{Keys.Describe(Keys.ToggleGroundLock)}: ground follow. " +
                         $"{Keys.Describe(Keys.PrevPlaceable)}/{Keys.Describe(Keys.NextPlaceable)}: cycle. " +
                         $"{Keys.Describe(Keys.NextCategory)}: category. " +
+                        $"{Keys.Describe(Keys.AssetPicker)}: asset picker. " +
                         $"{Keys.Describe(Keys.CameraMode)}: camera. {Keys.Describe(Keys.Save)}: save.");
                     AnnouncePlaceable();
                     break;
