@@ -60,6 +60,30 @@ Generators that read your local game install. Regenerate these after a game upda
 
 Pass `-GameDir` if your install is not at the default path.
 
+## Editor controls
+
+Hardcoded for now; these become MCM settings later.
+
+| Key | Action |
+|---|---|
+| `/` | Cycle edit mode: Off - Build - Delete - Move |
+| `Q` | Place / delete / pick up |
+| `[` `]` | Previous / next placeable |
+| `'` | Next category |
+| `V` | Toggle first / third person |
+| `K` | Save the project |
+| Numpad `7` `9` | Turn left / right |
+| Numpad `8` `2` | Tilt up / down |
+| Numpad `4` `6` | Roll left / right |
+| Numpad `0` | Reset rotation and height |
+| Numpad `5` `1` | Raise / lower |
+
+Avoid rebinding onto `P` (the game's pick-up-item bind) or `F` (interact).
+
+Projects are saved as JSON to
+`Documents\Mount and Blade II Bannerlord\CustomSceneCreator\`, one per scene by default, so
+reopening a scene restores what you built there. `csc.projects` lists them.
+
 ## Logging
 
 Writes to `%ProgramData%\Mount and Blade II Bannerlord\logs\CustomSceneCreator.trace.log`.

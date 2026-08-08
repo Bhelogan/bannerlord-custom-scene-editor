@@ -12,7 +12,9 @@ namespace CustomSceneCreator.Editing {
     /// InputKey.Q is the key labelled A.
     /// </summary>
     public static class Keys {
-        public const InputKey EditMode      = InputKey.P;
+        // Slash, not P: P is the game's own "pick up item" bind, so using it meant every mode
+        // switch also grabbed equipment off the ground.
+        public const InputKey EditMode      = InputKey.Slash;
         public const InputKey Place         = InputKey.Q;
         public const InputKey CameraMode    = InputKey.V;
         public const InputKey Save          = InputKey.K;
@@ -38,6 +40,7 @@ namespace CustomSceneCreator.Editing {
                 case InputKey.OpenBraces:  return "[";
                 case InputKey.CloseBraces: return "]";
                 case InputKey.Apostrophe:  return "'";
+                case InputKey.Slash:       return "/";
                 case InputKey.Numpad0: return "Num0";
                 case InputKey.Numpad1: return "Num1";
                 case InputKey.Numpad2: return "Num2";
