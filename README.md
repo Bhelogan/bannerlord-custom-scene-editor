@@ -8,7 +8,8 @@ needing a homestead or the Modding Kit.
 > **Status: early development, but usable.** Entered from inside a campaign (settlement menu or
 > `csc.open`). Scene browser, asset catalog, RTS/third/first-person cameras, and build/delete/move
 > with JSON project save-load are all in, plus a searchable asset picker and editor-authored marker
-> packs. Still to come: export (including marker naming/tagging) and script attachment.
+> packs, and export as a reusable prefab or a whole-scene fragment. Still to come: script attachment,
+> and scene derivation.
 > See [CUSTOM_SCENE_CREATOR_PLAN.md](CUSTOM_SCENE_CREATOR_PLAN.md) for the full design and
 > milestone list.
 
@@ -31,7 +32,8 @@ app around it is campaign-free.
   mission scripts, so you get a hideout's landscape without the hideout's logic.
 - **Logical placeables** — spawn points, navigation nodes, race gates and patrol points as
   first-class objects with proxy meshes. Declared in `ModuleData/packs/*.xml`, so a mod or a user can
-  add their own markers without a rebuild. *(Placement works; export naming still to come.)*
+  add their own markers without a rebuild. They export under their declared name and tag, so
+  `FindEntitiesWithTag("sp_enemy")` finds them.
 - **Script attachment** — attach animation, effect and spawner scripts (fires, windmills, animated
   banners, character spawners) to placed objects, with an auto-generated variable editor.
 - **Export** — project JSON, prefab XML, or a scene fragment you can paste into a real `scene.xscene`
