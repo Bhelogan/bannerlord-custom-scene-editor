@@ -430,6 +430,7 @@ namespace CustomSceneCreator.Editing {
             // the user also remember to switch.
             if (_mode != EditMode.Build) {
                 _mode = EditMode.Build;
+                CameraModes.FollowEditMode(true);
                 EditorHud.ShowMessage("Build mode.");
             }
 
@@ -460,6 +461,11 @@ namespace CustomSceneCreator.Editing {
 
             _mode = (EditMode)(((int)_mode + 1) % 4);
             RemoveGhost();
+
+            // The camera follows the edit mode unless the player has picked one themselves: RTS for
+            // editing, third person for walking around. Turning editing on is the moment an overhead
+            // view starts being useful, and turning it off is the moment it stops.
+            CameraModes.FollowEditMode(_mode != EditMode.Off);
 
             switch (_mode) {
                 case EditMode.Off:

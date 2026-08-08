@@ -70,8 +70,12 @@ Pass `-GameDir` if your install is not at the default path.
 Matched to Homesteads Reloaded's RTS builder where it has an equivalent. Hardcoded for now; these
 become MCM settings later.
 
-The editor opens in **RTS camera** mode: look down at the site, pan around it, and place where the
-**cursor** is. `V` cycles to third and first person, where placement follows your aim instead.
+A scene opens in **third person, walking around**, like any other mission. Turning edit mode on with
+`\` switches to the **RTS camera** - look down at the site, pan around it, and place where the
+**cursor** is - and turning editing off returns you to walking.
+
+`V` overrides that at any time, and once you have chosen a camera yourself the editor stops changing
+it for you.
 
 | Key | Action |
 |---|---|
