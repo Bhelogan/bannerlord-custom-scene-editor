@@ -37,7 +37,9 @@ namespace CustomSceneCreator.Editing {
         private readonly ISceneEditTarget _target;
         private readonly IPlaceableProvider _provider;
 
-        private IPlacementRaySource _raySource = new PlayerRaySource();
+        // Always read from CameraModes rather than caching: the ray source changes the moment the
+        // camera mode does, and a stale one silently places from the wrong place.
+        private IPlacementRaySource RaySource => CameraModes.ActiveRaySource;
 
         private EditMode _mode = EditMode.Off;
         private const float MaxPlaceDistance = 30f;
@@ -77,10 +79,6 @@ namespace CustomSceneCreator.Editing {
                 : null;
         public string CurrentCategory => _categories.Count > 0 ? _categories[_categoryIndex] : "";
         public int PlacedCount => _live.Count;
-
-        public void SetRaySource(IPlacementRaySource source) {
-            if (source != null) _raySource = source;
-        }
 
         public override void AfterStart() {
             base.AfterStart();
@@ -136,6 +134,8 @@ namespace CustomSceneCreator.Editing {
 
         public override void OnMissionTick(float dt) {
             base.OnMissionTick(dt);
+            // Deliberately not gated on MainAgent being player-controlled: the RTS camera hands the
+            // agent to the AI controller so WASD moves the camera instead of the character.
             if (Mission.MainAgent == null) return;
 
             try {
@@ -148,21 +148,33 @@ namespace CustomSceneCreator.Editing {
         }
 
         private void UpdateLookTarget() {
-            if (_mode == EditMode.Off || !_raySource.IsAvailable) {
+            if (_mode == EditMode.Off) {
                 _positionLookingAt = Vec3.Invalid;
                 _entityLookingAt = WeakGameEntity.Invalid;
                 return;
             }
 
-            Vec3 origin = _raySource.Origin;
-            Vec3 target = origin + _raySource.Direction * MaxPlaceDistance;
+            // While the RTS camera is holding the ray still - mid rotation drag, or right button
+            // held to rotate an object - keep the last valid target. Recomputing here would chase a
+            // cursor the user is not aiming with and jump the preview across the scene.
+            if (RtsCameraView.Instance?.IsFreezingRay ?? false) return;
+
+            IPlacementRaySource source = RaySource;
+            if (!source.IsAvailable) {
+                _positionLookingAt = Vec3.Invalid;
+                _entityLookingAt = WeakGameEntity.Invalid;
+                return;
+            }
+
+            Vec3 origin = source.Origin;
+            Vec3 target = origin + source.Direction * MaxPlaceDistance;
 
             float distance = 0f;
             Mission.Scene.RayCastForClosestEntityOrTerrain(
                 origin, target, out distance, out _positionLookingAt, out _entityLookingAt);
 
             // Too far, or too close to the camera to be useful.
-            if (distance > MaxPlaceDistance || distance < _raySource.MinimumDistance) {
+            if (distance > MaxPlaceDistance || distance < source.MinimumDistance) {
                 _positionLookingAt = Vec3.Invalid;
                 _entityLookingAt = WeakGameEntity.Invalid;
             }
@@ -174,7 +186,13 @@ namespace CustomSceneCreator.Editing {
 
             if (Input.IsKeyPressed(Keys.CameraMode)) { CameraModes.Cycle(); return; }
 
-            if (Input.IsKeyPressed(Keys.Place)) { HandlePlaceKey(); return; }
+            // Left click is the natural place action with a visible cursor. Read through the scene
+            // layer, since Gauntlet consumes mouse buttons on the global path first. Q still works in
+            // every mode, so nothing depends on the cursor being over open world.
+            bool clickPlaced = CameraModes.Current == EditorCameraMode.Rts
+                            && (RtsCameraView.Instance?.IsKeyPressedOnScene(InputKey.LeftMouseButton) ?? false);
+
+            if (clickPlaced || Input.IsKeyPressed(Keys.Place)) { HandlePlaceKey(); return; }
 
             if (Input.IsKeyPressed(Keys.Save)) {
                 _target.Commit();

@@ -2,43 +2,69 @@ using TaleWorlds.MountAndBlade;
 
 namespace CustomSceneCreator.Editing {
     public enum EditorCameraMode {
-        ThirdPerson = 0,
-        FirstPerson = 1,
+        /// <summary>Overhead free camera, placement follows the cursor. The default: it is the mode
+        /// most building gets done in.</summary>
+        Rts = 0,
+        ThirdPerson = 1,
+        FirstPerson = 2,
     }
 
     /// <summary>
-    /// Editor camera mode.
+    /// Editor camera mode, and the placement ray that belongs to each.
     ///
-    /// First and third person cost almost nothing: <c>Mission.CameraIsFirstPerson</c> is a settable
-    /// property whose setter drives the native camera, and the player keeps aiming the same way in
-    /// both - so <see cref="PlayerRaySource"/> serves them without branching.
-    ///
-    /// Free fly is not here yet. It is the only mode that needs real work (taking over
-    /// MissionScreen's camera and suppressing agent follow), and the seam it plugs into -
-    /// <see cref="FreeCameraRaySource"/> - already exists, so adding it does not disturb placement.
+    /// The two player-attached modes cost almost nothing: <c>Mission.CameraIsFirstPerson</c> drives
+    /// the native camera and the player aims the same way in both, so one ray source serves them.
+    /// RTS is the one with real machinery behind it - see <see cref="RtsCameraView"/> - and it is
+    /// also the one that changes placement semantics, from "where I am looking" to "where the cursor
+    /// is".
     /// </summary>
     public static class CameraModes {
-        public static EditorCameraMode Current { get; private set; } = EditorCameraMode.ThirdPerson;
+        public static EditorCameraMode Current { get; private set; } = EditorCameraMode.Rts;
+
+        private static readonly IPlacementRaySource PlayerRay = new PlayerRaySource();
+        private static readonly IPlacementRaySource MouseRay = new MouseRaySource();
+
+        /// <summary>Ray source for the active mode, falling back to the player if the RTS camera is
+        /// not up yet - a ray is needed every frame, and one frame of the wrong origin is far better
+        /// than a null.</summary>
+        public static IPlacementRaySource ActiveRaySource =>
+            Current == EditorCameraMode.Rts && MouseRay.IsAvailable ? MouseRay : PlayerRay;
 
         public static void Cycle() {
-            Set(Current == EditorCameraMode.ThirdPerson
-                ? EditorCameraMode.FirstPerson
-                : EditorCameraMode.ThirdPerson);
+            switch (Current) {
+                case EditorCameraMode.Rts:         Set(EditorCameraMode.ThirdPerson); break;
+                case EditorCameraMode.ThirdPerson: Set(EditorCameraMode.FirstPerson); break;
+                default:                           Set(EditorCameraMode.Rts);         break;
+            }
         }
 
         public static void Set(EditorCameraMode mode) {
             Current = mode;
+
+            RtsCameraView.Instance?.SetActive(mode == EditorCameraMode.Rts);
+
             if (Mission.Current != null) {
                 Mission.Current.CameraIsFirstPerson = mode == EditorCameraMode.FirstPerson;
             }
-            EditorHud.ShowMessage(mode == EditorCameraMode.FirstPerson
-                ? "Camera: first person."
-                : "Camera: third person.");
+
+            switch (mode) {
+                case EditorCameraMode.Rts:
+                    EditorHud.ShowMessage(
+                        "Camera: RTS. WASD pans, Space/Alt height, Shift+drag rotates, " +
+                        "Shift+WASD flies. Placement follows the cursor.");
+                    break;
+                case EditorCameraMode.ThirdPerson:
+                    EditorHud.ShowMessage("Camera: third person. Placement follows your aim.");
+                    break;
+                case EditorCameraMode.FirstPerson:
+                    EditorHud.ShowMessage("Camera: first person. Placement follows your aim.");
+                    break;
+            }
         }
 
-        /// <summary>Called when a mission starts so the mode does not leak between sessions.</summary>
+        /// <summary>Called when a mission starts so a mode does not leak between sessions.</summary>
         public static void Reset() {
-            Current = EditorCameraMode.ThirdPerson;
+            Current = EditorCameraMode.Rts;
         }
     }
 }

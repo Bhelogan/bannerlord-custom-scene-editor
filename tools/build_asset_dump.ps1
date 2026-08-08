@@ -27,7 +27,8 @@
 [CmdletBinding()]
 param(
     [string] $GameDir = 'F:\SteamLibrary\steamapps\common\Mount & Blade II Bannerlord',
-    [string] $OutFile = ''
+    [string] $OutFile = '',
+    [switch] $IncludeAllModules
 )
 
 $ErrorActionPreference = 'Stop'
@@ -39,6 +40,23 @@ $modulesRoot = Join-Path $GameDir 'Modules'
 if (-not (Test-Path $modulesRoot)) {
     throw "Modules folder not found at '$modulesRoot'. Pass -GameDir with your install path."
 }
+
+# ONLY official modules. The dump ships with the mod, so anything scanned here becomes a placeable
+# that every user is offered - and a prefab from a third-party mod they do not have is a dead entry
+# that fails to instantiate. Scanning whatever happened to be installed on the machine that built
+# the dump is not a reasonable thing to redistribute.
+#
+# Users can still get their own mods' prefabs: pass -IncludeAllModules to build a local dump.
+$officialModules = @(
+    'Native'
+    'SandBox'
+    'SandBoxCore'
+    'StoryMode'
+    'Multiplayer'
+    'CustomBattle'
+    'BirthAndDeath'
+    'NavalDLC'
+)
 
 # Version comes from Native's SubModule.xml so the filename always matches what it was built from.
 $gameVersion = 'unknown'
@@ -97,9 +115,16 @@ $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordi
 $fileCount = 0
 $dupCount = 0
 
+$skippedModules = [System.Collections.Generic.List[string]]::new()
+
 foreach ($moduleDir in Get-ChildItem -Path $modulesRoot -Directory) {
     $prefabDir = Join-Path $moduleDir.FullName 'Prefabs'
     if (-not (Test-Path $prefabDir)) { continue }
+
+    if (-not $IncludeAllModules -and $officialModules -notcontains $moduleDir.Name) {
+        $skippedModules.Add($moduleDir.Name)
+        continue
+    }
 
     foreach ($prefabFile in Get-ChildItem -Path $prefabDir -Filter '*.xml' -File) {
         $fileCount++
@@ -187,6 +212,9 @@ $header = @(
     '# An empty Meshes column means the prefab has no visible geometry. Those are markers and logic'
     '# nodes - spawn points, patrol points, animation points - and are intentionally included.'
     '#'
+    '# Official modules only, unless built with -IncludeAllModules. A prefab from a third-party mod'
+    '# would be a dead entry for anyone who does not have that mod installed.'
+    '#'
     'AssetName | Module | PrefabFile | RelativePath | InferredCategory | HasPhysics | HasCollisionShape | PhysicsShapes | PhysicsMaterials | Masses | BodyFlags | Meshes | Scripts | Tags | Flags | Mobility | OldPrefabName | ChildSectionCount | ChildTopNames'
 )
 
@@ -195,6 +223,10 @@ Set-Content -LiteralPath $OutFile -Value ($header + $rows) -Encoding utf8
 Write-Host "Wrote $($rows.Count) prefabs from $fileCount prefab files to:"
 Write-Host "  $OutFile"
 if ($dupCount -gt 0) { Write-Host "Skipped $dupCount duplicate prefab names (first occurrence kept)." }
+if ($skippedModules.Count -gt 0) {
+    Write-Host "Skipped non-official modules: $($skippedModules -join ', ')"
+    Write-Host "  (pass -IncludeAllModules to include them in a local-only dump)"
+}
 Write-Host ''
 Write-Host 'By module:'
 $rows | ForEach-Object { ($_ -split ' \| ')[1] } | Group-Object | Sort-Object Count -Descending |

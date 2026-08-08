@@ -65,19 +65,43 @@ Pass `-GameDir` if your install is not at the default path.
 
 Hardcoded for now; these become MCM settings later.
 
+### Modes
+
 | Key | Action |
 |---|---|
-| `/` | Cycle edit mode: Off - Build - Delete - Move |
-| `Q` | Place / delete / pick up |
+| `\` | Cycle edit mode: Off - Build - Delete - Move |
+| `V` | Cycle camera: RTS - third person - first person |
+
+The editor opens in **RTS camera** by default. In that mode placement follows the mouse **cursor**;
+in the two player-attached modes it follows your aim, which is what makes first-person building work
+with no separate code path.
+
+### RTS camera
+
+| Input | Action |
+|---|---|
+| `W` `A` `S` `D` | Pan (height stays constant) |
+| `Shift` + `WASD` | Fly along the view direction |
+| `Shift` + drag mouse | Rotate the camera |
+| `Space` / `Left Alt` | Raise / lower |
+| Left click | Place / delete / pick up |
+
+Pan speed scales with height, so the same input works for inspecting a doorway and for laying out a
+village.
+
+### Placing
+
+| Key | Action |
+|---|---|
+| `Q` | Place / delete / pick up (works in every camera mode) |
 | `[` `]` | Previous / next placeable |
 | `'` | Next category |
-| `V` | Toggle first / third person |
 | `K` | Save the project |
 | Numpad `7` `9` | Turn left / right |
 | Numpad `8` `2` | Tilt up / down |
 | Numpad `4` `6` | Roll left / right |
 | Numpad `0` | Reset rotation and height |
-| Numpad `5` `1` | Raise / lower |
+| Numpad `5` `1` | Raise / lower the held object |
 
 Avoid rebinding onto `P` (the game's pick-up-item bind) or `F` (interact).
 

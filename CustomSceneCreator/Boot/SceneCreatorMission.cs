@@ -78,6 +78,10 @@ namespace CustomSceneCreator.Boot {
                         ViewCreator.CreateMissionSingleplayerEscapeMenu(false),
                         ViewCreator.CreateOptionsUIHandler(),
                         ViewCreator.CreatePhotoModeView(),
+
+                        // A MissionView, not a MissionLogic: it has to override the camera, which
+                        // only the view layer gets a say in.
+                        new RtsCameraView(),
                     };
                     return behaviors.ToArray();
                 });
