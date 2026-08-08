@@ -22,7 +22,7 @@
                     <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@SearchText" Brush="Review.NameInput.Text" DoNotAcceptEvents="false" MarginLeft="12" />
                   </Children>
                 </Widget>
-                <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="440" SuggestedHeight="42" HorizontalAlignment="Center" Command.Click="ExecuteNextCategory" Brush="Popup.Done.Button" MarginTop="8" IsVisible="@IsAdding">
+                <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="440" SuggestedHeight="42" HorizontalAlignment="Center" Command.Click="ExecuteToggleCategoryList" Brush="Popup.Done.Button" MarginTop="8" IsVisible="@IsAdding">
                   <Children>
                     <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@CategoryButtonText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                   </Children>
@@ -60,7 +60,7 @@
                       </Children>
                     </ScrollablePanel>
 
-                    <ScrollablePanel WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="620" IsVisible="@IsAdding" AutoHideScrollBars="true" ClipRect="ChoiceClip" InnerPanel="ChoiceClip\ChoiceInner" VerticalScrollbar="ChoiceBar" MarginRight="18">
+                    <ScrollablePanel WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="620" IsVisible="@IsChoiceListVisible" AutoHideScrollBars="true" ClipRect="ChoiceClip" InnerPanel="ChoiceClip\ChoiceInner" VerticalScrollbar="ChoiceBar" MarginRight="18">
                       <Children>
                         <Widget Id="ChoiceClip" ClipContents="true" WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" MarginRight="20">
                           <Children>
@@ -84,6 +84,35 @@
                         <ScrollbarWidget Id="ChoiceBar" AlignmentAxis="Vertical" UpdateScrollbarBounds="true" WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="20" HorizontalAlignment="Right" VerticalAlignment="Top" Handle="ChoiceBarHandle" MinValue="0" MaxValue="100">
                           <Children>
                             <Widget Id="ChoiceBarHandle" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="18" SuggestedHeight="40" HorizontalAlignment="Center" Sprite="BlankWhiteSquare_9" Color="#666666FF" />
+                          </Children>
+                        </ScrollbarWidget>
+                      </Children>
+                    </ScrollablePanel>
+
+                    <!-- Same region as the choice list; only one of the three ever shows. -->
+                    <ScrollablePanel WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="620" IsVisible="@IsCategoryListOpen" AutoHideScrollBars="true" ClipRect="ScrCatClip" InnerPanel="ScrCatClip\ScrCatInner" VerticalScrollbar="ScrCatBar" MarginRight="18">
+                      <Children>
+                        <Widget Id="ScrCatClip" ClipContents="true" WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" MarginRight="20">
+                          <Children>
+                            <ListPanel Id="ScrCatInner" DataSource="{CategoryItems}" WidthSizePolicy="StretchToParent" HeightSizePolicy="CoverChildren" StackLayout.LayoutMethod="VerticalTopToBottom">
+                              <ItemTemplate>
+                                <ButtonWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="44" Command.Click="ExecuteSelect" IsSelected="@IsSelected" Brush="Saveload.SaveList.Item" MarginBottom="4">
+                                  <Children>
+                                    <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" StackLayout.LayoutMethod="HorizontalLeftToRight" MarginLeft="16" MarginRight="16" DoNotAcceptEvents="true">
+                                      <Children>
+                                        <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="400" Text="@Name" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                        <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="140" Text="@CountText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                      </Children>
+                                    </ListPanel>
+                                  </Children>
+                                </ButtonWidget>
+                              </ItemTemplate>
+                            </ListPanel>
+                          </Children>
+                        </Widget>
+                        <ScrollbarWidget Id="ScrCatBar" AlignmentAxis="Vertical" UpdateScrollbarBounds="true" WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="20" HorizontalAlignment="Right" VerticalAlignment="Top" Handle="ScrCatBarHandle" MinValue="0" MaxValue="100">
+                          <Children>
+                            <Widget Id="ScrCatBarHandle" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="18" SuggestedHeight="40" HorizontalAlignment="Center" Sprite="BlankWhiteSquare_9" Color="#666666FF" />
                           </Children>
                         </ScrollbarWidget>
                       </Children>

@@ -26,10 +26,12 @@ namespace CustomSceneCreator.UI {
         private MBBindingList<AttachedScriptItemVM> _attachedItems = new();
         private MBBindingList<ScriptChoiceVM> _choiceItems = new();
         private MBBindingList<ScriptVariableItemVM> _variableItems = new();
+        private MBBindingList<ScriptCategoryItemVM> _categoryItems = new();
 
         private readonly List<string> _categories = new();
         private int _categoryIndex;
         private bool _isAdding;
+        private bool _isCategoryListOpen;
         private string _searchText = "";
 
         private AttachedScript? _selectedAttached;
@@ -47,6 +49,7 @@ namespace CustomSceneCreator.UI {
             _categories.AddRange(ScriptCatalog.Categories);
 
             RefreshAttached();
+            RebuildCategoryItems();
             RefreshChoices();
         }
 
@@ -64,6 +67,29 @@ namespace CustomSceneCreator.UI {
 
         [DataSourceProperty] public bool IsAdding => _isAdding;
         [DataSourceProperty] public bool IsViewing => !_isAdding;
+
+        /// <summary>
+        /// The category list takes over the choice list's region while open, exactly as the asset
+        /// picker does - so all three lists in this panel share one space and only ever one shows.
+        /// </summary>
+        [DataSourceProperty]
+        public bool IsCategoryListOpen {
+            get => _isCategoryListOpen;
+            set {
+                if (value == _isCategoryListOpen) return;
+                _isCategoryListOpen = value;
+                OnPropertyChangedWithValue(value, nameof(IsCategoryListOpen));
+                OnPropertyChangedWithValue(IsChoiceListVisible, nameof(IsChoiceListVisible));
+            }
+        }
+
+        [DataSourceProperty] public bool IsChoiceListVisible => _isAdding && !_isCategoryListOpen;
+
+        [DataSourceProperty]
+        public MBBindingList<ScriptCategoryItemVM> CategoryItems {
+            get => _categoryItems;
+            set { if (value != _categoryItems) { _categoryItems = value; OnPropertyChangedWithValue(value, nameof(CategoryItems)); } }
+        }
 
         [DataSourceProperty] public string AddText => "Add Script...";
         [DataSourceProperty] public string RemoveText => "Remove";
@@ -126,16 +152,37 @@ namespace CustomSceneCreator.UI {
         // -- commands ---------------------------------------------------------------------------
 
         public void ExecuteBeginAdd() { _isAdding = true; RefreshChoices(); NotifyMode(); }
-        public void ExecuteBack() { _isAdding = false; NotifyMode(); }
+        public void ExecuteBack() { _isAdding = false; IsCategoryListOpen = false; NotifyMode(); }
         public void ExecuteClose() => _onClose?.Invoke();
 
-        public void ExecuteNextCategory() {
-            _categoryIndex = (_categoryIndex + 1) % _categories.Count;
+        /// <summary>The category button opens a list rather than stepping blindly to the next one.</summary>
+        public void ExecuteToggleCategoryList() => IsCategoryListOpen = !IsCategoryListOpen;
+
+        private void SelectCategory(int index) {
+            _categoryIndex = ((index % _categories.Count) + _categories.Count) % _categories.Count;
+
+            // Changing category clears the search, which was scoped to the category being left.
             if (!string.IsNullOrWhiteSpace(_searchText)) {
                 _searchText = "";
                 OnPropertyChangedWithValue(_searchText, nameof(SearchText));
             }
+
+            IsCategoryListOpen = false;
+            RebuildCategoryItems();
             RefreshChoices();
+        }
+
+        private void RebuildCategoryItems() {
+            _categoryItems.Clear();
+            for (int i = 0; i < _categories.Count; i++) {
+                int index = i;
+                string name = _categories[i];
+                int count = name == AllCategories
+                    ? ScriptCatalog.All.Count
+                    : ScriptCatalog.All.Count(s => s.Category == name);
+                _categoryItems.Add(new ScriptCategoryItemVM(name, count, index == _categoryIndex,
+                    () => SelectCategory(index)));
+            }
         }
 
         public void ExecuteConfirmAdd() {
@@ -244,6 +291,7 @@ namespace CustomSceneCreator.UI {
         private void NotifyMode() {
             OnPropertyChangedWithValue(IsAdding, nameof(IsAdding));
             OnPropertyChangedWithValue(IsViewing, nameof(IsViewing));
+            OnPropertyChangedWithValue(IsChoiceListVisible, nameof(IsChoiceListVisible));
             OnPropertyChangedWithValue(HintText, nameof(HintText));
             OnPropertyChangedWithValue(StatusText, nameof(StatusText));
         }
@@ -342,5 +390,28 @@ namespace CustomSceneCreator.UI {
                 _onChanged?.Invoke(_value);
             }
         }
+    }
+
+    public class ScriptCategoryItemVM : ViewModel {
+        private readonly Action _onSelect;
+        private bool _isSelected;
+
+        public ScriptCategoryItemVM(string name, int count, bool isSelected, Action onSelect) {
+            Name = name;
+            CountText = count.ToString();
+            _isSelected = isSelected;
+            _onSelect = onSelect;
+        }
+
+        [DataSourceProperty] public string Name { get; }
+        [DataSourceProperty] public string CountText { get; }
+
+        [DataSourceProperty]
+        public bool IsSelected {
+            get => _isSelected;
+            set { if (value != _isSelected) { _isSelected = value; OnPropertyChangedWithValue(value, nameof(IsSelected)); } }
+        }
+
+        public void ExecuteSelect() => _onSelect?.Invoke();
     }
 }
