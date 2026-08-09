@@ -146,6 +146,15 @@ namespace CustomSceneCreator.Editing {
             SelectCategory(0);
             TraceLogger.Write(nameof(SceneEditingMissionLogic),
                 $"Palette: {all.Count} placeables across {_categories.Count} categories.");
+
+            // Said on screen, not just logged: a pack that fails to parse takes every marker in it
+            // with it, and the symptom is a category that simply is not there.
+            IReadOnlyList<string> packErrors = Catalog.PackCatalog.LoadErrors;
+            if (packErrors.Count > 0) {
+                EditorHud.ShowMessage(
+                    $"{packErrors.Count} marker pack(s) failed to load - see the trace log. " +
+                    "Editor markers will be missing.", warning: true);
+            }
         }
 
         private void SelectCategory(int index) {

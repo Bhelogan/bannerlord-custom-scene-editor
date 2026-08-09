@@ -21,11 +21,17 @@ namespace CustomSceneCreator.Catalog {
     /// </summary>
     public static class PackCatalog {
         private static List<Placeable>? _placeables;
+        private static readonly List<string> _loadErrors = new();
 
         public static IReadOnlyList<Placeable> All => _placeables ??= Load();
 
+        /// <summary>Packs that failed to parse, for reporting where someone will actually see it.</summary>
+        public static IReadOnlyList<string> LoadErrors {
+            get { _ = All; return _loadErrors; }
+        }
+
         /// <summary>Drops the cache so a just-exported prefab appears without leaving the scene.</summary>
-        public static void Invalidate() => _placeables = null;
+        public static void Invalidate() { _placeables = null; _loadErrors.Clear(); }
 
         /// <summary>Category holding whatever is in exports/prefabs.</summary>
         public const string ExportedCategory = "My Prefabs";
@@ -85,6 +91,10 @@ namespace CustomSceneCreator.Catalog {
 
                     TraceLogger.Write(nameof(PackCatalog), $"Loaded pack '{IOPath.GetFileName(file)}'.");
                 } catch (Exception ex) {
+                    // A malformed pack loses every marker in it. That failed silently once - one
+                    // illegal comment in csc_core.xml threw out all ten shipped markers, and the
+                    // only symptom was a category that was never there to miss.
+                    _loadErrors.Add($"{IOPath.GetFileName(file)}: {ex.Message}");
                     TraceLogger.WriteException(nameof(PackCatalog), $"Failed to read pack '{file}'", ex);
                 }
             }

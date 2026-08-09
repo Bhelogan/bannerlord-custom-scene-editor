@@ -18,7 +18,7 @@
 -->
 <Placeables>
 
-  <!-- Spawn points ------------------------------------------------------------------------ -->
+  <!-- Spawn points ========================================================================== -->
   <Placeable id="csc_player_spawn" display="Player Spawn" category="Editor Markers"
              proxy="editor_cylinder" exportName="sp_player_{index}" exportTag="sp_player" />
 
@@ -31,14 +31,14 @@
   <Placeable id="csc_neutral_spawn" display="Neutral / NPC Spawn" category="Editor Markers"
              proxy="editor_cube" exportName="sp_npc_{index}" exportTag="sp_npc" />
 
-  <!-- Navigation -------------------------------------------------------------------------- -->
+  <!-- Navigation ============================================================================ -->
   <Placeable id="csc_nav_node" display="Navigation Node" category="Editor Markers"
              proxy="editor_cylinder" exportName="nav_node_{index}" exportTag="nav_node" />
 
   <Placeable id="csc_patrol_point" display="Patrol Point" category="Editor Markers"
              proxy="editor_cylinder" exportName="patrol_point_{index}" exportTag="patrol_point" />
 
-  <!-- Race track -------------------------------------------------------------------------- -->
+  <!-- Race track ============================================================================ -->
   <Placeable id="csc_race_start" display="Race Start" category="Editor Markers"
              proxy="editor_cube" exportName="race_start" exportTag="race_start" />
 
@@ -48,7 +48,7 @@
   <Placeable id="csc_race_finish" display="Race Finish" category="Editor Markers"
              proxy="editor_cube" exportName="race_finish" exportTag="race_finish" />
 
-  <!-- Areas ------------------------------------------------------------------------------- -->
+  <!-- Areas ================================================================================= -->
   <Placeable id="csc_boundary" display="Boundary Marker" category="Editor Markers"
              proxy="editor_cube" exportName="boundary_{index}" exportTag="boundary" />
 
