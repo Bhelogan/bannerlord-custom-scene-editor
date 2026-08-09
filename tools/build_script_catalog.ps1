@@ -39,10 +39,26 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Where the generated file belongs.
+#
+# Two layouts have to work: the source repo, where it goes into the module's staged ModuleData, and
+# an installed game, where it goes into the module the game actually loads. Writing the repo path
+# blindly would create a stray folder next to the script and leave the game still using the shipped
+# catalog, with nothing to show anything had gone wrong.
+function Resolve-ModuleDataDir($scriptDir, $gameDir) {
+    $repo = Join-Path $scriptDir '..\CustomSceneCreator\_Module\ModuleData'
+    if (Test-Path (Split-Path -Parent $repo)) { return $repo }
+
+    $installed = Join-Path $gameDir 'Modules\CustomSceneCreator\ModuleData'
+    if (Test-Path (Split-Path -Parent $installed)) { return $installed }
+
+    throw "Could not find the Custom Scene Creator module. Pass -OutFile with where to write, or -GameDir with your install path."
+}
+
 $scriptDir = $PSScriptRoot
 if ([string]::IsNullOrEmpty($scriptDir)) { $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
 if ([string]::IsNullOrEmpty($OutFile)) {
-    $OutFile = Join-Path $scriptDir '..\CustomSceneCreator\_Module\ModuleData\script_catalog.xml'
+    $OutFile = Join-Path (Resolve-ModuleDataDir $scriptDir $GameDir) 'script_catalog.xml'
 }
 
 $modulesRoot = Join-Path $GameDir 'Modules'

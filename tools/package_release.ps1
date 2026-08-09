@@ -108,12 +108,23 @@ try {
         if (Test-Path $source) { Copy-Item $source $staging }
     }
 
+    # Two kinds of tool, kept apart. The bake script is something a user reaches for as soon as they
+    # have exported something; the catalog generators are for two narrow cases (a game update, or
+    # pulling your own mod's prefabs into the picker). Six scripts in one flat folder made the common
+    # one look like an option among equals.
     $toolsOut = Join-Path $staging 'tools'
     New-Item -ItemType Directory -Force -Path $toolsOut | Out-Null
-    foreach ($file in @('bake_scene.py', 'bake_config.json', 'README_BAKE.md',
-                        'build_asset_dump.ps1', 'build_scene_catalog.ps1', 'build_script_catalog.ps1')) {
+    foreach ($file in @('bake_scene.py', 'bake_config.json', 'README_BAKE.md')) {
         $source = Join-Path $scriptDir $file
         if (Test-Path $source) { Copy-Item $source $toolsOut }
+    }
+
+    $regenOut = Join-Path $toolsOut 'regenerate'
+    New-Item -ItemType Directory -Force -Path $regenOut | Out-Null
+    foreach ($file in @('README_REGENERATE.md',
+                        'build_asset_dump.ps1', 'build_scene_catalog.ps1', 'build_script_catalog.ps1')) {
+        $source = Join-Path $scriptDir $file
+        if (Test-Path $source) { Copy-Item $source $regenOut }
     }
 
     # Install instructions in the zip itself. The manual covers everything, but someone who has just
@@ -145,6 +156,10 @@ WHAT YOU MAKE
 TOOLS
   tools\bake_scene.py post-processes an export. You do not need it to start -
   see tools\README_BAKE.md.
+
+  tools\regenerate\ rebuilds the asset and scene catalogs. Two reasons to:
+  the game updated, or you want YOUR OWN mod's prefabs to show up in the
+  editor's asset picker. See tools\regenerate\README_REGENERATE.md.
 
 LICENSE
   MIT. See LICENSE.

@@ -77,7 +77,10 @@ Generators that read your local game install. Regenerate these after a game upda
 | `tools/build_asset_dump.ps1` | `ModuleData/bannerlord_assets_v<version>.txt` — every placeable prefab. Column layout matches the legacy dump so existing bake scripts keep working. |
 | `tools/build_script_catalog.ps1` | `ModuleData/script_catalog.xml` — every scene script, its variables, inferred types, how often shipped scenes use it, and the values each string variable is set to (values seen in at least two scenes, so scene-local names are left out) |
 
-Pass `-GameDir` if your install is not at the default path.
+Pass `-GameDir` if your install is not at the default path, and `-IncludeAllModules` to
+`build_asset_dump.ps1` to pull your own mod's prefabs into the editor's picker — see
+[README_REGENERATE.md](tools/README_REGENERATE.md). Keep such a dump local: it describes your
+installation, so entries would fail to instantiate for anyone else.
 
 `tools/bake_scene.py` post-processes an export: expanding markers into working entities, attaching
 scripts in bulk, renaming tags, assigning GUIDs, and deploying the result. Driven by

@@ -203,6 +203,7 @@
       <li><a class="num" href="#sec6"><span class="n">6</span>Edit modes</a></li>
       <li><a class="num" href="#sec7"><span class="n">7</span>Controls</a></li>
       <li><a class="num" href="#sec8"><span class="n">8</span>Choosing what to build</a></li>
+      <li class="sub"><a href="#own-assets">Your own mod's assets</a></li>
       <li><a class="num" href="#sec9"><span class="n">9</span>Markers</a></li>
       <li class="sub"><a href="#markers-what">What they are for</a></li>
       <li class="sub"><a href="#markers-numbers">Numbering</a></li>
@@ -492,6 +493,23 @@
   after searching <em>cart</em>, those keys step through carts. <kbd>'</kbd> leaves the search behind
   and moves to the next whole category.
 </p>
+
+<h3 id="own-assets">Using your own mod's assets</h3>
+<p>
+  The picker lists the base game's prefabs only. That is deliberate — a prefab from someone else's mod
+  is a dead entry for anyone who does not have it — but it is not a limit. Rebuild the asset list
+  with every module included and <strong>your own mod's prefabs appear in the picker</strong>,
+  placeable exactly like the base game's:
+</p>
+<pre><code>powershell -File tools\regenerate\build_asset_dump.ps1 -IncludeAllModules</code></pre>
+<p>
+  Restart the game afterwards; your prefabs are grouped under your module's name. This is the
+  intended way to lay out a scene from assets you are making yourself.
+</p>
+<div class="note">
+  Keep that dump to yourself. It describes your installation, so anyone else would get entries for
+  mods they do not have. See <code>tools\regenerate\README_REGENERATE.md</code>.
+</div>
 
 <div class="warn">
   Some objects have no collision of their own — candle flames, torch flames, banners. They are still
