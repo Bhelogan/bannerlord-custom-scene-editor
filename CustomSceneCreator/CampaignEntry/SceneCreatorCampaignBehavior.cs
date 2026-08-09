@@ -35,6 +35,9 @@ namespace CustomSceneCreator.CampaignEntry {
 
         public override void RegisterEvents() {
             CampaignEvents.OnSessionLaunchedEvent.AddNonSerializedListener(this, OnSessionLaunched);
+            // The only campaign-side heartbeat available, and the only place that can tell when the
+            // editor mission has finished unwinding.
+            CampaignEvents.TickEvent.AddNonSerializedListener(this, _ => ReturnToBrowser.Tick());
         }
 
         public override void SyncData(IDataStore dataStore) {

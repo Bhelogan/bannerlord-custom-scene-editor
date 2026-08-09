@@ -158,6 +158,21 @@ be placed as a single piece.
 
 Writes to `%ProgramData%\Mount and Blade II Bannerlord\logs\CustomSceneCreator.trace.log`.
 
+## Releasing
+
+```bash
+powershell -File tools/package_release.ps1
+```
+
+Builds, then writes a single `CustomSceneCreator-v<version>.zip` containing the module folder, the
+user manual and the bake tools — the whole thing someone needs, in one file. Pass `-SkipBuild` to
+package what is already in `Dist`.
+
 ## License
 
-TBD.
+[MIT](LICENSE) — use it, fork it, ship things built with it.
+
+The generated catalogs under `ModuleData` are indexes of TaleWorlds' own game data and are not
+covered; regenerate them from your own installation with the scripts in `tools/`. Scenes you build
+reference game assets by name rather than containing them, so an export is a layout, not a copy of
+anyone's art.

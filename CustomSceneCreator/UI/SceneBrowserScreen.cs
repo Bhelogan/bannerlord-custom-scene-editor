@@ -56,7 +56,10 @@ namespace CustomSceneCreator.UI {
 
         private static void OnConfirm(string sceneName, string sceneLevels) {
             Close();
-            SceneCreatorEntry.OpenEditor(sceneName, sceneLevels);
+            // Come back here on the way out, so trying several scenes does not mean walking through
+            // the settlement menu each time.
+            ReturnToBrowser.ArmForScenes();
+            if (!SceneCreatorEntry.OpenEditor(sceneName, sceneLevels)) ReturnToBrowser.Cancel();
         }
     }
 }

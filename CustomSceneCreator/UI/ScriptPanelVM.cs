@@ -176,7 +176,7 @@ namespace CustomSceneCreator.UI {
                 if (value == _valueSearchText) return;
                 _valueSearchText = value;
                 OnPropertyChangedWithValue(value, nameof(ValueSearchText));
-                RefreshValues();
+                RefreshValueList();
             }
         }
 
@@ -192,11 +192,11 @@ namespace CustomSceneCreator.UI {
             _valueTarget = variable;
             _valueSearchText = "";
             OnPropertyChangedWithValue(_valueSearchText, nameof(ValueSearchText));
-            RefreshValues();
+            RefreshValueList();
             NotifyValueList();
         }
 
-        private void RefreshValues() {
+        private void RefreshValueList() {
             _valueItems.Clear();
             if (_valueTarget == null) return;
 

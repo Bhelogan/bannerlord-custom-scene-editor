@@ -53,7 +53,10 @@ namespace CustomSceneCreator.UI {
             Close();
             // The project carries its own scene and levels, so reopening restores the whole session
             // rather than dropping the objects into whatever scene happened to be chosen last.
-            SceneCreatorEntry.OpenEditor(project.TargetScene, project.SceneLevels, project.Name);
+            CampaignEntry.ReturnToBrowser.ArmForProjects();
+            if (!SceneCreatorEntry.OpenEditor(project.TargetScene, project.SceneLevels, project.Name)) {
+                CampaignEntry.ReturnToBrowser.Cancel();
+            }
         }
 
         private static void OnNewScene() {

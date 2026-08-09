@@ -27,7 +27,6 @@ namespace CustomSceneCreator.Boot {
         public static Mission? Open(string sceneName, string sceneLevels, SceneProject? project) {
             TraceLogger.Write(nameof(SceneCreatorMission),
                 $"Opening mission — scene='{sceneName}' levels='{sceneLevels}'.");
-            BootProbe.LogCampaignState("SceneCreatorMission.Open");
 
             // A project is what makes edits persist. Without one the editor still works, but its
             // target is a throwaway - useful for looking around a scene, not for building in it.
