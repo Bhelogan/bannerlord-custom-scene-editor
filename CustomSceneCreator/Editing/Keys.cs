@@ -4,7 +4,9 @@ namespace CustomSceneCreator.Editing {
     /// <summary>
     /// Editor key bindings.
     ///
-    /// Hardcoded for now; these become MCM settings later. Deliberately kept off WASD, Shift and the
+    /// These are the DEFAULTS. Most are rebindable in MCM's options screen; the values here are
+    /// what applies when MCM is not installed, and the fallback for any single binding that cannot
+    /// be read. See Settings.KeyBindings. Deliberately kept off WASD, Shift and the
     /// mouse buttons so ordinary movement and looking still work while editing, and matched to the
     /// original mod's layout where possible so muscle memory carries over.
     ///
@@ -12,57 +14,57 @@ namespace CustomSceneCreator.Editing {
     /// InputKey.Q is the key labelled A.
     /// </summary>
     public static class Keys {
-        // Matched to Homesteads Reloaded's shipped scheme wherever it has one, so anyone coming from
-        // the RTS builder there does not have to relearn the editor.
-        //   BackSlash - edit mode      (P was the game's own pick-up-item bind)
-        //   Q / E     - yaw the object (the rotation people actually use constantly)
+        // Chosen to sit where a building game usually puts them, and to stay off keys the game has
+        // already claimed - P is the pick-up-item bind, which is why edit mode is not on it.
+        //   BackSlash - edit mode
+        //   Q / E     - yaw the object (the rotation used constantly)
         //   G / H     - ground snap / ground-follow toggle
-        //   LMB       - place          (RMB held + mouse = rotate)
-        public const InputKey EditMode      = InputKey.BackSlash;
-        public const InputKey CameraMode    = InputKey.V;
-        /// <summary>Opens the asset picker. Tilde is what Homesteads uses for its building picker.</summary>
-        public const InputKey AssetPicker   = InputKey.Tilde;
+        //   LMB       - place          (RMB held + mouse = tilt and roll)
+        public static InputKey EditMode => Settings.KeyBindings.EditMode;
+        public static InputKey CameraMode => Settings.KeyBindings.CameraMode;
+        /// <summary>Opens the asset picker.</summary>
+        public static InputKey AssetPicker => Settings.KeyBindings.AssetPicker;
         /// <summary>Lists everything placed in the scene. L for list.</summary>
-        public const InputKey Outliner      = InputKey.L;
+        public static InputKey Outliner => Settings.KeyBindings.Outliner;
         /// <summary>
         /// Save is Alt+S, not Ctrl+S: Ctrl is reset-rotation, so Ctrl+S would clear the rotation of
         /// whatever you are holding every time you saved. K remains as a single-key alternative.
         /// </summary>
-        public const InputKey SaveModifier  = InputKey.LeftAlt;
+        public static InputKey SaveModifier => Settings.KeyBindings.SaveModifier;
         public const InputKey SaveWithModifier = InputKey.S;
-        public const InputKey Save          = InputKey.K;
+        public static InputKey Save => Settings.KeyBindings.Save;
         /// <summary>Alt+E opens the export dialog - deliberate and occasional, unlike saving.</summary>
         public const InputKey ExportWithModifier = InputKey.E;
 
         /// <summary>Primary place action. Read through the scene layer so Gauntlet does not eat it.</summary>
         public const InputKey Place         = InputKey.LeftMouseButton;
-        /// <summary>Keyboard fallback, and what Homesteads binds by default. Also the only way to
-        /// place while a player-attached camera has the cursor captured.</summary>
-        public const InputKey PlaceAlt      = InputKey.F;
+        /// <summary>Keyboard fallback. Also the only way to place while a player-attached camera has
+        /// the cursor captured.</summary>
+        public static InputKey PlaceAlt => Settings.KeyBindings.PlaceAlt;
 
         /// <summary>Held to rotate the held object with horizontal mouse movement.</summary>
         public const InputKey RotateDrag    = InputKey.RightMouseButton;
 
-        public const InputKey PrevPlaceable = InputKey.OpenBraces;    // [
-        public const InputKey NextPlaceable = InputKey.CloseBraces;   // ]
-        public const InputKey NextCategory  = InputKey.Apostrophe;    // '
+        public static InputKey PrevPlaceable => Settings.KeyBindings.PrevPlaceable;    // [
+        public static InputKey NextPlaceable => Settings.KeyBindings.NextPlaceable;   // ]
+        public static InputKey NextCategory => Settings.KeyBindings.NextCategory;    // '
 
-        public const InputKey RotateTurnLeft  = InputKey.Q;
-        public const InputKey RotateTurnRight = InputKey.E;
+        public static InputKey RotateTurnLeft => Settings.KeyBindings.RotateTurnLeft;
+        public static InputKey RotateTurnRight => Settings.KeyBindings.RotateTurnRight;
 
-        public const InputKey SnapToGround     = InputKey.G;
-        public const InputKey ToggleGroundLock = InputKey.H;
+        public static InputKey SnapToGround => Settings.KeyBindings.SnapToGround;
+        public static InputKey ToggleGroundLock => Settings.KeyBindings.ToggleGroundLock;
 
-        /// <summary>Clears rotation and height offset in one press - Homesteads binds this to Left
-        /// Ctrl, and it is reached often enough that a numpad key was the wrong home for it.</summary>
-        public const InputKey ResetRotation = InputKey.LeftControl;
+        /// <summary>Clears rotation and height offset in one press. Reached often enough that a
+        /// numpad key was the wrong home for it.</summary>
+        public static InputKey ResetRotation => Settings.KeyBindings.ResetRotation;
         public const InputKey RotateTiltUp    = InputKey.Numpad8;
         public const InputKey RotateTiltDown  = InputKey.Numpad2;
         public const InputKey RotateRollLeft  = InputKey.Numpad4;
         public const InputKey RotateRollRight = InputKey.Numpad6;
 
-        public const InputKey MoveUp   = InputKey.Numpad5;
-        public const InputKey MoveDown = InputKey.Numpad1;
+        public static InputKey MoveUp => Settings.KeyBindings.MoveUp;
+        public static InputKey MoveDown => Settings.KeyBindings.MoveDown;
 
         /// <summary>Readable label for on-screen prompts.</summary>
         public static string Describe(InputKey key) {

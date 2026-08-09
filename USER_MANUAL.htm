@@ -274,6 +274,8 @@
 <ol class="steps">
   <li>Copy the <code>CustomSceneCreator</code> folder into your game's <code>Modules</code> folder.</li>
   <li>Enable <strong>Custom Scene Creator</strong> in the launcher's Singleplayer mod list.</li>
+  <li><em>Optional:</em> install <strong>Mod Configuration Menu (MCM)</strong> if you want to rebind
+      keys. Everything works without it.</li>
   <li>Load a campaign — any campaign, including one you have been playing for two hundred hours.</li>
 </ol>
 
@@ -440,6 +442,27 @@
   <tr><td>Numpad <kbd>5</kbd> <kbd>1</kbd></td><td>Raise / lower</td></tr>
 </table>
 </div>
+
+<h3>Rebinding</h3>
+<p>
+  If you have <strong>Mod Configuration Menu (MCM)</strong> installed, every key above except the
+  mouse buttons can be changed under <strong>Mod Options → Custom Scene Creator</strong>. Changes
+  apply when you next open a scene — no restart. MCM is optional; without it the editor uses the
+  defaults.
+</p>
+
+<div class="warn">
+  Key names are <strong>physical positions on a US keyboard</strong>, not the letter printed on the
+  cap. On AZERTY, the key named <code>Q</code> is the one labelled <em>A</em>. Turn on
+  <strong>Key Detection Mode</strong> in the settings, open a scene and press a key — the editor tells
+  you the exact name to type. Turn it off when you are done.
+</div>
+
+<p>
+  A binding left blank falls back to its default rather than unbinding, so an empty box cannot leave
+  part of the editor unreachable. A name that is not a real key is ignored, with an explanation in
+  the log.
+</p>
 
 <h4>Ground follow</h4>
 <p>

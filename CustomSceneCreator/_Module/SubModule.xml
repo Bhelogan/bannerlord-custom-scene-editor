@@ -1,7 +1,7 @@
 <Module>
 	<Name value="Custom Bannerlord Scene Creator"/>
 	<Id value="CustomSceneCreator"/>
-	<Version value="v1.4.7"/>
+	<Version value="v1.0.0/>
 	<SingleplayerModule value="true"/>
 	<MultiplayerModule value="false"/>
 	<DependedModules>
@@ -14,6 +14,9 @@
 		<!-- Harmony is optional for now: the M1 boot spike uses no patches. Keep the ordering
 		     declared so that when patches arrive the load order is already correct. -->
 		<DependedModuleMetadata id="Bannerlord.Harmony" order="LoadBeforeThis" optional="true" />
+		<!-- MCM is optional: it provides the key-rebinding screen. Without it the editor runs on its
+		     default bindings, so it must load first if present and be absent without complaint. -->
+		<DependedModuleMetadata id="Bannerlord.MBOptionScreen" order="LoadBeforeThis" optional="true" />
 		<DependedModuleMetadata id="Native" order="LoadBeforeThis" />
 		<DependedModuleMetadata id="SandBoxCore" order="LoadBeforeThis" />
 		<DependedModuleMetadata id="Sandbox" order="LoadBeforeThis" />

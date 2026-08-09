@@ -85,7 +85,12 @@ scripts in bulk, renaming tags, assigning GUIDs, and deploying the result. Drive
 
 ## Editor controls
 
-Hardcoded for now; these become MCM settings later.
+Rebindable in MCM's options screen if you have it installed (**Mod Options → Custom Scene Creator**).
+MCM is optional — without it the editor runs on the defaults below.
+
+Bindings are typed as `InputKey` names, which are physical **US-layout key positions**, not the letter
+printed on the cap. Turn on **Key Detection Mode** in the settings and press a key to be told its
+name — the only practical way to rebind on AZERTY or QWERTZ.
 
 A scene opens in **third person, walking around**, like any other mission. Turning edit mode on with
 `\` switches to the **RTS camera** - look down at the site, pan around it, and place where the

@@ -125,6 +125,11 @@ namespace CustomSceneCreator.Editing {
         public override void AfterStart() {
             base.AfterStart();
             try {
+                // Read before anything draws a key hint, and on every scene open rather than once at
+                // startup - so rebinding in the options screen takes effect on reopening the editor
+                // instead of on restarting the game.
+                Settings.KeyBindings.Refresh();
+
                 BuildPalette();
                 RestoreExistingEntities();
                 EditorHud.ShowMessage(
@@ -342,6 +347,8 @@ namespace CustomSceneCreator.Editing {
             // so a stray keypress reaching here would edit the scene behind a modal panel.
             if (UI.AssetPickerView.IsOpen || UI.ExportDialogView.IsOpen
                 || UI.ScriptPanelView.IsOpen || UI.SceneOutlinerView.IsOpen) return;
+
+            if (Settings.KeyBindings.KeyDetectionMode) ReportPressedKey();
 
             if (Input.IsKeyPressed(Keys.EditMode)) { CycleEditMode(); return; }
 
@@ -732,6 +739,32 @@ namespace CustomSceneCreator.Editing {
             }
             return count;
         }
+
+        /// <summary>
+        /// Names whatever key was just pressed, while Key Detection Mode is on in the settings.
+        ///
+        /// InputKey values are physical US-layout POSITIONS, not the letter printed on the cap: on
+        /// AZERTY, InputKey.Q is the key labelled A. Without a way to ask, anyone on a non-US
+        /// keyboard is guessing at what to type into the rebinding boxes.
+        /// </summary>
+        private void ReportPressedKey() {
+            foreach (InputKey key in DetectableKeys) {
+                if (!Input.IsKeyPressed(key)) continue;
+                EditorHud.ShowMessage($"That key is called: {key}");
+                return;
+            }
+        }
+
+        /// <summary>
+        /// Keys worth reporting. The whole enum includes controller axes and mouse movement, which
+        /// would report constantly and drown out the answer.
+        /// </summary>
+        private static readonly InputKey[] DetectableKeys =
+            ((InputKey[])Enum.GetValues(typeof(InputKey)))
+            .Where(key => key != InputKey.Invalid
+                       && !key.ToString().StartsWith("Controller", StringComparison.Ordinal)
+                       && !key.ToString().StartsWith("Mouse", StringComparison.Ordinal))
+            .ToArray();
 
         private void OpenOutliner() {
             UI.SceneOutlinerView? view = UI.SceneOutlinerView.Instance;
