@@ -86,6 +86,12 @@ foreach ($required in @('ModuleData\bannerlord_assets_v1.4.7.txt',
     }
 }
 
+# SubModule.xml is the one file whose failure is total: the launcher refuses the whole module and
+# says only "can't be loaded, there are some errors" with a line number. A single unterminated
+# attribute quote is enough, and nothing else in the build notices.
+try { [xml] (Get-Content (Join-Path $distDir 'SubModule.xml') -Raw) | Out-Null }
+catch { throw "SubModule.xml is not valid XML: $($_.Exception.Message)" }
+
 # A pack that will not parse costs every marker in it, and the failure is invisible until someone
 # opens the editor and finds the category missing. Cheap to check here.
 Get-ChildItem (Join-Path $distDir 'ModuleData\packs') -Filter *.xml | ForEach-Object {
