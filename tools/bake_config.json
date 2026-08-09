@@ -1,0 +1,89 @@
+{
+  "_comment": [
+    "Config for bake_scene.py. Every stage is optional; a stage with nothing configured",
+    "reports that it did nothing and moves on.",
+    "Run stages in a chosen order with --stages markers,scripts,guids"
+  ],
+  "stages": [
+    "markers",
+    "scripts",
+    "retag",
+    "physics",
+    "guids",
+    "deploy"
+  ],
+  "guids": {
+    "overwrite_existing": false
+  },
+  "physics": {
+    "_comment": "Only affects mesh-component entities. Prefab references already have physics.",
+    "asset_dump": "",
+    "override_material": ""
+  },
+  "markers": {
+    "_comment": [
+      "Turn markers into working entities. The example below makes every sp_npc marker",
+      "a place an NPC can stand and work at. Delete it if you do not want that."
+    ],
+    "rules": [
+      {
+        "tag": "sp_npc",
+        "scripts": [
+          {
+            "name": "UsablePlace",
+            "variables": {
+              "PilotStandingPointTag": "Pilot",
+              "AmmoPickUpTag": "ammopickup",
+              "WaitStandingPointTag": "Wait",
+              "NavMeshPrefabName": ""
+            }
+          }
+        ],
+        "children": [
+          {
+            "name": "animation_point",
+            "scripts": [
+              {
+                "name": "AnimationPoint",
+                "variables": {
+                  "LoopStartAction": "act_npc_villager_shoveling",
+                  "MinWaitinSeconds": "50.000",
+                  "MaxWaitInSeconds": "320.000",
+                  "AutoSheathWeapons": "true",
+                  "TranslateUser": "true"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "_comment": [
+      "Bulk attachment. The example lights every torch in the scene.",
+      "Objects placed from the catalog have a prefab, not a name - match them on prefab_pattern."
+    ],
+    "rules": [
+      {
+        "prefab_pattern": "torch",
+        "attach": [
+          {
+            "name": "LightCycle",
+            "variables": {
+              "alwaysBurn": "true"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "retag": {
+    "_comment": "Editor tag on the left, the tag your mod looks for on the right.",
+    "map": {}
+  },
+  "deploy": {
+    "_comment": "Folders or full paths. Environment variables and ~ are expanded.",
+    "destinations": []
+  }
+}

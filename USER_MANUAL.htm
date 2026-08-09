@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Custom Scene Creator — User Manual</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #1a1714;
+    --bg-panel:    #211e1a;
+    --bg-raised:   #2a2520;
+    --bg-code:     #161412;
+    --border:      #3d3530;
+    --border-lite: #2e2a25;
+    --gold:        #c9a24a;
+    --gold-light:  #e0bc72;
+    --gold-dim:    #7a6230;
+    --text:        #d9cfc2;
+    --text-muted:  #8a8070;
+    --text-head:   #f0e6d0;
+    --link:        #c9a24a;
+    --kbd-bg:      #2e2a25;
+    --kbd-border:  #5a5040;
+    --kbd-text:    #e0d4b8;
+    --tip-bg:      #1e2416;
+    --tip-border:  #4a6030;
+    --tip-text:    #a8c870;
+    --warn-bg:     #221a12;
+    --warn-border: #7a5020;
+    --warn-text:   #d4924a;
+    --sidebar-w:   280px;
+    --content-max: 920px;
+  }
+
+  html { font-size: 16px; scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Georgia', 'Times New Roman', serif;
+    line-height: 1.75;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* Sidebar */
+  #sidebar {
+    width: var(--sidebar-w);
+    min-width: var(--sidebar-w);
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    flex-shrink: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gold-dim) transparent;
+  }
+  #sidebar::-webkit-scrollbar { width: 4px; }
+  #sidebar::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 2px; }
+
+  .sidebar-header { padding: 20px 16px 14px; border-bottom: 1px solid var(--border); }
+  .sidebar-header .mod-name {
+    font-size: 0.82rem; font-weight: bold; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--gold);
+  }
+  .sidebar-header .manual-label {
+    font-size: 0.72rem; color: var(--text-muted); letter-spacing: 0.06em;
+    text-transform: uppercase; margin-top: 2px;
+  }
+
+  #toc { padding: 10px 0 30px; }
+  #toc ul { list-style: none; }
+  #toc li a {
+    display: block; padding: 4px 16px; font-size: 0.78rem;
+    color: var(--text-muted); text-decoration: none; border-left: 2px solid transparent;
+  }
+  #toc li a:hover { color: var(--gold-light); background: var(--bg-raised); }
+  #toc li a.num { color: var(--text); }
+  #toc li a .n { color: var(--gold-dim); margin-right: 6px; }
+  #toc .sub a { padding-left: 32px; font-size: 0.74rem; }
+  .toc-gap { height: 8px; }
+
+  /* Main */
+  #main { flex: 1; padding: 46px 52px 100px; max-width: calc(var(--content-max) + 104px); }
+
+  h1 {
+    font-size: 2.1rem; color: var(--text-head); letter-spacing: 0.01em;
+    margin-bottom: 6px; font-weight: normal;
+  }
+  .subtitle { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 8px; }
+  .version-line {
+    color: var(--gold-dim); font-size: 0.8rem; letter-spacing: 0.06em;
+    text-transform: uppercase; margin-bottom: 40px;
+  }
+
+  h2 {
+    font-size: 1.42rem; color: var(--gold); font-weight: normal;
+    margin: 52px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  h2 .section-num { color: var(--gold-dim); font-size: 1rem; margin-right: 10px; }
+  h3 { font-size: 1.08rem; color: var(--text-head); font-weight: bold; margin: 30px 0 10px; }
+  h4 { font-size: 0.95rem; color: var(--gold-light); font-weight: bold; margin: 22px 0 8px; }
+
+  p { margin-bottom: 14px; }
+  ul, ol { margin: 0 0 16px 24px; }
+  li { margin-bottom: 7px; }
+  a { color: var(--link); }
+
+  strong { color: var(--text-head); }
+  em { color: var(--gold-light); font-style: italic; }
+
+  code {
+    font-family: 'Consolas', 'Courier New', monospace; font-size: 0.85em;
+    background: var(--bg-code); color: var(--gold-light);
+    padding: 1px 5px; border-radius: 3px; border: 1px solid var(--border-lite);
+  }
+  pre {
+    background: var(--bg-code); border: 1px solid var(--border);
+    border-radius: 4px; padding: 14px 16px; overflow-x: auto; margin-bottom: 18px;
+  }
+  pre code { background: none; border: none; padding: 0; color: var(--text); font-size: 0.82rem; }
+
+  kbd {
+    font-family: 'Consolas', monospace; font-size: 0.78em;
+    background: var(--kbd-bg); color: var(--kbd-text);
+    border: 1px solid var(--kbd-border); border-bottom-width: 2px;
+    border-radius: 4px; padding: 2px 7px; white-space: nowrap;
+  }
+
+  .table-wrap { overflow-x: auto; margin-bottom: 20px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+  th {
+    text-align: left; background: var(--bg-raised); color: var(--gold);
+    font-weight: normal; letter-spacing: 0.04em; text-transform: uppercase;
+    font-size: 0.74rem; padding: 9px 12px; border-bottom: 1px solid var(--border);
+  }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border-lite); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { color: var(--text-head); white-space: nowrap; }
+
+  .tip, .warn, .note {
+    border-left: 3px solid; border-radius: 0 4px 4px 0;
+    padding: 12px 16px; margin: 18px 0; font-size: 0.92rem;
+  }
+  .tip  { background: var(--tip-bg);  border-color: var(--tip-border);  }
+  .warn { background: var(--warn-bg); border-color: var(--warn-border); }
+  .note { background: var(--bg-panel); border-color: var(--gold-dim); }
+  .tip::before, .warn::before, .note::before {
+    display: block; font-size: 0.72rem; letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 5px;
+  }
+  .tip::before  { content: "Tip";        color: var(--tip-text);  }
+  .warn::before { content: "Watch out";  color: var(--warn-text); }
+  .note::before { content: "Note";       color: var(--gold-dim);  }
+
+  .lead {
+    font-size: 1.02rem; color: var(--text-head);
+    border-left: 3px solid var(--gold-dim); padding-left: 16px; margin-bottom: 26px;
+  }
+
+  .steps { counter-reset: step; list-style: none; margin-left: 0; }
+  .steps > li {
+    counter-increment: step; position: relative;
+    padding-left: 42px; margin-bottom: 16px;
+  }
+  .steps > li::before {
+    content: counter(step); position: absolute; left: 0; top: 1px;
+    width: 26px; height: 26px; line-height: 25px; text-align: center;
+    background: var(--bg-raised); border: 1px solid var(--gold-dim);
+    color: var(--gold); border-radius: 50%; font-size: 0.8rem;
+  }
+
+  footer {
+    margin-top: 70px; padding-top: 20px; border-top: 1px solid var(--border);
+    color: var(--text-muted); font-size: 0.82rem;
+  }
+
+  @media (max-width: 900px) {
+    body { display: block; }
+    #sidebar { display: none; }
+    #main { padding: 28px 20px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<nav id="sidebar">
+  <div class="sidebar-header">
+    <div class="mod-name">Custom Scene Creator</div>
+    <div class="manual-label">User Manual</div>
+  </div>
+  <div id="toc">
+    <ul>
+      <li><a class="num" href="#sec1"><span class="n">1</span>What this is</a></li>
+      <li><a class="num" href="#sec2"><span class="n">2</span>Installing</a></li>
+      <li><a class="num" href="#sec3"><span class="n">3</span>Opening the editor</a></li>
+      <li><a class="num" href="#sec4"><span class="n">4</span>Your first five minutes</a></li>
+      <li><a class="num" href="#sec5"><span class="n">5</span>Cameras</a></li>
+      <li><a class="num" href="#sec6"><span class="n">6</span>Edit modes</a></li>
+      <li><a class="num" href="#sec7"><span class="n">7</span>Controls</a></li>
+      <li><a class="num" href="#sec8"><span class="n">8</span>Choosing what to build</a></li>
+      <li><a class="num" href="#sec9"><span class="n">9</span>Markers</a></li>
+      <li class="sub"><a href="#markers-what">What they are for</a></li>
+      <li class="sub"><a href="#markers-numbers">Numbering</a></li>
+      <li><a class="num" href="#sec10"><span class="n">10</span>Scripts</a></li>
+      <li><a class="num" href="#sec11"><span class="n">11</span>Scene contents list</a></li>
+      <li><a class="num" href="#sec12"><span class="n">12</span>Saving and exporting</a></li>
+      <li class="sub"><a href="#projects">Projects</a></li>
+      <li class="sub"><a href="#prefab-vs-scene">Prefab or scene</a></li>
+      <li><a class="num" href="#sec13"><span class="n">13</span>Using what you made</a></li>
+      <li class="sub"><a href="#use-prefab">A prefab</a></li>
+      <li class="sub"><a href="#use-scene">A scene</a></li>
+      <li class="sub"><a href="#use-code">From mod code</a></li>
+      <li><a class="num" href="#sec14"><span class="n">14</span>The bake script</a></li>
+      <li><a class="num" href="#sec15"><span class="n">15</span>Worked example</a></li>
+      <li><a class="num" href="#sec16"><span class="n">16</span>Limits</a></li>
+      <li><a class="num" href="#sec17"><span class="n">17</span>Troubleshooting</a></li>
+      <div class="toc-gap"></div>
+      <li><a href="#reference">Quick reference</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main id="main">
+
+<h1>Custom Scene Creator</h1>
+<div class="subtitle">Build scenes for Mount &amp; Blade II: Bannerlord from inside the game.</div>
+<div class="version-line">For Bannerlord v1.4.7</div>
+
+<p class="lead">
+  Open any scene the game ships, place anything the game ships, and take the result away as XML you
+  can use in your own mod. No Modding Kit, no separate editor, no rebuild between changes.
+</p>
+
+<!-- ============================================================== -->
+<h2 id="sec1"><span class="section-num">1</span>What this is</h2>
+
+<p>
+  Bannerlord's scenes are built with the official Modding Kit — a separate multi-gigabyte download
+  running a full editor outside the game. It is powerful and it is the only way to do some things
+  (terrain sculpting and navmesh baking among them). It is also a lot of machinery to start up before
+  you can place a single crate.
+</p>
+<p>
+  This mod does the <strong>layout</strong> half in the game itself. You stand in the real scene, with
+  the real lighting and the real ground under you, and put objects where they look right. What comes
+  out the other end is plain XML.
+</p>
+
+<h3>What you can make with it</h3>
+<ul>
+  <li><strong>A reusable object</strong> — a fortified camp, a market stall, a pig pen. Exports as one
+      prefab you can place anywhere, over and over.</li>
+  <li><strong>A dressed scene</strong> — a graveyard laid out over an existing battle map, with spawn
+      points for an ambush. Exports as a block you paste into a scene file.</li>
+  <li><strong>A course</strong> — a race track marked with a start, numbered gates and a finish, for
+      your own mod's code to read.</li>
+</ul>
+
+<h3>What it does not do</h3>
+<p>
+  It does not sculpt terrain and it does not bake navmesh. Both are engine-side operations with no
+  in-game equivalent. See <a href="#sec16">Limits</a> — this matters most if you are building
+  interiors that NPCs need to walk around.
+</p>
+
+<!-- ============================================================== -->
+<h2 id="sec2"><span class="section-num">2</span>Installing</h2>
+
+<ol class="steps">
+  <li>Copy the <code>CustomSceneCreator</code> folder into your game's <code>Modules</code> folder.</li>
+  <li>Enable <strong>Custom Scene Creator</strong> in the launcher's Singleplayer mod list.</li>
+  <li>Load a campaign — any campaign, including one you have been playing for two hundred hours.</li>
+</ol>
+
+<div class="note">
+  The mod saves nothing into your campaign save. Your work lives in its own files under
+  <code>Documents</code>, so you can uninstall the mod without touching your game, and your scenes
+  survive a reinstall.
+</div>
+
+<!-- ============================================================== -->
+<h2 id="sec3"><span class="section-num">3</span>Opening the editor</h2>
+
+<p>
+  Walk into any <strong>town, village or castle</strong> and take the
+  <strong>Open Scene Creator</strong> option on the settlement menu. That opens the project browser:
+  saved work on the left, and <strong>New — Pick a Scene</strong> one button away.
+</p>
+
+<p>If you have the developer console enabled, these do the same thing more directly:</p>
+
+<div class="table-wrap">
+<table>
+  <tr><th>Command</th><th>What it does</th></tr>
+  <tr><td><code>csc.browse</code></td><td>Open the scene browser</td></tr>
+  <tr><td><code>csc.open &lt;scene&gt;</code></td><td>Open a specific scene by name, e.g. <code>csc.open aserai_village_b</code></td></tr>
+  <tr><td><code>csc.projects</code></td><td>List your saved projects</td></tr>
+  <tr><td><code>csc.project &lt;name&gt;</code></td><td>Reopen a saved project</td></tr>
+  <tr><td><code>csc.list</code></td><td>List scenes you can open</td></tr>
+</table>
+</div>
+
+<p>
+  The scene browser lists <strong>611 scenes</strong> — battle terrain, multiplayer maps, towns,
+  castles, villages, hideouts, arenas, interiors and naval — grouped and searchable.
+</p>
+
+<h3>Scene levels</h3>
+<p>
+  Many settlement scenes ship in several <em>upgrade levels</em>: the same village as a hamlet, a
+  town, and a fortified town. The browser shows which levels a scene has and lets you pick. Level 1 is
+  usually the sparsest and the easiest to work in.
+</p>
+
+<div class="warn">
+  Around 45 scenes are marked unopenable and hidden from the browser. These are campaign-map and
+  atmosphere scenes that crash the game outright when loaded as a mission — the world map among them.
+  Not a bug in your setup; they simply are not missions.
+</div>
+
+<p>
+  Leaving the editor (hold <kbd>Tab</kbd>) returns you to the settlement you started from. To try a
+  different scene, take the menu option again — or stay in the editor and use the console, which
+  skips the round trip.
+</p>
+
+<!-- ============================================================== -->
+<h2 id="sec4"><span class="section-num">4</span>Your first five minutes</h2>
+
+<p>Nothing here is permanent. Pick a battle terrain scene and try this:</p>
+
+<ol class="steps">
+  <li>Press <kbd>\</kbd>. You switch to an <strong>overhead camera</strong> and enter
+      <strong>Build</strong> mode.</li>
+  <li>Press <kbd>`</kbd> to open the asset picker. Type <code>barrel</code> in the search box, click a
+      result, then <strong>Build</strong>.</li>
+  <li>Move the mouse. A ghost of the barrel follows your cursor along the ground. <strong>Left-click
+      to place it.</strong></li>
+  <li>Place a few more. Hold <kbd>right mouse</kbd> and move the mouse to tilt one; <kbd>Q</kbd> and
+      <kbd>E</kbd> spin it; <kbd>Left Ctrl</kbd> resets it.</li>
+  <li>Press <kbd>\</kbd> twice more to reach <strong>Delete</strong> mode, and click one to remove it.</li>
+  <li>Press <kbd>L</kbd>. Everything you placed is listed, with its exact position and rotation.</li>
+  <li>Press <kbd>Alt</kbd>+<kbd>S</kbd> to save.</li>
+</ol>
+
+<p>That is the whole loop. Everything after this is detail.</p>
+
+<!-- ============================================================== -->
+<h2 id="sec5"><span class="section-num">5</span>Cameras</h2>
+
+<p>
+  A scene opens in <strong>third person</strong>, walking around like any other mission — useful for
+  judging how a place feels at eye level. Turning on an edit mode switches you to the
+  <strong>overhead (RTS) camera</strong>, which is where most building happens. <kbd>V</kbd> cycles.
+</p>
+
+<div class="table-wrap">
+<table>
+  <tr><th>Camera</th><th>Placing</th><th>Good for</th></tr>
+  <tr><td>Overhead</td><td>Where the <strong>cursor</strong> points</td><td>Laying things out, seeing the whole site</td></tr>
+  <tr><td>Third person</td><td>Where you <strong>look</strong></td><td>Judging scale against your character</td></tr>
+  <tr><td>First person</td><td>Where you <strong>look</strong></td><td>Detail work; seeing exactly what a player will</td></tr>
+</table>
+</div>
+
+<h4>Overhead camera</h4>
+<ul>
+  <li><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> pan. Speed scales with height, so it does not
+      crawl when you are up high.</li>
+  <li><kbd>Space</kbd> and <kbd>Left Alt</kbd> raise and lower.</li>
+  <li>Hold <kbd>Shift</kbd> and drag to rotate the view; <kbd>Shift</kbd>+<kbd>WASD</kbd> flies along
+      the view direction.</li>
+</ul>
+
+<p>
+  Once you have picked a camera with <kbd>V</kbd>, the editor stops changing it for you.
+</p>
+
+<div class="tip">
+  There is no maximum placement range. If you can see it, you can build on it — from any height.
+</div>
+
+<!-- ============================================================== -->
+<h2 id="sec6"><span class="section-num">6</span>Edit modes</h2>
+
+<p><kbd>\</kbd> cycles through five modes. The mode decides what a left-click does.</p>
+
+<div class="table-wrap">
+<table>
+  <tr><th>Mode</th><th>Left-click</th></tr>
+  <tr><td>Off</td><td>Nothing. You are just walking around.</td></tr>
+  <tr><td>Build</td><td>Places the current object</td></tr>
+  <tr><td>Delete</td><td>Removes what you click</td></tr>
+  <tr><td>Move</td><td>Picks up what you click; click again to put it down</td></tr>
+  <tr><td>Script</td><td>Opens the scripts attached to what you click</td></tr>
+</table>
+</div>
+
+<div class="note">
+  Your character sheathes their weapons while an edit mode is active, so clicking to place does not
+  swing a sword. They draw them again when you turn editing off. Nothing in the editor can damage you
+  either — you can build in the middle of a fight scene safely.
+</div>
+
+<p>
+  Delete and Move only ever touch <strong>your own</strong> objects. The scene's original contents are
+  not editable, so you cannot accidentally delete a village.
+</p>
+
+<!-- ============================================================== -->
+<h2 id="sec7"><span class="section-num">7</span>Controls</h2>
+
+<div class="table-wrap">
+<table>
+  <tr><th>Key</th><th>Action</th></tr>
+  <tr><td><kbd>\</kbd></td><td>Cycle edit mode: Off → Build → Delete → Move → Script</td></tr>
+  <tr><td><kbd>Left mouse</kbd></td><td>Place / delete / pick up / open scripts</td></tr>
+  <tr><td><kbd>F</kbd></td><td>The same, from the keyboard</td></tr>
+  <tr><td>Hold <kbd>right mouse</kbd> + move</td><td>Tilt and roll the held object</td></tr>
+  <tr><td><kbd>Q</kbd> <kbd>E</kbd></td><td>Rotate left / right</td></tr>
+  <tr><td><kbd>Left Ctrl</kbd></td><td>Reset rotation and height offset</td></tr>
+  <tr><td><kbd>G</kbd></td><td>Drop to the ground, and re-enable ground follow</td></tr>
+  <tr><td><kbd>H</kbd></td><td>Toggle ground follow — pin the height instead of hugging the terrain</td></tr>
+  <tr><td>Mouse wheel</td><td>Raise / lower the held object</td></tr>
+  <tr><td><kbd>`</kbd></td><td>Asset picker</td></tr>
+  <tr><td><kbd>L</kbd></td><td>Scene contents list</td></tr>
+  <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Previous / next object, without opening the picker</td></tr>
+  <tr><td><kbd>'</kbd></td><td>Next category</td></tr>
+  <tr><td><kbd>V</kbd></td><td>Cycle camera</td></tr>
+  <tr><td><kbd>Alt</kbd>+<kbd>S</kbd> or <kbd>K</kbd></td><td>Save</td></tr>
+  <tr><td><kbd>Alt</kbd>+<kbd>E</kbd></td><td>Export</td></tr>
+  <tr><td>Hold <kbd>Tab</kbd></td><td>Leave the editor</td></tr>
+  <tr><td>Numpad <kbd>8</kbd> <kbd>2</kbd></td><td>Tilt up / down</td></tr>
+  <tr><td>Numpad <kbd>4</kbd> <kbd>6</kbd></td><td>Roll left / right</td></tr>
+  <tr><td>Numpad <kbd>5</kbd> <kbd>1</kbd></td><td>Raise / lower</td></tr>
+</table>
+</div>
+
+<h4>Ground follow</h4>
+<p>
+  On by default: the object you are holding hugs the terrain as you move, which is what you want for
+  fences, walls and props. <kbd>H</kbd> pins it at the current height instead — for a bridge, a
+  balcony, or anything that should float. <kbd>G</kbd> drops it back down and turns following on again.
+</p>
+
+<!-- ============================================================== -->
+<h2 id="sec8"><span class="section-num">8</span>Choosing what to build</h2>
+
+<p>
+  <kbd>`</kbd> opens the asset picker: <strong>5,838 objects</strong> across 19 categories, plus your
+  own markers and prefabs.
+</p>
+
+<ul>
+  <li><strong>Category</strong> — a dropdown; <strong>All</strong> is first.</li>
+  <li><strong>Search</strong> — filters within the chosen category. Pick <strong>All</strong> first to
+      search everything.</li>
+  <li><strong>Info panel</strong> — what the selected object is: its meshes, whether it has collision,
+      which module it comes from.</li>
+  <li><strong>Build</strong>, or double-click, to take it.</li>
+</ul>
+
+<p>
+  Whatever the picker leaves you with is also what <kbd>[</kbd> and <kbd>]</kbd> cycle through — so
+  after searching <em>cart</em>, those keys step through carts. <kbd>'</kbd> leaves the search behind
+  and moves to the next whole category.
+</p>
+
+<div class="warn">
+  Some objects have no collision of their own — candle flames, torch flames, banners. They are still
+  placeable and still selectable, but a player will walk straight through them. That is how the base
+  game ships them; the flame is meant to sit on a torch that does have collision.
+</div>
+
+<!-- ============================================================== -->
+<h2 id="sec9"><span class="section-num">9</span>Markers</h2>
+
+<h3 id="markers-what">What they are for</h3>
+<p>
+  A marker is an object with <strong>no geometry</strong> — a labelled position. It shows in the editor
+  as a plain cube or cylinder so you can see and click it, and exports as a named, tagged entity that
+  code can find. This is how you tell your mod <em>put the ambush here</em>.
+</p>
+
+<p>They live in the <strong>Editor Markers</strong> category:</p>
+
+<div class="table-wrap">
+<table>
+  <tr><th>Marker</th><th>Exports as</th><th>Tag</th></tr>
+  <tr><td>Player Spawn</td><td><code>sp_player_1</code>…</td><td><code>sp_player</code></td></tr>
+  <tr><td>Ally Spawn</td><td><code>sp_ally_1</code>…</td><td><code>sp_ally</code></td></tr>
+  <tr><td>Enemy Spawn</td><td><code>sp_enemy_1</code>…</td><td><code>sp_enemy</code></td></tr>
+  <tr><td>Neutral / NPC Spawn</td><td><code>sp_npc_1</code>…</td><td><code>sp_npc</code></td></tr>
+  <tr><td>Navigation Node</td><td><code>nav_node_1</code>…</td><td><code>nav_node</code></td></tr>
+  <tr><td>Patrol Point</td><td><code>patrol_point_1</code>…</td><td><code>patrol_point</code></td></tr>
+  <tr><td>Race Start</td><td><code>race_start</code></td><td><code>race_start</code></td></tr>
+  <tr><td>Race Gate</td><td><code>race_gate_1</code>…</td><td><code>race_gate</code></td></tr>
+  <tr><td>Race Finish</td><td><code>race_finish</code></td><td><code>race_finish</code></td></tr>
+  <tr><td>Boundary Marker</td><td><code>boundary_1</code>…</td><td><code>boundary</code></td></tr>
+</table>
+</div>
+
+<p>
+  <strong>Facing matters.</strong> A marker's rotation is exported with it, so a spawn point should be
+  turned to face the way you want whatever appears there to look. Rotate it like any other object.
+</p>
+
+<h4>Adding your own</h4>
+<p>
+  Markers are declared in data, not code. Drop an XML file into
+  <code>Modules/CustomSceneCreator/ModuleData/packs/</code> and it is picked up at load — no rebuild:
+</p>
+<pre><code>&lt;Placeables&gt;
+  &lt;Placeable id="my_treasure_spot" display="Treasure Spot" category="My Markers"
+             proxy="editor_cube" exportName="treasure_{index}" exportTag="treasure" /&gt;
+&lt;/Placeables&gt;</code></pre>
+<p>
+  <code>proxy</code> is any real prefab to stand in for it visually — <code>editor_cube</code>,
+  <code>editor_cylinder</code>, <code>editor_sphere</code> and <code>editor_marker</code> all ship
+  with the game. <code>{index}</code> becomes the marker's number.
+</p>
+<div class="warn">
+  Write your own file rather than editing <code>csc_core.xml</code>, which a mod update will overwrite.
+  If a pack file has an XML error, <em>every</em> marker in it is lost — the editor says so on screen
+  when it loads, and the details go to the log.
+</div>
+
+<h3 id="markers-numbers">Numbering</h3>
+<p>
+  Numbered markers are numbered <strong>as you place them</strong>: eight enemy spawns give you
+  <code>sp_enemy_1</code> through <code>sp_enemy_8</code> with no effort. The number belongs to the
+  marker from the moment it exists, so it does not shuffle later.
+</p>
+<p>
+  New markers take the <strong>lowest free</strong> number for their type. Delete gate 3, place a
+  replacement, and it is gate 3 again — not gate 9 at the end of the track.
+</p>
+<p>
+  To renumber by hand, select the marker in the scene contents list (<kbd>L</kbd>) and edit
+  <strong>Marker #</strong>. It shows the name the marker will actually export under. Duplicates are
+  allowed — two spawns numbered 2 is a fair way to say <em>either of these</em> — but you will be told,
+  because the usual cause is a typo.
+</p>
+
+<!-- ============================================================== -->
+<h2 id="sec10"><span class="section-num">10</span>Scripts</h2>
+
+<p>
+  Scripts are what make a scene move: a fire burning, a windmill turning, a chair someone can sit in.
+  Switch to <strong>Script</strong> mode with <kbd>\</kbd> and click an object.
+</p>
+
+<p>The panel shows what is attached, and lets you add from the <strong>130 scripts the game
+ships</strong> — searchable, grouped, and ordered by how often the real scenes use each one, since
+that ordering is far more useful than alphabetical.</p>
+
+<h4>Editing variables</h4>
+<ul>
+  <li><strong>Bools</strong> are <em>true</em>/<em>false</em> buttons. The chosen one is lit and marked.</li>
+  <li><strong>Numbers and text</strong> are typed, with examples from real scenes beside them.</li>
+  <li><strong>Values used by shipped scenes</strong> — where a variable has known values, a
+      <strong>Choose</strong> button lists them, searchable and ranked by how many scenes use each.</li>
+</ul>
+
+<div class="tip">
+  The Choose list matters most for things nobody can type from memory. A sound emitter's
+  <code>Event Path</code> wants something like
+  <code>event:/mission/ambient/detail/river_01</code> — those names live inside the game's sound banks
+  and are not written down anywhere you can read. The list is built by reading what the game's own
+  scenes use.
+</div>
+
+<p>
+  Most scripts <strong>run live</strong> as soon as you attach them, so a fire lights immediately.
+  A few cannot — siege equipment and deployment points need a siege mission to exist in. Those are
+  flagged in the panel, and are still exported normally; they simply will not preview here.
+</p>
+
+<div class="warn">
+  Entity references — <code>AnimationPoint.PairEntity</code>, which links two posed NPCs — are shown
+  read-only. Pairing needs a click-to-pick-target mode that does not exist yet. Set those in the
+  Modding Kit, or with the bake script.
+</div>
+
+<!-- ============================================================== -->
+<h2 id="sec11"><span class="section-num">11</span>Scene contents list</h2>
+
+<p>
+  <kbd>L</kbd> lists everything you have placed. Clicking in the world only reaches what is in front
+  of you; this reaches what is buried inside a building, behind you, or too small to put a cursor on.
+</p>
+
+<ul>
+  <li><strong>Search</strong> by object name or by attached script.</li>
+  <li><strong>Sort</strong> by nearest, name, newest, or which objects carry scripts.</li>
+  <li><strong>Go To</strong> moves the camera to it — or double-click.</li>
+  <li><strong>Scripts</strong>, <strong>Pick Up</strong> and <strong>Delete</strong> do what they say.</li>
+</ul>
+
+<h4>Exact placement</h4>
+<p>
+  Selecting an object shows its <strong>position in metres</strong> and <strong>rotation in
+  degrees</strong> as editable fields. Typed numbers are the only way to be exact: lining a wall up
+  with the one beside it, or spacing race gates evenly, is arithmetic rather than aim.
+</p>
+
+<div class="tip">
+  A quick way to space things evenly: place them roughly, then fix one coordinate at a time. Setting
+  every gate to the same Y and stepping X by 20 gives a straight, even run in seconds.
+</div>
+
+<!-- ============================================================== -->
+<h2 id="sec12"><span class="section-num">12</span>Saving and exporting</h2>
+
+<h3 id="projects">Projects are what you reopen</h3>
+<p>
+  <kbd>Alt</kbd>+<kbd>S</kbd> saves your <strong>project</strong> — everything placed, plus which
+  scene and which levels it belongs to. Reopening restores the whole session rather than dropping
+  objects into whatever scene happened to be open. Leaving with unsaved changes asks first.
+</p>
+
+<div class="table-wrap">
+<table>
+  <tr><th>Folder</th><th>Contents</th></tr>
+  <tr><td><code>projects/</code></td><td>Your working files. <strong>This is what you reopen.</strong></td></tr>
+  <tr><td><code>exports/prefabs/</code></td><td>Prefab XML — one reusable object</td></tr>
+  <tr><td><code>exports/scenes/</code></td><td>Scene fragments — everything at its real position</td></tr>
+</table>
+</div>
+
+<p>All under <code>Documents\Mount and Blade II Bannerlord\CustomSceneCreator\</code>.</p>
+
+<div class="note">
+  A project is the source; an export is the finished artifact. To keep working on something, reopen
+  the <strong>project</strong> — not the prefab you exported from it.
+</div>
+
+<h3 id="prefab-vs-scene">Prefab or scene fragment</h3>
+<p><kbd>Alt</kbd>+<kbd>E</kbd> exports, and asks which of two things you meant.</p>
+
+<div class="table-wrap">
+<table>
+  <tr><th></th><th>Prefab</th><th>Scene fragment</th></tr>
+  <tr><td>Contains</td><td>Just what you built</td><td>Just what you built</td></tr>
+  <tr><td>Positions</td><td>Relative to the object's own base</td><td>Real scene coordinates</td></tr>
+  <tr><td>Tied to a scene</td><td>No</td><td>Yes</td></tr>
+  <tr><td>Use it for</td><td>Something you will place many times</td><td>Dressing one particular scene</td></tr>
+  <tr><td>Goes to</td><td><code>exports/prefabs/</code> and the module's <code>Prefabs</code> folder</td><td><code>exports/scenes/</code></td></tr>
+</table>
+</div>
+
+<p>
+  Both come from the same saved data, so the choice is never final — export the same project both
+  ways if you want.
+</p>
+<p>
+  A prefab's origin is the <strong>centre of its footprint, at its lowest point</strong>, so it sits on
+  the ground when you place it later instead of being buried halfway.
+</p>
+
+<!-- ============================================================== -->
+<h2 id="sec13"><span class="section-num">13</span>Using what you made</h2>
+
+<h3 id="use-prefab">A prefab</h3>
+<p>
+  Prefab exports are written into <code>Modules/CustomSceneCreator/Prefabs/</code> as well as your
+  Documents folder. <strong>Restart the game</strong> — prefab XML is only read at startup — and your
+  object appears in the asset picker under <strong>My Prefabs</strong>, placeable as a single piece.
+</p>
+<p>
+  To ship it in your own mod, copy the XML into your module's <code>Prefabs</code> folder. Then
+  anywhere in code:
+</p>
+<pre><code>GameEntity.Instantiate(mission.Scene, "my_fortified_camp", frame);</code></pre>
+
+<h3 id="use-scene">A scene</h3>
+<p>
+  A scene fragment is a block of entities meant to be pasted into a real scene file. The target is the
+  <code>&lt;entities&gt;</code> section of:
+</p>
+<pre><code>Modules/&lt;YourModule&gt;/SceneObj/&lt;scene_name&gt;/scene.xscene</code></pre>
+
+<ol class="steps">
+  <li>Copy an existing scene's folder into your module, and rename it.</li>
+  <li>Open <code>scene.xscene</code> in a text editor and paste the fragment inside
+      <code>&lt;entities&gt;</code>.</li>
+  <li>If anything you placed needs NPCs to walk on or around it, open the scene once in the Modding
+      Kit and <strong>bake the navmesh</strong>.</li>
+</ol>
+
+<div class="warn">
+  Skipping the navmesh bake is the single most common way a hand-built scene disappoints. Everything
+  looks right, and then NPCs walk through your new wall, or refuse to enter the area at all. Objects
+  do not create walkable ground by themselves.
+</div>
+
+<h3 id="use-code">From mod code</h3>
+<p>
+  Markers are how a scene talks to your mod. They export with tags, and tags are what you search for:
+</p>
+<pre><code>// Every enemy spawn you placed, in the order they are found
+List&lt;GameEntity&gt; spawns = mission.Scene.FindEntitiesWithTag("sp_enemy").ToList();
+
+foreach (GameEntity spawn in spawns) {
+    MatrixFrame frame = spawn.GetGlobalFrame();
+    // frame.origin is the position, frame.rotation the facing you set in the editor
+}
+
+// Or a specific one, by the number the editor gave it
+GameEntity gate3 = mission.Scene.FindEntityWithName("race_gate_3");</code></pre>
+
+<p>
+  Search by <strong>tag</strong> when you want all of a kind — every enemy spawn, every patrol point.
+  Search by <strong>name</strong> when the number matters — gate 3 comes after gate 2.
+</p>
+
+<div class="tip">
+  If you want your own tag names rather than <code>sp_enemy</code>, do not rename markers by hand.
+  The bake script's <code>retag</code> stage maps them all in one pass.
+</div>
+
+<!-- ============================================================== -->
+<h2 id="sec14"><span class="section-num">14</span>The bake script</h2>
+
+<p>
+  <code>tools/bake_scene.py</code> post-processes an export. <strong>You may not need it</strong> —
+  what the editor writes already works. Baking is for what comes after layout, done the same way every
+  time.
+</p>
+
+<pre><code>python bake_scene.py --init-config      # write a documented config
+python bake_scene.py my_graveyard.xml   # bake it
+python bake_scene.py my_graveyard.xml --list   # just show what is in the file</code></pre>
+
+<div class="table-wrap">
+<table>
+  <tr><th>Stage</th><th>What it does</th></tr>
+  <tr><td><code>markers</code></td><td>Turns a bare marker into a working entity — an NPC work spot needs a <code>UsablePlace</code> with an <code>AnimationPoint</code> under it</td></tr>
+  <tr><td><code>scripts</code></td><td>Attaches a script to everything matching a rule — every torch burns</td></tr>
+  <tr><td><code>retag</code></td><td>Renames tags to whatever your mod looks for</td></tr>
+  <tr><td><code>physics</code></td><td>Adds collision shapes to mesh-based entities</td></tr>
+  <tr><td><code>guids</code></td><td>Gives every entity an ID, so scripts can reference each other</td></tr>
+  <tr><td><code>deploy</code></td><td>Copies the result where it has to live</td></tr>
+</table>
+</div>
+
+<p>
+  Everything is driven by <code>bake_config.json</code>, and the script is meant to be edited. Full
+  documentation is in <code>tools/README_BAKE.md</code>.
+</p>
+
+<div class="note">
+  The <code>physics</code> stage usually reports doing nothing to an editor export, which is correct:
+  objects you place are prefab <em>references</em>, and a prefab carries its own collision. That stage
+  is for files whose geometry is spelled out mesh by mesh.
+</div>
+
+<!-- ============================================================== -->
+<h2 id="sec15"><span class="section-num">15</span>Worked example: a graveyard ambush</h2>
+
+<p>A scene where the player walks into a graveyard and is jumped. Start to finish:</p>
+
+<ol class="steps">
+  <li><strong>Pick the ground.</strong> Open the scene browser and choose a battle terrain map with
+      the right feel. Nothing you do will alter the original.</li>
+  <li><strong>Dress it.</strong> <kbd>\</kbd> into Build mode, <kbd>`</kbd> for the picker, and search
+      <em>grave</em>, <em>fence</em>, <em>ruin</em>. Place headstones; a fence to shape the space; a
+      gate where you want the player to enter.</li>
+  <li><strong>Light it.</strong> Place braziers, then <kbd>\</kbd> to Script mode, click one, and
+      attach <code>LightCycle</code>. It lights immediately, so you can judge it in place.</li>
+  <li><strong>Mark the entrance.</strong> Category <strong>Editor Markers</strong> → Player Spawn.
+      Face it toward the graveyard — the rotation is exported.</li>
+  <li><strong>Place the ambush.</strong> Enemy Spawns behind the headstones, facing in. They are
+      numbered 1, 2, 3… as you go. Use the second wave's numbers deliberately if you want one: 1–4
+      ahead, 5–8 behind.</li>
+  <li><strong>Check the layout.</strong> <kbd>L</kbd>, sort by name, and confirm the spawns read 1
+      through 8 with none missing. Nudge positions with the number fields if any are inside a wall.</li>
+  <li><strong>Save</strong> with <kbd>Alt</kbd>+<kbd>S</kbd>, then <kbd>Alt</kbd>+<kbd>E</kbd> and
+      export a <strong>scene fragment</strong> — this belongs to one particular map.</li>
+  <li><strong>Make it a scene.</strong> Copy the base scene's folder into your module, rename it, and
+      paste the fragment into its <code>scene.xscene</code>.</li>
+  <li><strong>Bake the navmesh</strong> in the Modding Kit, or the ambushers will not move.</li>
+  <li><strong>Spawn them</strong> from your mission code:</li>
+</ol>
+
+<pre><code>foreach (GameEntity spawn in mission.Scene.FindEntitiesWithTag("sp_enemy")) {
+    MatrixFrame frame = spawn.GetGlobalFrame();
+    mission.SpawnAgent(new AgentBuildData(character)
+        .InitialPosition(frame.origin)
+        .InitialDirection(frame.rotation.f.AsVec2));
+}</code></pre>
+
+<p>
+  Steps 1 to 7 are the part that used to need the Modding Kit, and they take about twenty minutes.
+</p>
+
+<!-- ============================================================== -->
+<h2 id="sec16"><span class="section-num">16</span>Limits</h2>
+
+<p>Worth knowing before you plan something around them.</p>
+
+<div class="table-wrap">
+<table>
+  <tr><th>Limit</th><th>What it means</th></tr>
+  <tr><td>No terrain editing</td><td>You cannot raise a hill or dig a ditch. Terrain lives in a binary file the game does not expose. Pick a scene whose ground already suits you, or shape space with objects.</td></tr>
+  <tr><td>No navmesh baking</td><td>Placing a building does not tell NPCs how to walk around it. The Modding Kit does this. Player-only spaces are fine without it.</td></tr>
+  <tr><td>No undo</td><td>Delete mode and the contents list are the ways back. Save often.</td></tr>
+  <tr><td>No scaling</td><td>Objects are placed at their authored size.</td></tr>
+  <tr><td>Entity references read-only</td><td>Scripts pointing at another entity cannot be linked here yet.</td></tr>
+  <tr><td>Original scene contents are fixed</td><td>You can add to a scene but not remove or move what shipped in it.</td></tr>
+  <tr><td>Leaving returns to the campaign</td><td>Not to the scene browser, so switching scenes means going through the settlement menu again.</td></tr>
+</table>
+</div>
+
+<!-- ============================================================== -->
+<h2 id="sec17"><span class="section-num">17</span>Troubleshooting</h2>
+
+<h4>The Editor Markers category is missing</h4>
+<p>
+  A marker pack failed to load — the editor says so on screen when the scene opens. The cause is
+  almost always an XML error in a file under <code>ModuleData/packs/</code>. The log names the file
+  and the line. Note a run of dashes inside an XML comment is illegal, which is an easy trap.
+</p>
+
+<h4>My exported prefab is not in the picker</h4>
+<p>
+  Restart the game. Prefab XML is read only at startup. Until then it is listed as needing a restart
+  rather than hidden.
+</p>
+
+<h4>NPCs walk through my walls, or will not enter</h4>
+<p>The navmesh has not been baked. See <a href="#use-scene">A scene</a>.</p>
+
+<h4>I cannot select a small object</h4>
+<p>
+  Get closer, or use the contents list (<kbd>L</kbd>) — it reaches anything regardless of size or
+  what is in front of it.
+</p>
+
+<h4>Left-click swings my weapon instead of placing</h4>
+<p>You are not in an edit mode. Press <kbd>\</kbd>.</p>
+
+<h4>The cursor is locked to the middle of the screen</h4>
+<p>Alt-tabbing away and back can do this. Alt-tab once more, or press <kbd>V</kbd> twice.</p>
+
+<h4>A scene crashes when I open it</h4>
+<p>
+  Some scenes are not missions and cannot be loaded as one; the known ones are hidden from the
+  browser. If you found another by name with <code>csc.open</code>, that is why.
+</p>
+
+<h4>Where is the log?</h4>
+<pre><code>%ProgramData%\Mount and Blade II Bannerlord\logs\CustomSceneCreator.trace.log</code></pre>
+
+<!-- ============================================================== -->
+<h2 id="reference">Quick reference</h2>
+
+<div class="table-wrap">
+<table>
+  <tr><th>Key</th><th></th><th>Key</th><th></th></tr>
+  <tr><td><kbd>\</kbd></td><td>Edit mode</td><td><kbd>`</kbd></td><td>Asset picker</td></tr>
+  <tr><td><kbd>Left mouse</kbd></td><td>Do the thing</td><td><kbd>L</kbd></td><td>Contents list</td></tr>
+  <tr><td><kbd>Q</kbd> <kbd>E</kbd></td><td>Rotate</td><td><kbd>[</kbd> <kbd>]</kbd></td><td>Cycle object</td></tr>
+  <tr><td>Hold <kbd>right mouse</kbd></td><td>Tilt / roll</td><td><kbd>'</kbd></td><td>Next category</td></tr>
+  <tr><td><kbd>G</kbd></td><td>Drop to ground</td><td><kbd>V</kbd></td><td>Camera</td></tr>
+  <tr><td><kbd>H</kbd></td><td>Ground follow</td><td><kbd>Alt</kbd>+<kbd>S</kbd></td><td>Save</td></tr>
+  <tr><td><kbd>Left Ctrl</kbd></td><td>Reset rotation</td><td><kbd>Alt</kbd>+<kbd>E</kbd></td><td>Export</td></tr>
+  <tr><td>Wheel</td><td>Raise / lower</td><td>Hold <kbd>Tab</kbd></td><td>Leave</td></tr>
+</table>
+</div>
+
+<footer>
+  Custom Scene Creator — user manual. For Bannerlord v1.4.7.<br>
+  Design notes and the milestone list are in <code>CUSTOM_SCENE_CREATOR_PLAN.md</code>;
+  the bake script is documented in <code>tools/README_BAKE.md</code>.
+</footer>
+
+</main>
+</body>
+</html>

@@ -3,13 +3,14 @@
 A standalone in-game scene editor for **Mount & Blade II: Bannerlord v1.4.7**.
 
 Open any shipped scene, place any shipped prefab or logical marker, and export the result — without
-needing a homestead or the Modding Kit.
+the Modding Kit.
 
 > **Status: early development, but usable.** Entered from inside a campaign (settlement menu or
 > `csc.open`). Scene browser, asset catalog, RTS/third/first-person cameras, and build/delete/move
 > with JSON project save-load are all in, plus a searchable asset picker and editor-authored marker
 > packs, export as a reusable prefab or a whole-scene fragment, and script attachment. Still to come:
 > entity-reference variables, and scene derivation.
+> New here? Start with the [user manual](USER_MANUAL.htm).
 > See [CUSTOM_SCENE_CREATOR_PLAN.md](CUSTOM_SCENE_CREATOR_PLAN.md) for the full design and
 > milestone list.
 
@@ -17,14 +18,20 @@ needing a homestead or the Modding Kit.
 
 ## Why
 
-The existing `HomesteadBuilder` mod is a Harmony shim over Homesteads Reloaded's building editor. It
-works, but it requires a running campaign and an owned homestead, it reaches into another mod's
-private fields by name, and its map picker exposes about 10% of the scenes the game ships.
+Building a scene for Bannerlord normally means the Modding Kit: a separate multi-gigabyte download,
+a long load, and an editor that runs outside the game you are building for. For laying out objects —
+a graveyard, a race track, a fortified camp — that is a lot of machinery to stand up before you can
+place a single crate.
 
-This replaces it. The editor becomes a library any mod can consume (including Homesteads), and the
-app around it is campaign-free.
+This puts the layout half in the game itself. You open the scene you want, walk or fly around it, and
+place things where they look right, with the real lighting and the real terrain. What comes out is
+plain XML the Modding Kit (or anything else) can pick up.
 
-## What it will do
+It is also built as a library rather than an application: the editor talks to an `ISceneEditTarget`
+interface and never learns what it is editing, so another mod can host the same editor over its own
+storage.
+
+## What it does
 
 - **All 611 shipped scenes** — battle terrain, multiplayer maps, towns, castles, villages, hideouts,
   arenas, interiors, naval. Categorized and searchable, with correct upgrade-level handling.
@@ -72,10 +79,13 @@ Generators that read your local game install. Regenerate these after a game upda
 
 Pass `-GameDir` if your install is not at the default path.
 
+`tools/bake_scene.py` post-processes an export: expanding markers into working entities, attaching
+scripts in bulk, renaming tags, assigning GUIDs, and deploying the result. Driven by
+`bake_config.json` and meant to be edited — see [README_BAKE.md](tools/README_BAKE.md).
+
 ## Editor controls
 
-Matched to Homesteads Reloaded's RTS builder where it has an equivalent. Hardcoded for now; these
-become MCM settings later.
+Hardcoded for now; these become MCM settings later.
 
 A scene opens in **third person, walking around**, like any other mission. Turning edit mode on with
 `\` switches to the **RTS camera** - look down at the site, pan around it, and place where the
@@ -94,6 +104,7 @@ it for you.
 | **Left Ctrl** | Reset rotation and height offset |
 | `G` | Drop to ground, and re-enable ground follow |
 | `H` | Toggle ground follow (pin the height instead) |
+| Mouse wheel | Raise / lower the held object |
 | **`** | Open the asset picker: choose a category, search within it, inspect, build |
 | `L` | Open the scene contents list: everything placed, with editable position and rotation, plus Go To / Scripts / Pick Up / Delete |
 | `[` `]` | Previous / next placeable (quick cycle without the picker) |
