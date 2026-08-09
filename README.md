@@ -164,7 +164,7 @@ Writes to `%ProgramData%\Mount and Blade II Bannerlord\logs\CustomSceneCreator.t
 ## Releasing
 
 ```bash
-powershell -File tools/package_release.ps1
+powershell -ExecutionPolicy Bypass -File tools/package_release.ps1
 ```
 
 Builds, then writes a single `CustomSceneCreator-v<version>.zip` containing the module folder, the

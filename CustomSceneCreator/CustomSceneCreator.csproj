@@ -7,9 +7,10 @@
     <Platforms>x64</Platforms>
     <AssemblyName>CustomSceneCreator</AssemblyName>
     <RootNamespace>CustomSceneCreator</RootNamespace>
-    <Version>0.1.0</Version>
-    <FileVersion>0.1.0.0</FileVersion>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <!-- Keep in step with _Module/SubModule.xml: the release zip is named from this. -->
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <Product>Custom Bannerlord Scene Creator</Product>
     <Description>Standalone in-game scene editor for Mount &amp; Blade II: Bannerlord.</Description>
 

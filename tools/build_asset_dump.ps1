@@ -22,7 +22,7 @@
     Where to write the dump. Defaults to the module's ModuleData folder, version-stamped.
 
 .EXAMPLE
-    powershell -File tools/build_asset_dump.ps1
+    powershell -ExecutionPolicy Bypass -File tools/build_asset_dump.ps1
 #>
 [CmdletBinding()]
 param(

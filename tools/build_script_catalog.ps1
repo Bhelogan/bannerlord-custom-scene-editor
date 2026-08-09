@@ -29,7 +29,7 @@
     Where to write the catalog. Defaults to the module's ModuleData folder.
 
 .EXAMPLE
-    powershell -File tools/build_script_catalog.ps1
+    powershell -ExecutionPolicy Bypass -File tools/build_script_catalog.ps1
 #>
 [CmdletBinding()]
 param(

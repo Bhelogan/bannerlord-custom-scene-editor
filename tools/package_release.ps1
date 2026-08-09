@@ -24,8 +24,8 @@
     Where to write the zip. Defaults to a Release folder in the repo root.
 
 .EXAMPLE
-    powershell -File tools/package_release.ps1
-    powershell -File tools/package_release.ps1 -SkipBuild
+    powershell -ExecutionPolicy Bypass -File tools/package_release.ps1
+    powershell -ExecutionPolicy Bypass -File tools/package_release.ps1 -SkipBuild
 #>
 [CmdletBinding()]
 param(
@@ -162,6 +162,11 @@ WHAT YOU MAKE
 TOOLS
   tools\bake_scene.py post-processes an export. You do not need it to start -
   see tools\README_BAKE.md.
+
+  PowerShell scripts here must be run as:
+      powershell -ExecutionPolicy Bypass -File <script>.ps1
+  Windows refuses unsigned scripts otherwise. That applies to the one run
+  only and changes nothing on your system.
 
   tools\regenerate\ rebuilds the asset and scene catalogs. Two reasons to:
   the game updated, or you want YOUR OWN mod's prefabs to show up in the
