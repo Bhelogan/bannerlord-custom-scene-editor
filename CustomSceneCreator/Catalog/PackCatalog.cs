@@ -169,5 +169,21 @@ namespace CustomSceneCreator.Catalog {
 
         /// <summary>Prefab to instantiate for a saved name, resolving pack markers to their proxy.</summary>
         public static string ResolveSpawnPrefab(string name) => Find(name)?.SpawnPrefabName ?? name;
+
+        /// <summary>
+        /// What to call something on screen. Prefers the catalog's own name, so a pack marker reads
+        /// as "Enemy Spawn" rather than the "Csc Enemy Spawn" its id would spell out.
+        /// </summary>
+        public static string DisplayNameFor(string prefabName) {
+            string display = Find(prefabName)?.DisplayName ?? "";
+            return display.Length > 0 ? display : Placeable.ToDisplayName(prefabName);
+        }
+
+        /// <summary>True for markers exported with a number in their name - see PlacedEntity.MarkerIndex.</summary>
+        public static bool IsNumberedMarker(string prefabName) {
+            Placeable? placeable = Find(prefabName);
+            return placeable != null &&
+                   placeable.ExportName.IndexOf("{index}", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
     }
 }

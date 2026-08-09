@@ -182,6 +182,11 @@ namespace CustomSceneCreator.Editing {
                 entity.SceneEntity = spawned;
                 ScriptAttacher.ApplyAll(spawned, entity);
                 _live.Add(entity);
+
+                // Projects saved before numbering existed have markers with no number. Give them one
+                // now, rather than leaving a scene where some markers are numbered and some are not
+                // and the export quietly resolves the difference.
+                if (entity.MarkerIndex <= 0) entity.MarkerIndex = NextMarkerIndex(entity.PrefabName);
             }
         }
 
@@ -502,9 +507,15 @@ namespace CustomSceneCreator.Editing {
                     Rotation = rotation,
                     SceneEntity = spawned,
                 };
+                placed.MarkerIndex = NextMarkerIndex(prefabName);
                 _target.OnEntityAdded(placed);
                 _live.Add(placed);
                 _isDirty = true;
+
+                if (placed.MarkerIndex > 0) {
+                    EditorHud.ShowMessage(
+                        $"{Placeable.ToDisplayName(prefabName)} #{placed.MarkerIndex} placed.");
+                }
             }
 
             RemoveGhost();
@@ -668,6 +679,60 @@ namespace CustomSceneCreator.Editing {
         /// what is buried inside a building, behind you, or too small to put a cursor on - and it is
         /// the only way to see what a scene actually contains without walking it.
         /// </summary>
+        /// <summary>
+        /// The number a newly placed marker gets: the lowest one not already in use for its type.
+        ///
+        /// Lowest-free rather than highest-plus-one so that deleting gate 3 and placing a
+        /// replacement gives you gate 3 back. Counting up would leave a hole and hand the new gate
+        /// the last number, quietly reordering the race.
+        ///
+        /// Zero for anything whose export name has no number in it - ordinary props, and the
+        /// one-per-scene markers like race_start.
+        /// </summary>
+        private int NextMarkerIndex(string prefabName) {
+            Placeable? placeable = PlaceableRegistry.Find(prefabName);
+            if (placeable == null || placeable.ExportName.IndexOf("{index}", StringComparison.OrdinalIgnoreCase) < 0) {
+                return 0;
+            }
+
+            var taken = new HashSet<int>();
+            foreach (PlacedEntity entity in _live) {
+                if (entity.MarkerIndex > 0 &&
+                    string.Equals(entity.PrefabName, prefabName, StringComparison.OrdinalIgnoreCase)) {
+                    taken.Add(entity.MarkerIndex);
+                }
+            }
+
+            int candidate = 1;
+            while (taken.Contains(candidate)) candidate++;
+            return candidate;
+        }
+
+        /// <summary>Renumbers a marker by hand, from the scene contents list.</summary>
+        public void SetMarkerIndex(PlacedEntity entity, int index) {
+            if (entity == null || index < 0 || entity.MarkerIndex == index) return;
+            entity.MarkerIndex = index;
+            _isDirty = true;
+        }
+
+        /// <summary>
+        /// Other markers of the same type sharing a number.
+        ///
+        /// Duplicates are allowed - two spawn points numbered 2 is a reasonable way to say "either
+        /// of these" - but they are worth saying out loud, since the usual cause is a typo.
+        /// </summary>
+        public int CountMarkersWithIndex(PlacedEntity entity) {
+            if (entity == null || entity.MarkerIndex <= 0) return 0;
+            int count = 0;
+            foreach (PlacedEntity other in _live) {
+                if (other != entity && other.MarkerIndex == entity.MarkerIndex &&
+                    string.Equals(other.PrefabName, entity.PrefabName, StringComparison.OrdinalIgnoreCase)) {
+                    count++;
+                }
+            }
+            return count;
+        }
+
         private void OpenOutliner() {
             UI.SceneOutlinerView? view = UI.SceneOutlinerView.Instance;
             if (view == null) {

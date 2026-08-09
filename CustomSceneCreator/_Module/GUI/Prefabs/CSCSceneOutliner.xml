@@ -128,6 +128,20 @@
                           </Widget>
                         </Children>
                       </ListPanel>
+
+                        <!-- Numbered markers only: which gate, which spawn. -->
+                        <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" StackLayout.LayoutMethod="HorizontalLeftToRight" IsVisible="@IsMarkerSelected" MarginLeft="20" DoNotAcceptEvents="true">
+                          <Children>
+                            <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="110" Text="@MarkerLabel" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                            <Widget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="80" SuggestedHeight="30" VerticalAlignment="Center" Sprite="BlankWhiteSquare_9" Color="#111111FF" DoNotAcceptEvents="true">
+                              <Children>
+                                <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@MarkerIndexText" Brush="Review.NameInput.Text" DoNotAcceptEvents="false" MarginLeft="6" />
+                              </Children>
+                            </Widget>
+                            <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@MarkerNote" Brush="Popup.Description.Text" HorizontalAlignment="Left" VerticalAlignment="Center" MarginLeft="12" DoNotAcceptEvents="true" />
+                          </Children>
+                        </ListPanel>
+
                       </Children>
                     </ListPanel>
                   </Children>

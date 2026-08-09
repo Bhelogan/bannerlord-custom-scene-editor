@@ -65,7 +65,7 @@ namespace CustomSceneCreator.UI {
                     int scripted = _all.Count(e => e.Scripts.Count > 0);
                     return $"{_all.Count} object(s) placed, {scripted} carrying scripts.";
                 }
-                return $"{Placeable.ToDisplayName(_selected.PrefabName)}   ({_selected.PrefabName})   " +
+                return $"{PlaceableRegistry.DisplayNameFor(_selected.PrefabName)}   ({_selected.PrefabName})   " +
                        $"{_selected.Scripts.Count} script(s)";
             }
         }
@@ -126,6 +126,56 @@ namespace CustomSceneCreator.UI {
         }
 
 
+
+        // -- marker number -------------------------------------------------------------------------
+        //
+        // Numbers are handed out on placement, so laying down eight enemy spawns gives you 1 to 8
+        // without touching anything. This is for the cases that need a hand: renumbering gates after
+        // rerouting a track, or splitting spawns into a first and second wave.
+
+        [DataSourceProperty]
+        public bool IsMarkerSelected =>
+            _selected != null && PlaceableRegistry.IsNumberedMarker(_selected.PrefabName);
+
+        [DataSourceProperty] public string MarkerLabel => "Marker #";
+
+        [DataSourceProperty]
+        public string MarkerNote {
+            get {
+                if (_selected == null) return "";
+                int clashes = _editor.CountMarkersWithIndex(_selected);
+                if (clashes == 0) return $"exports as {ExportNameFor(_selected)}";
+                return $"exports as {ExportNameFor(_selected)} - shared with {clashes} other marker(s)";
+            }
+        }
+
+        [DataSourceProperty]
+        public string MarkerIndexText {
+            get => _selected == null || _selected.MarkerIndex <= 0
+                ? ""
+                : _selected.MarkerIndex.ToString(CultureInfo.InvariantCulture);
+            set {
+                if (_selected == null) return;
+                if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int index)) return;
+                if (index < 1) return;
+
+                _editor.SetMarkerIndex(_selected, index);
+                OnPropertyChangedWithValue(value, nameof(MarkerIndexText));
+                OnPropertyChangedWithValue(MarkerNote, nameof(MarkerNote));
+
+                foreach (OutlinerItemVM item in _items) {
+                    if (item.Entity == _selected) item.RefreshName();
+                }
+            }
+        }
+
+        /// <summary>The name this marker will carry in the exported scene, numbering applied.</summary>
+        private static string ExportNameFor(PlacedEntity entity) {
+            Placeable? placeable = PlaceableRegistry.Find(entity.PrefabName);
+            if (placeable == null || placeable.ExportName.Length == 0) return entity.PrefabName;
+            return placeable.ExportName.Replace("{index}",
+                entity.MarkerIndex.ToString(CultureInfo.InvariantCulture));
+        }
 
         [DataSourceProperty]
         public MBBindingList<OutlinerItemVM> Items {
@@ -244,6 +294,9 @@ namespace CustomSceneCreator.UI {
             OnPropertyChangedWithValue(RotationYaw, nameof(RotationYaw));
             OnPropertyChangedWithValue(RotationPitch, nameof(RotationPitch));
             OnPropertyChangedWithValue(RotationRoll, nameof(RotationRoll));
+            OnPropertyChangedWithValue(IsMarkerSelected, nameof(IsMarkerSelected));
+            OnPropertyChangedWithValue(MarkerIndexText, nameof(MarkerIndexText));
+            OnPropertyChangedWithValue(MarkerNote, nameof(MarkerNote));
         }
 
         private Vec3 CameraPosition {
@@ -272,7 +325,8 @@ namespace CustomSceneCreator.UI {
                 // Nearest first is the default because the thing you want is usually the thing you
                 // are looking at, and the list is otherwise in placement order, which means nothing.
                 SortMode.Nearest => placed.OrderBy(e => (e.Position - camera).LengthSquared),
-                SortMode.Name => placed.OrderBy(e => e.PrefabName),
+                // Numerically within a type, so gate 10 follows gate 9 rather than gate 1.
+                SortMode.Name => placed.OrderBy(e => e.PrefabName).ThenBy(e => e.MarkerIndex),
                 SortMode.Newest => placed.Reverse(),
                 _ => placed.OrderByDescending(e => e.Scripts.Count).ThenBy(e => e.PrefabName),
             };
@@ -317,7 +371,16 @@ namespace CustomSceneCreator.UI {
 
         public PlacedEntity Entity { get; }
 
-        [DataSourceProperty] public string Name => Placeable.ToDisplayName(Entity.PrefabName);
+        /// <summary>
+        /// "Enemy Spawn  #3". The number is part of the name here because it is what you are looking
+        /// for when you open this list - which gate, which spawn - not a detail of it.
+        /// </summary>
+        [DataSourceProperty]
+        public string Name => Entity.MarkerIndex > 0
+            ? $"{PlaceableRegistry.DisplayNameFor(Entity.PrefabName)}  #{Entity.MarkerIndex}"
+            : PlaceableRegistry.DisplayNameFor(Entity.PrefabName);
+
+        public void RefreshName() => OnPropertyChangedWithValue(Name, nameof(Name));
 
         private string _distanceText = "";
 

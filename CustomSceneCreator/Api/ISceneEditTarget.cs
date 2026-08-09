@@ -33,6 +33,17 @@ namespace CustomSceneCreator.Api {
         /// AnimationPoint's PairEntity holds a GUID of its partner. Assigned on placement.</summary>
         public string Id = "";
 
+        /// <summary>
+        /// Which numbered marker this is - the 3 in <c>sp_enemy_3</c>. Zero for anything that is not
+        /// a numbered marker.
+        ///
+        /// Held on the object rather than counted at export time, because the number is part of what
+        /// the marker IS. Race gates have to be passed in order, and an ambush that spawns wave 2
+        /// behind you needs to know which spawns are wave 2. Numbering at export instead would mean
+        /// deleting gate 3 and placing a replacement silently made it the last gate.
+        /// </summary>
+        public int MarkerIndex;
+
         /// <summary>Scripts attached to this object. Written out on export.</summary>
         public List<AttachedScript> Scripts = new();
 

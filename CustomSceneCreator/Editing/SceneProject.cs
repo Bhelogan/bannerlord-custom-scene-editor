@@ -23,6 +23,9 @@ namespace CustomSceneCreator.Editing {
         public float[] RotU = { 0, 0, 1 };
         public float[] RotS = { 1, 0, 0 };
 
+        /// <summary>Marker number, for numbered markers. Zero otherwise. See PlacedEntity.</summary>
+        public int Index;
+
         /// <summary>Attached scene scripts, name -> variables. Empty for most objects.</summary>
         public List<ProjectScript> Scripts = new();
 
@@ -32,6 +35,7 @@ namespace CustomSceneCreator.Editing {
                 Variables = new Dictionary<string, string>(s.Variables),
             }).ToList(),
             Id = e.Id,
+            Index = e.MarkerIndex,
             Prefab = e.PrefabName,
             Pos = new[] { e.Position.x, e.Position.y, e.Position.z },
             RotF = new[] { e.Rotation.f.x, e.Rotation.f.y, e.Rotation.f.z },
@@ -41,6 +45,7 @@ namespace CustomSceneCreator.Editing {
 
         public PlacedEntity To() => new PlacedEntity {
             Id = Id,
+            MarkerIndex = Index,
             Scripts = (Scripts ?? new List<ProjectScript>())
                 .Select(s => new AttachedScript {
                     Name = s.Name,

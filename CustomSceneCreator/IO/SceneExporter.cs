@@ -169,7 +169,7 @@ namespace CustomSceneCreator.IO {
 
             bool isMarker = placeable != null && placeable.ExportName.Length > 0;
             if (isMarker) {
-                string entityName = ResolveName(placeable!.ExportName, counters);
+                string entityName = ResolveName(placeable!.ExportName, counters, entity.Index);
                 sb.AppendLine($"{indent}<game_entity name=\"{Escape(entityName)}\" old_prefab_name=\"\">");
                 sb.AppendLine($"{indent}  {transform}");
                 if (placeable.ExportTag.Length > 0) {
@@ -222,12 +222,27 @@ namespace CustomSceneCreator.IO {
         }
 
         /// <summary>Replaces {index} with a per-pattern counter, giving sp_enemy_1, sp_enemy_2, ...</summary>
-        private static string ResolveName(string pattern, Dictionary<string, int> counters) {
+        /// <summary>
+        /// Fills in a marker's number.
+        ///
+        /// The number stored on the marker wins: it is what the editor showed while the scene was
+        /// being laid out, and renumbering here would break the correspondence between what someone
+        /// arranged and what their mod code goes looking for. The running counter is only a fallback
+        /// for markers saved before numbering existed.
+        /// </summary>
+        private static string ResolveName(string pattern, Dictionary<string, int> counters, int stored) {
             if (pattern.IndexOf("{index}", StringComparison.OrdinalIgnoreCase) < 0) return pattern;
-            counters.TryGetValue(pattern, out int next);
-            next++;
-            counters[pattern] = next;
-            return pattern.Replace("{index}", next.ToString(CultureInfo.InvariantCulture));
+
+            int index = stored;
+            if (index <= 0) {
+                counters.TryGetValue(pattern, out int next);
+                index = next + 1;
+            }
+
+            // Tracked either way, so a fallback never lands on a number already claimed.
+            if (!counters.TryGetValue(pattern, out int highest) || index > highest) counters[pattern] = index;
+
+            return pattern.Replace("{index}", index.ToString(CultureInfo.InvariantCulture));
         }
 
         private static Vec3 ComputeAnchor(Editing.SceneProject project) {
