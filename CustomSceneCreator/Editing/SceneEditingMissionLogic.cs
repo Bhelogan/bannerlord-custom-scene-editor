@@ -130,6 +130,13 @@ namespace CustomSceneCreator.Editing {
                 // instead of on restarting the game.
                 Settings.KeyBindings.Refresh();
 
+                string? crashed = PrefabCrashGuard.CheckPreviousSession();
+                if (crashed != null) {
+                    EditorHud.ShowMessage(
+                        $"'{Placeable.ToDisplayName(crashed)}' closed the game last session and is now " +
+                        "blocked. Everything else still works.", warning: true);
+                }
+
                 BuildPalette();
                 RestoreExistingEntities();
                 EditorHud.ShowMessage(
@@ -1065,11 +1072,29 @@ namespace CustomSceneCreator.Editing {
                 prefabName = PlaceableRegistry.ResolveSpawnPrefab(prefabName);
                 if (!GameEntity.PrefabExists(prefabName)) return null;
 
+                if (PrefabCrashGuard.IsBlocked(prefabName)) {
+                    EditorHud.ShowMessage(
+                        $"'{Placeable.ToDisplayName(prefabName)}' crashed the game last time it was " +
+                        "built, so it is blocked. See csc_unsafe_prefabs.txt in the log folder.",
+                        warning: true);
+                    return null;
+                }
+
+                // Written BEFORE the call, and the log is flushed per line. A prefab whose scripts
+                // fault in native code takes the process with it and leaves no crash report, so the
+                // last line of the log naming what was being built is the only evidence there is.
+                TraceLogger.Write(nameof(SceneEditingMissionLogic), $"Instantiating '{prefabName}'...");
+                PrefabCrashGuard.Begin(prefabName);
+
                 MatrixFrame frame = MatrixFrame.Identity;
                 frame.rotation = rotation;
                 frame.origin = position;
 
                 GameEntity entity = GameEntity.Instantiate(Mission.Scene, prefabName, frame);
+
+                // Before anything ticks it: the prefab's own scripts assume a mission this is not.
+                PlacedScriptGuard.Strip(entity, prefabName);
+
                 // Set the whole frame rather than just the position: SetLocalPosition leaves the
                 // rotation applied at construction, which drifts for nested prefabs.
                 entity.SetGlobalFrame(in frame, true);
@@ -1080,6 +1105,11 @@ namespace CustomSceneCreator.Editing {
                 TraceLogger.Write(nameof(SceneEditingMissionLogic),
                     $"Instantiate('{prefabName}') failed: {ex.GetType().Name}: {ex.Message}");
                 return null;
+            } finally {
+                // Cleared however this ends, including on a managed exception: a prefab that merely
+                // threw is still usable, and blocking it would punish the wrong failure. Only a
+                // process that never reaches here at all leaves the mark behind.
+                PrefabCrashGuard.End();
             }
         }
 

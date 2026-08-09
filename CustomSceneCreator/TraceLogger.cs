@@ -23,6 +23,9 @@ namespace CustomSceneCreator {
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
                 "Mount and Blade II Bannerlord", "logs");
 
+        /// <summary>Exposed so the crash guard can keep its files beside the log.</summary>
+        public static string LogDirectoryPathPublic => LogDirectoryPath;
+
         public static string LogFilePath =>
             Path.Combine(LogDirectoryPath, "CustomSceneCreator.trace.log");
 

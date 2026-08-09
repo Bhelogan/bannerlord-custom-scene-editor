@@ -857,6 +857,23 @@ python bake_scene.py my_graveyard.xml --list   # just show what is in the file</
 <h4>NPCs walk through my walls, or will not enter</h4>
 <p>The navmesh has not been baked. See <a href="#use-scene">A scene</a>.</p>
 
+<h4>The game closed itself while I was browsing assets</h4>
+<p>
+  A few prefabs carry scripts written for a specific mission, and instantiating one outside that
+  mission can fault inside the engine. That is not something a mod can catch — the game exits, with
+  no crash report to send.
+</p>
+<p>
+  The editor handles this in two ways. Most such scripts are removed before they can run, so the
+  preview is a plain, still object. If one gets through anyway, the name of whatever was being built
+  is written down first — so on your next visit that prefab is <strong>blocked</strong>, you are told
+  which one it was, and everything else keeps working. You lose one session per bad prefab, once.
+</p>
+<p>
+  The list lives beside the log, in <code>csc_unsafe_prefabs.txt</code>. Delete a line to try that
+  prefab again. It is worth sending on — it is exactly what the shipped guard needs to improve.
+</p>
+
 <h4>I cannot select a small object</h4>
 <p>
   Get closer, or use the contents list (<kbd>L</kbd>) — it reaches anything regardless of size or
