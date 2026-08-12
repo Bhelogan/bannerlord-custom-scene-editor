@@ -1,5 +1,6 @@
 using System;
 using TaleWorlds.Library;
+using TaleWorlds.MountAndBlade;
 using TaleWorlds.MountAndBlade.View.MissionViews;
 using TaleWorlds.ScreenSystem;
 
@@ -42,10 +43,49 @@ namespace CustomSceneCreator.Editing {
         /// <summary>Called each tick by the editor with what it wants.</summary>
         public void Apply(bool editing) {
             bool wanted = editing && CameraModes.Current != EditorCameraMode.Rts;
+            _wanted = wanted;
+
             if (wanted == _suppressing) return;
 
             if (wanted) Suppress();
             else Release();
+        }
+
+        private bool _wanted;
+
+        /// <summary>
+        /// Clears the keyboard actions the agent controller has just requested.
+        ///
+        /// This has to be a SCREEN tick, not a mission tick. MissionMainAgentController is a view,
+        /// so it sets these flags during the screen phase - clearing them from the editor's mission
+        /// tick would run before they were set and do nothing. This view sits after it in the
+        /// behaviour list, so its screen tick lands afterwards.
+        /// </summary>
+        public override void OnMissionScreenTick(float dt) {
+            base.OnMissionScreenTick(dt);
+            if (!_wanted) return;
+
+            try {
+                Agent? main = Agent.Main;
+                if (main == null || !main.IsActive()) return;
+
+                // Kick is the one that prompted this: E rotates the held object here and kicks in the
+                // game, and restricting the mouse never touched a keyboard action.
+                const Agent.EventControlFlag unwanted =
+                    Agent.EventControlFlag.Kick
+                    | Agent.EventControlFlag.Jump
+                    | Agent.EventControlFlag.ToggleAlternativeWeapon
+                    | Agent.EventControlFlag.Wield0
+                    | Agent.EventControlFlag.Wield1
+                    | Agent.EventControlFlag.Wield2
+                    | Agent.EventControlFlag.Wield3;
+
+                Agent.EventControlFlag flags = main.EventControlFlags;
+                if ((flags & unwanted) == 0) return;
+                main.EventControlFlags = flags & ~unwanted;
+            } catch {
+                // Reading the flags touches native state; never let it break the tick.
+            }
         }
 
         private void Suppress() {

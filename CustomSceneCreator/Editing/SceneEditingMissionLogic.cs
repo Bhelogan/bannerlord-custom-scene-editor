@@ -436,21 +436,7 @@ namespace CustomSceneCreator.Editing {
             // Yaw is deliberately absent here - that is Q/E. Duplicating it on the drag, which is
             // what this did before, wastes the gesture and leaves the other two axes unreachable
             // without the numpad.
-            RtsCameraView? camera = RtsCameraView.Instance;
-            if (camera != null && camera.IsRotateDragging) {
-                float dragX = camera.SceneMouseMoveX;
-                float dragY = camera.SceneMouseMoveY;
-
-                if (MathF.Abs(dragX) > 0.0001f) {
-                    Vec3 rollAxis = camera.CameraForwardHorizontal;
-                    _ghostRotation.RotateAboutAnArbitraryVector(in rollAxis, dragX * RotateDragSensitivity);
-                }
-                if (MathF.Abs(dragY) > 0.0001f) {
-                    Vec3 tiltAxis = camera.CameraRightHorizontal;
-                    _ghostRotation.RotateAboutAnArbitraryVector(in tiltAxis, dragY * RotateDragSensitivity);
-                }
-                // No early return: placing on the same frame as a drag should still work.
-            }
+            HandleRotateDrag();
 
             if (_mode != EditMode.Build) return;
 
@@ -760,6 +746,48 @@ namespace CustomSceneCreator.Editing {
                 $"{_live.Count} object(s) placed.   " +
                 $"{Keys.Describe(Keys.SaveModifier)}+{Keys.Describe(Keys.SaveWithModifier)} " +
                 $"or {Keys.Describe(Keys.Save)} to save.";
+        }
+
+        /// <summary>
+        /// Right button held: rock the object on camera-relative axes.
+        ///
+        /// Works in every camera. The RTS camera reports its drag through the scene layer, which is
+        /// where its cursor lives; the player-attached cameras have no cursor at all, so the button
+        /// and the mouse movement are read from the raw input device instead. Reading only the RTS
+        /// path - which is what this did - meant the gesture did nothing in first and third person.
+        ///
+        /// The axes come from the camera either way, so a drag always matches what is on screen.
+        /// </summary>
+        private void HandleRotateDrag() {
+            RtsCameraView? camera = RtsCameraView.Instance;
+            if (camera == null) return;
+
+            bool dragging;
+            float dragX, dragY;
+
+            if (CameraModes.Current == EditorCameraMode.Rts) {
+                dragging = camera.IsRotateDragging;
+                dragX = camera.SceneMouseMoveX;
+                dragY = camera.SceneMouseMoveY;
+            } else {
+                // Raw input: the scene layer is restricted while editing in these cameras, so its
+                // own mouse readings are suppressed along with the attack they would have caused.
+                dragging = Input.IsKeyDown(Keys.RotateDrag);
+                dragX = Input.MouseMoveX;
+                dragY = Input.MouseMoveY;
+            }
+
+            if (!dragging) return;
+
+            if (MathF.Abs(dragX) > 0.0001f) {
+                Vec3 rollAxis = camera.CameraForwardHorizontal;
+                _ghostRotation.RotateAboutAnArbitraryVector(in rollAxis, dragX * RotateDragSensitivity);
+            }
+            if (MathF.Abs(dragY) > 0.0001f) {
+                Vec3 tiltAxis = camera.CameraRightHorizontal;
+                _ghostRotation.RotateAboutAnArbitraryVector(in tiltAxis, dragY * RotateDragSensitivity);
+            }
+            // No early return by design: placing on the same frame as a drag should still work.
         }
 
         /// <summary>
@@ -1203,12 +1231,33 @@ namespace CustomSceneCreator.Editing {
                 true, true,
                 new TextObject("{=CSC_UnsavedSave}Save and Leave").ToString(),
                 new TextObject("{=CSC_UnsavedDiscard}Discard").ToString(),
-                () => Save(),
+                // Both answers END the mission themselves.
+                //
+                // Returning the inquiry only asks the question - the leave request that raised it has
+                // already been abandoned by the time an answer arrives, so without this the panel
+                // closes, nothing happens, and the player has to press Tab a second time to leave.
+                () => { Save(); LeaveNow(); },
                 () => {
                     _isDirty = false;
                     TraceLogger.Write(nameof(SceneEditingMissionLogic),
                         $"Left without saving; {_live.Count} placed object(s) discarded.");
+                    LeaveNow();
                 });
+        }
+
+        /// <summary>
+        /// Ends the mission after the unsaved-changes prompt has been answered.
+        ///
+        /// The dirty flag is cleared first so the engine's own leave path does not raise the same
+        /// question again on the way out.
+        /// </summary>
+        private void LeaveNow() {
+            _isDirty = false;
+            try {
+                Mission.EndMission();
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(SceneEditingMissionLogic), "EndMission failed", ex);
+            }
         }
 
         protected override void OnEndMission() {
