@@ -404,9 +404,12 @@
 </div>
 
 <div class="note">
-  Your character sheathes their weapons while an edit mode is active, so clicking to place does not
-  swing a sword. They draw them again when you turn editing off. Nothing in the editor can damage you
-  either — you can build in the middle of a fight scene safely.
+  While an edit mode is on, your character sheathes their weapons and <strong>the mouse is held off
+  the combat controls</strong> in the third- and first-person cameras: no swinging, no blocking, and
+  no weapon-swapping on the wheel — which raises and lowers the object you are holding instead.
+  Walking and looking work normally. If a click does not place, use <kbd>F</kbd>. Everything returns
+  to normal when editing is off, and nothing in the editor can damage you, so you can build in the
+  middle of a fight scene safely.
 </div>
 
 <p>
@@ -662,6 +665,11 @@ that ordering is far more useful than alphabetical.</p>
   <kbd>Alt</kbd>+<kbd>S</kbd> saves your <strong>project</strong> — everything placed, plus which
   scene and which levels it belongs to. Reopening restores the whole session rather than dropping
   objects into whatever scene happened to be open. Leaving with unsaved changes asks first.
+</p>
+<p>
+  A reminder sits in the <strong>top right</strong> whenever there is unsaved work, with the object
+  count and the save keys. It stays up in every mode, including with editing switched off — the exit
+  prompt catches the obvious way to lose work, but not a crash or an alt-tab-and-forget.
 </p>
 
 <div class="table-wrap">

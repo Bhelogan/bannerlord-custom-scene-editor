@@ -85,6 +85,9 @@ namespace CustomSceneCreator.Boot {
                         new RtsCameraView(),
                         new UI.AssetPickerView(),
                         new UI.EditorStatusView(),
+                        // Keeps the mouse off attack, block and weapon-swap while building in the
+                        // player-attached cameras.
+                        new CombatInputSuppressor(),
                         new UI.ExportDialogView(),
                         new UI.ScriptPanelView(),
                         new UI.SceneOutlinerView(),

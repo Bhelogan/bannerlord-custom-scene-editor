@@ -51,6 +51,32 @@ namespace CustomSceneCreator.UI {
             set { if (value != _detailText) { _detailText = value; OnPropertyChangedWithValue(value, nameof(DetailText)); } }
         }
 
+        // -- unsaved-changes reminder --------------------------------------------------------------
+        //
+        // Top right, deliberately away from the mode readout on the left, and shown whenever there is
+        // work that would be lost. The exit prompt catches the obvious case, but not a crash, an
+        // alt-F4, or a scene swap - and by then the only honest thing to say is "it is gone". A
+        // standing reminder that names the key costs nothing and prevents that.
+
+        private bool _hasUnsavedChanges;
+        private string _unsavedText = "";
+
+        [DataSourceProperty]
+        public bool HasUnsavedChanges {
+            get => _hasUnsavedChanges;
+            set { if (value != _hasUnsavedChanges) { _hasUnsavedChanges = value; OnPropertyChangedWithValue(value, nameof(HasUnsavedChanges)); } }
+        }
+
+        [DataSourceProperty]
+        public string UnsavedTitle => "UNSAVED CHANGES";
+
+        /// <summary>Object count and the keys, written by the editor so the keys match the bindings.</summary>
+        [DataSourceProperty]
+        public string UnsavedText {
+            get => _unsavedText;
+            set { if (value != _unsavedText) { _unsavedText = value; OnPropertyChangedWithValue(value, nameof(UnsavedText)); } }
+        }
+
         [DataSourceProperty]
         public string ModeColor {
             get => _modeColor;

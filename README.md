@@ -131,8 +131,12 @@ There is no maximum placement range - if you can see it, you can build on it.
 
 Avoid rebinding onto `P` (the game's pick-up-item bind).
 
-Your character sheathes their weapons while an edit mode is active, so clicking to place does not
-swing a sword. They are drawn again as normal once editing is off.
+While an edit mode is active in the third- or first-person cameras, the mouse is held off the combat
+controls — no swinging, no blocking, no weapon-swapping on the wheel (the wheel raises and lowers the
+held object instead). Walking and looking are untouched. Use `F` to place if the click does not
+register. Everything returns to normal when editing is off.
+
+A reminder appears in the top right whenever there is unsaved work, naming the save keys.
 
 Leaving with unsaved changes offers to save first.
 

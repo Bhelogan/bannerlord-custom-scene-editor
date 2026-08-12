@@ -396,6 +396,15 @@ namespace CustomSceneCreator.Editing {
             if (Input.IsKeyPressed(Keys.ToggleGroundLock)) { ToggleGroundFollow(); return; }
             if (Input.IsKeyPressed(Keys.SnapToGround))     { SnapToGround();       return; }
 
+            // Rotation and height are handled BEFORE the ghost check on purpose.
+            //
+            // These used to sit below it, so they only worked while a preview was on screen - and in
+            // first and third person the preview comes and goes as you look around: aim at ground
+            // inside the minimum placement distance, or at sky, and there is no ghost, so every
+            // rotation key silently did nothing. The rotation is editor state, not ghost state; it
+            // survives the preview and applies to the next one.
+            if (HandleOrientationKeys(dt)) return;
+
             // Everything past here only means something with a ghost on screen.
             if (_ghost == null) return;
 
@@ -442,16 +451,6 @@ namespace CustomSceneCreator.Editing {
                 }
                 // No early return: placing on the same frame as a drag should still work.
             }
-
-            if (Input.IsKeyDown(Keys.RotateTiltUp))    { _ghostRotation.RotateAboutSide(dt);     return; }
-            if (Input.IsKeyDown(Keys.RotateTiltDown))  { _ghostRotation.RotateAboutSide(-dt);    return; }
-            if (Input.IsKeyDown(Keys.RotateRollLeft))  { _ghostRotation.RotateAboutForward(dt);  return; }
-            if (Input.IsKeyDown(Keys.RotateRollRight)) { _ghostRotation.RotateAboutForward(-dt); return; }
-            if (Input.IsKeyDown(Keys.RotateTurnLeft))  { _ghostRotation.RotateAboutUp(dt);       return; }
-            if (Input.IsKeyDown(Keys.RotateTurnRight)) { _ghostRotation.RotateAboutUp(-dt);      return; }
-
-            if (Input.IsKeyDown(Keys.MoveUp))   { _ghostOffset += Vec3.Up * dt; return; }
-            if (Input.IsKeyDown(Keys.MoveDown)) { _ghostOffset -= Vec3.Up * dt; return; }
 
             if (_mode != EditMode.Build) return;
 
@@ -748,6 +747,42 @@ namespace CustomSceneCreator.Editing {
         }
 
         /// <summary>
+        /// The top-right reminder. Shown whenever there is unsaved work, in every mode including
+        /// Off, and it names the keys rather than assuming they are remembered.
+        /// </summary>
+        private void UpdateUnsavedReminder(UI.EditorStatusVM status) {
+            status.HasUnsavedChanges = _isDirty;
+            if (!_isDirty) return;
+
+            // Built from the live bindings, so a rebound save key is reported correctly rather than
+            // sending someone to press a key that no longer saves.
+            status.UnsavedText =
+                $"{_live.Count} object(s) placed.   " +
+                $"{Keys.Describe(Keys.SaveModifier)}+{Keys.Describe(Keys.SaveWithModifier)} " +
+                $"or {Keys.Describe(Keys.Save)} to save.";
+        }
+
+        /// <summary>
+        /// Rotation and height-offset keys. Returns true if one was used.
+        ///
+        /// Works with or without a live preview, in every camera mode - the orientation belongs to
+        /// the editor rather than to the ghost.
+        /// </summary>
+        private bool HandleOrientationKeys(float dt) {
+            if (Input.IsKeyDown(Keys.RotateTiltUp))    { _ghostRotation.RotateAboutSide(dt);     return true; }
+            if (Input.IsKeyDown(Keys.RotateTiltDown))  { _ghostRotation.RotateAboutSide(-dt);    return true; }
+            if (Input.IsKeyDown(Keys.RotateRollLeft))  { _ghostRotation.RotateAboutForward(dt);  return true; }
+            if (Input.IsKeyDown(Keys.RotateRollRight)) { _ghostRotation.RotateAboutForward(-dt); return true; }
+            if (Input.IsKeyDown(Keys.RotateTurnLeft))  { _ghostRotation.RotateAboutUp(dt);       return true; }
+            if (Input.IsKeyDown(Keys.RotateTurnRight)) { _ghostRotation.RotateAboutUp(-dt);      return true; }
+
+            if (Input.IsKeyDown(Keys.MoveUp))   { _ghostOffset += Vec3.Up * dt; return true; }
+            if (Input.IsKeyDown(Keys.MoveDown)) { _ghostOffset -= Vec3.Up * dt; return true; }
+
+            return false;
+        }
+
+        /// <summary>
         /// Names whatever key was just pressed, while Key Detection Mode is on in the settings.
         ///
         /// InputKey values are physical US-layout POSITIONS, not the letter printed on the cap: on
@@ -942,8 +977,13 @@ namespace CustomSceneCreator.Editing {
         /// panel flicker through things you are not acting on.
         /// </summary>
         private void UpdateStatus() {
+            // Mouse held off the combat controls while editing in a player-attached camera.
+            CombatInputSuppressor.Instance?.Apply(_mode != EditMode.Off);
+
             UI.EditorStatusVM? status = UI.EditorStatusView.Instance?.DataSource;
             if (status == null) return;
+
+            UpdateUnsavedReminder(status);
 
             if (_mode == EditMode.Off) {
                 status.IsVisible = false;
