@@ -26,9 +26,16 @@ namespace CustomSceneCreator.CampaignEntry {
 
         public static void Cancel() => _pending = Target.None;
 
-        /// <summary>Called each campaign tick. Cheap, and does nothing at all in the normal case.</summary>
+        /// <summary>
+        /// Called every frame from SubModule.OnApplicationTick. Cheap, and does nothing at all in
+        /// the normal case.
+        ///
+        /// Deliberately NOT a campaign tick: that one is gated on the campaign clock, so on a paused
+        /// map it never fires and the browser waited until the player started moving.
+        /// </summary>
         public static void Tick() {
             if (_pending == Target.None) return;
+            if (TaleWorlds.CampaignSystem.Campaign.Current == null) { _pending = Target.None; return; }
 
             // Wait for the mission to be fully gone. Mission.Current survives the leave request for
             // a few frames while the screen unwinds.

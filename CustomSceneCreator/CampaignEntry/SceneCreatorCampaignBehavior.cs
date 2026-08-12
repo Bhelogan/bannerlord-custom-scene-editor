@@ -35,9 +35,9 @@ namespace CustomSceneCreator.CampaignEntry {
 
         public override void RegisterEvents() {
             CampaignEvents.OnSessionLaunchedEvent.AddNonSerializedListener(this, OnSessionLaunched);
-            // The only campaign-side heartbeat available, and the only place that can tell when the
-            // editor mission has finished unwinding.
-            CampaignEvents.TickEvent.AddNonSerializedListener(this, _ => ReturnToBrowser.Tick());
+            // Reopening the browser is driven from SubModule.OnApplicationTick, not from here.
+            // CampaignEvents.TickEvent does not fire while the campaign clock is paused, which is
+            // exactly the state the player is in on returning from a mission.
         }
 
         public override void SyncData(IDataStore dataStore) {

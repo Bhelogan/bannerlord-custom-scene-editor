@@ -37,5 +37,25 @@ namespace CustomSceneCreator {
                 TraceLogger.WriteException(nameof(SubModule), "OnGameStart failed", ex);
             }
         }
+
+        /// <summary>
+        /// A real per-frame tick, which is what reopening the browser after the editor needs.
+        ///
+        /// It used to run on CampaignEvents.TickEvent, and that event is gated on campaign time:
+        ///
+        ///     if (_dt &gt; 0f || CurrentTickCount &lt; 3) CampaignEventDispatcher.Instance.Tick(_dt);
+        ///
+        /// Leaving a mission drops the player onto a PAUSED map, so _dt is zero and the event never
+        /// fires - the browser only appeared once they started moving and time began flowing again.
+        /// This tick runs regardless of the campaign clock.
+        /// </summary>
+        protected override void OnApplicationTick(float dt) {
+            base.OnApplicationTick(dt);
+            try {
+                ReturnToBrowser.Tick();
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(SubModule), "Return-to-browser tick failed", ex);
+            }
+        }
     }
 }
