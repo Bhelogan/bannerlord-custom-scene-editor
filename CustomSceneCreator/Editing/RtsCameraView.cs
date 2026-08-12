@@ -275,6 +275,10 @@ namespace CustomSceneCreator.Editing {
                 if (CameraModes.Current == EditorCameraMode.Rts && !_isActive) SetActive(true);
             }
 
+            // Before the early-return: this is the player-attached case, i.e. exactly when this camera
+            // is NOT driving. It has to be a SCREEN tick so it lands after the native camera updated.
+            UpdateRotationViewHold();
+
             if (!_isActive) return;
 
             try {
@@ -338,8 +342,11 @@ namespace CustomSceneCreator.Editing {
         /// of chasing a cursor the user is not aiming with.
         /// </summary>
         public bool IsFreezingRay =>
-            _isActive && ((_shiftHeld && _shiftWasDrag)
-                          || (MissionScreen?.SceneLayer?.Input?.IsKeyDown(InputKey.RightMouseButton) ?? false));
+            // Shift-drag is an RTS-camera gesture, so it stays gated. RMB object rotation is not: in
+            // first/third person the preview chased the player's aim while they rotated, the same
+            // "preview runs away" problem this already solves for the RTS camera.
+            (_isActive && _shiftHeld && _shiftWasDrag)
+            || (MissionScreen?.SceneLayer?.Input?.IsKeyDown(InputKey.RightMouseButton) ?? false);
 
         /// <summary>
         /// Reads a key from the SCENE layer rather than global input. Gauntlet panels consume mouse
@@ -359,21 +366,83 @@ namespace CustomSceneCreator.Editing {
         /// check, rotating the view would also spin whatever you were holding.
         /// </summary>
         public bool IsRotateDragging =>
-            _isActive
-            && !(_shiftHeld && _shiftWasDrag)
+            !(_isActive && _shiftHeld && _shiftWasDrag)
             && (MissionScreen?.SceneLayer?.Input?.IsKeyDown(Keys.RotateDrag) ?? false);
 
+        // Not gated on _isActive: a raw scene-layer read, and rotation must work in first/third person.
         public float SceneMouseMoveX =>
-            _isActive && MissionScreen?.SceneLayer != null
+            MissionScreen?.SceneLayer != null
                 ? MissionScreen.SceneLayer.Input.GetMouseMoveX() : 0f;
 
+        // Not gated on _isActive: a raw scene-layer read, and rotation must work in first/third person.
         public float SceneMouseMoveY =>
-            _isActive && MissionScreen?.SceneLayer != null
+            MissionScreen?.SceneLayer != null
                 ? MissionScreen.SceneLayer.Input.GetMouseMoveY() : 0f;
 
         public float SceneMouseScroll =>
             _isActive && MissionScreen?.SceneLayer != null
                 ? MissionScreen.SceneLayer.Input.GetDeltaMouseScroll() : 0f;
+
+        /// <summary>Where the PLAYER is looking, flattened - the rotation reference in first/third
+        /// person, standing in for the RTS camera frame when it is not driving.</summary>
+        private static Vec3 PlayerForwardHorizontal {
+            get {
+                Agent? a = Agent.Main;
+                if (a == null || !a.IsActive()) return new Vec3(0f, 1f, 0f);
+                Vec3 f = a.LookDirection;
+                f.z = 0f;
+                float len = f.Length;
+                return len > 0.001f ? f * (1f / len) : new Vec3(0f, 1f, 0f);
+            }
+        }
+
+        /// <summary>Right-hand axis derived from the player's flattened look direction.</summary>
+        private static Vec3 PlayerRightHorizontal {
+            get {
+                Vec3 f = PlayerForwardHorizontal;
+                return new Vec3(f.y, -f.x, 0f);   // 90 deg clockwise about up
+            }
+        }
+
+        /// <summary>
+        /// Holds the view still while the right button is held in a player-attached camera.
+        ///
+        /// The RTS camera solves this by not applying its own rotation while RMB is down. In
+        /// first/third person the NATIVE camera drives, and the same mouse movement that rotates the
+        /// held object also swings the view - so the object spins while the world slides under it.
+        ///
+        /// Blocking the mouse at the input layer is the obvious fix and the wrong one: the rotation
+        /// delta is read from that same scene-layer input, so suppressing it kills the gesture. The
+        /// bearing/elevation are captured on button-down and re-applied after the native camera runs.
+        /// </summary>
+        private bool _viewHeld;
+        private float _heldBearing, _heldElevation;
+        private static readonly System.Reflection.PropertyInfo? ElevationSetter =
+            typeof(MissionScreen).GetProperty("CameraElevation");
+
+        private void UpdateRotationViewHold() {
+            try {
+                if (MissionScreen == null) return;
+                bool rmb = MissionScreen.SceneLayer?.Input?.IsKeyDown(Keys.RotateDrag) ?? false;
+                bool wanted = rmb && !_isActive;   // RTS camera already handles itself
+
+                if (wanted && !_viewHeld) {
+                    _heldBearing = MissionScreen.CameraBearing;
+                    _heldElevation = MissionScreen.CameraElevation;
+                    _viewHeld = true;
+                } else if (!wanted) {
+                    _viewHeld = false;
+                    return;
+                }
+
+                MissionScreen.CameraBearing = _heldBearing;
+                // CameraElevation's setter is private; bearing alone would still let the view pitch.
+                ElevationSetter?.SetValue(MissionScreen, _heldElevation);
+            } catch (Exception ex) {
+                TraceLogger.Write(nameof(RtsCameraView), $"UpdateRotationViewHold failed: {ex.Message}");
+                _viewHeld = false;
+            }
+        }
 
         /// <summary>
         /// The camera's horizontal right vector. Used as the TILT axis for drag rotation, so tilting
@@ -383,7 +452,10 @@ namespace CustomSceneCreator.Editing {
         /// </summary>
         public Vec3 CameraRightHorizontal {
             get {
-                if (!_isActive || MissionScreen?.CombatCamera == null) return new Vec3(1f, 0f, 0f);
+                // Player-attached camera: the RTS frame is stale, so the axis comes from where the
+                // PLAYER looks - otherwise the drag direction bears no relation to the view.
+                if (!_isActive) return PlayerRightHorizontal;
+                if (MissionScreen?.CombatCamera == null) return new Vec3(1f, 0f, 0f);
                 // The camera never rolls, so its side vector is already horizontal.
                 Vec3 side = MissionScreen.CombatCamera.Frame.rotation.s;
                 side.z = 0f;
@@ -398,7 +470,8 @@ namespace CustomSceneCreator.Editing {
         /// </summary>
         public Vec3 CameraForwardHorizontal {
             get {
-                if (!_isActive || MissionScreen?.CombatCamera == null) return new Vec3(0f, 1f, 0f);
+                if (!_isActive) return PlayerForwardHorizontal;
+                if (MissionScreen?.CombatCamera == null) return new Vec3(0f, 1f, 0f);
                 // -rotation.u is the full 3D view direction; flatten it to a heading.
                 Vec3 forward = -MissionScreen.CombatCamera.Frame.rotation.u;
                 forward.z = 0f;
