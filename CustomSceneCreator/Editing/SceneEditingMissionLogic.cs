@@ -169,6 +169,23 @@ namespace CustomSceneCreator.Editing {
             }
         }
 
+        /// <summary>Puts the palette back where it was after a rebuild.</summary>
+        private void RestoreSelection(string category, string? prefabName) {
+            try {
+                int index = _categories.FindIndex(c =>
+                    string.Equals(c, category, StringComparison.OrdinalIgnoreCase));
+                if (index >= 0) SelectCategory(index);
+
+                if (prefabName == null) return;
+                int at = _cycleSet.FindIndex(p =>
+                    string.Equals(p.PrefabName, prefabName, StringComparison.OrdinalIgnoreCase));
+                if (at >= 0) _placeableIndex = at;
+            } catch (Exception ex) {
+                TraceLogger.Write(nameof(SceneEditingMissionLogic),
+                    $"Could not restore the palette selection: {ex.Message}");
+            }
+        }
+
         private void SelectCategory(int index) {
             _categoryIndex = ((index % _categories.Count) + _categories.Count) % _categories.Count;
             string category = _categories[_categoryIndex];
@@ -482,6 +499,14 @@ namespace CustomSceneCreator.Editing {
             Vec3 position = _ghost!.GlobalPosition;
             Mat3 rotation = _ghost.GetFrame().rotation;
 
+            // A template drops its contents as separate objects rather than becoming one.
+            if (placeable != null && placeable.IsTemplate && _carried == null) {
+                PlaceTemplate(placeable, position, rotation);
+                RemoveGhost();
+                EditorHud.ShowCount(_live.Count);
+                return;
+            }
+
             GameEntity? spawned = Instantiate(prefabName, position, rotation, enablePhysics: true);
             if (spawned == null) {
                 EditorHud.ShowMessage($"Could not place '{prefabName}'.", warning: true);
@@ -519,6 +544,78 @@ namespace CustomSceneCreator.Editing {
 
             RemoveGhost();
             EditorHud.ShowCount(_live.Count);
+        }
+
+        /// <summary>
+        /// Drops a saved project into this scene as loose, individually editable pieces.
+        ///
+        /// The difference from a prefab is the whole point. A prefab arrives as one object and can
+        /// never be taken apart, which is right for something reused unchanged and wrong for a
+        /// template: nine copies of a refuge, each adapted to its own terrain, need every piece to
+        /// stay movable. So the pieces are added exactly as if they had been placed by hand.
+        ///
+        /// Positions are re-anchored to where the cursor is: the source project's centroid in X/Y
+        /// and its LOWEST point in Z, the same rule the prefab exporter uses, so the template lands
+        /// sitting on the ground rather than half buried.
+        /// </summary>
+        private void PlaceTemplate(Placeable placeable, Vec3 position, Mat3 rotation) {
+            SceneProject? source = ProjectSerializer.Load(placeable.TemplateProject);
+            if (source == null || source.Entities.Count == 0) {
+                EditorHud.ShowMessage($"'{placeable.TemplateProject}' has nothing in it.", warning: true);
+                return;
+            }
+
+            Vec3 anchor = ComputeTemplateAnchor(source);
+            float yaw = rotation.GetEulerAngles().z;
+
+            int placed = 0;
+            int skipped = 0;
+            foreach (ProjectEntity entity in source.Entities) {
+                PlacedEntity piece = entity.To();
+
+                // Rotate the offset with the template, so placing it turned turns the whole layout
+                // rather than spinning each piece where it stands.
+                Vec3 offset = piece.Position - anchor;
+                Vec3 turned = new Vec3(
+                    offset.x * MathF.Cos(yaw) - offset.y * MathF.Sin(yaw),
+                    offset.x * MathF.Sin(yaw) + offset.y * MathF.Cos(yaw),
+                    offset.z);
+
+                piece.Position = position + turned;
+
+                Mat3 turnedRotation = piece.Rotation;
+                turnedRotation.RotateAboutUp(yaw);
+                piece.Rotation = turnedRotation;
+
+                GameEntity? spawned = Instantiate(piece.PrefabName, piece.Position, piece.Rotation,
+                                                 enablePhysics: true);
+                if (spawned == null) { skipped++; continue; }
+
+                piece.SceneEntity = spawned;
+                ScriptAttacher.ApplyAll(spawned, piece);
+                _target.OnEntityAdded(piece);
+                _live.Add(piece);
+                placed++;
+            }
+
+            _isDirty = true;
+
+            string note = skipped > 0 ? $"  {skipped} piece(s) could not be created." : "";
+            EditorHud.ShowMessage($"Placed {placed} piece(s) from '{placeable.TemplateProject}'." + note);
+            TraceLogger.Write(nameof(SceneEditingMissionLogic),
+                $"Template '{placeable.TemplateProject}': placed {placed}, skipped {skipped}.");
+        }
+
+        /// <summary>Centroid in X/Y, lowest point in Z - the same anchor the prefab exporter uses.</summary>
+        private static Vec3 ComputeTemplateAnchor(SceneProject project) {
+            float sumX = 0f, sumY = 0f, minZ = float.MaxValue;
+            foreach (ProjectEntity e in project.Entities) {
+                sumX += e.Pos[0];
+                sumY += e.Pos[1];
+                if (e.Pos[2] < minZ) minZ = e.Pos[2];
+            }
+            int count = project.Entities.Count;
+            return new Vec3(sumX / count, sumY / count, minZ == float.MaxValue ? 0f : minZ);
         }
 
         private void DeleteLookedAt() {
@@ -1212,6 +1309,17 @@ namespace CustomSceneCreator.Editing {
             try {
                 _target.Commit();
                 _isDirty = false;
+
+                // A saved project is immediately available as a template, so the palette has to be
+                // rebuilt - otherwise it only appears after leaving and coming back. The current
+                // selection is restored around it: a save must not change what you are building.
+                string category = _cycleLabel;
+                string? selected = CurrentPlaceable?.PrefabName;
+
+                Catalog.PackCatalog.Invalidate();
+                BuildPalette();
+                RestoreSelection(category, selected);
+
                 EditorHud.ShowMessage($"Saved '{_target.DisplayName}' - {_live.Count} object(s).");
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(SceneEditingMissionLogic), "Save failed", ex);

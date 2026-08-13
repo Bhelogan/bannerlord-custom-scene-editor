@@ -47,6 +47,10 @@ storage.
   FMOD event path like `event:/mission/ambient/detail/river_01` from memory, and the real list lives
   in sound banks the game never exposes. Attached scripts preview live where they can, and are
   written out on export either way.
+- **Templates** — every saved project appears in the picker under **My Templates** and places as
+  loose, individually editable pieces rather than as one sealed object. No restart: a project is read
+  by this mod, not registered with the engine. This is how you reuse a layout across several maps and
+  still adapt it to each one.
 - **Export** — project JSON, prefab XML, or a scene fragment you can paste into a real `scene.xscene`
   for the Modding Kit to bake a navmesh over.
 

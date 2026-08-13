@@ -47,6 +47,20 @@ namespace CustomSceneCreator.Catalog {
         /// </summary>
         public string SourcePath = "";
 
+        /// <summary>
+        /// A saved PROJECT offered in the palette, placed as loose pieces rather than as one object.
+        ///
+        /// A prefab is placed whole and cannot be taken apart, which is right for a market stall and
+        /// useless for a template you mean to adapt: nine copies of a refuge, each shifted to suit
+        /// its own terrain, need the pieces to stay individually editable. Templates fill that gap,
+        /// and being plain project JSON they need no restart - nothing has to be registered with the
+        /// engine first.
+        /// </summary>
+        public bool IsTemplate;
+
+        /// <summary>The saved project this template loads, when IsTemplate.</summary>
+        public string TemplateProject = "";
+
         /// <summary>Prefabs carrying scripts are not measured in the picker - instantiating one runs
         /// its script, and some of them assume a mission type we are not in.</summary>
         public bool HasScripts => Scripts.Length > 0;

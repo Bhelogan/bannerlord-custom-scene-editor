@@ -36,6 +36,12 @@ namespace CustomSceneCreator.Catalog {
         /// <summary>Category holding whatever is in exports/prefabs.</summary>
         public const string ExportedCategory = "My Prefabs";
 
+        /// <summary>Category holding saved projects, placed as loose pieces.</summary>
+        public const string TemplateCategory = "My Templates";
+
+        /// <summary>Prefix marking a palette entry as a template rather than a real prefab.</summary>
+        public const string TemplatePrefix = "csctemplate:";
+
         private static List<Placeable> Load() {
             var result = new List<Placeable>();
             string dir = ResolvePacksDir();
@@ -100,6 +106,7 @@ namespace CustomSceneCreator.Catalog {
             }
 
             LoadExportedPrefabs(result);
+            LoadTemplates(result);
 
             TraceLogger.Write(nameof(PackCatalog), $"{result.Count} editor-authored placeable(s) loaded.");
             return result;
@@ -154,6 +161,36 @@ namespace CustomSceneCreator.Catalog {
                 }
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(PackCatalog), "Could not read exported prefabs", ex);
+            }
+        }
+
+        /// <summary>
+        /// Every saved project, offered as a template.
+        ///
+        /// Deliberately not exported or registered anywhere: a project is JSON this mod reads
+        /// itself, so a template is placeable the moment it is saved. No prefab file, no restart.
+        /// </summary>
+        private static void LoadTemplates(List<Placeable> result) {
+            try {
+                foreach (Editing.SceneProject project in Editing.ProjectSerializer.LoadAll()) {
+                    if (project == null || project.Entities.Count == 0) continue;
+
+                    result.Add(new Placeable {
+                        PrefabName = TemplatePrefix + project.Name,
+                        DisplayName = $"{project.Name}  ({project.Entities.Count} pieces)",
+                        Category = TemplateCategory,
+                        Module = "CustomSceneCreator",
+                        Source = Placeable.SourceEditor,
+                        IsTemplate = true,
+                        TemplateProject = project.Name,
+                        // Shown as a marker while carried: the pieces only exist once it is placed.
+                        ProxyPrefab = "editor_marker",
+                        IsLogical = true,
+                        Meshes = "editor_marker",
+                    });
+                }
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(PackCatalog), "Could not list templates", ex);
             }
         }
 

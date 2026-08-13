@@ -218,6 +218,7 @@
       <li><a class="num" href="#sec11"><span class="n">11</span>Scene contents list</a></li>
       <li><a class="num" href="#sec12"><span class="n">12</span>Saving and exporting</a></li>
       <li class="sub"><a href="#projects">Projects</a></li>
+      <li class="sub"><a href="#templates">Templates</a></li>
       <li class="sub"><a href="#prefab-vs-scene">Prefab or scene</a></li>
       <li><a class="num" href="#sec13"><span class="n">13</span>Using what you made</a></li>
       <li class="sub"><a href="#use-prefab">A prefab</a></li>
@@ -2967,6 +2968,28 @@ that ordering is far more useful than alphabetical.</p>
   A project is the source; an export is the finished artifact. To keep working on something, reopen
   the <strong>project</strong> — not the prefab you exported from it.
 </div>
+
+<h3 id="templates">Templates — reuse something you can still edit</h3>
+<p>
+  A prefab is placed <strong>whole</strong> and cannot be taken apart. That is right for something you
+  reuse unchanged, and wrong for a layout you mean to adapt: nine copies of a fort, each shifted to
+  suit its own terrain, need every piece to stay movable.
+</p>
+<p>
+  So every <strong>saved project</strong> also appears in the asset picker under
+  <strong>My Templates</strong>. Place one and its contents drop into the scene as
+  <strong>individual objects</strong> — each one selectable, movable, deletable, exactly as if you
+  had placed them by hand. Rotate before placing and the whole layout turns with you.
+</p>
+<div class="tip">
+  Templates need no restart. A prefab has to be read by the game at startup; a project is a file this
+  mod reads itself, so a template is placeable the moment you save it — it appears in the picker
+  straight away.
+</div>
+<p>
+  This is the way to build the same thing across several maps: lay it out once, save it, then open
+  each map and place the template where it suits that ground.
+</p>
 
 <h3 id="prefab-vs-scene">Prefab or scene fragment</h3>
 <p><kbd>Alt</kbd>+<kbd>E</kbd> exports, and asks which of two things you meant.</p>
