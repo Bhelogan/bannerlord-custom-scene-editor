@@ -117,14 +117,28 @@ namespace CustomSceneCreator.Catalog {
                 string dir = Editing.ProjectSerializer.PrefabExportsPath;
                 if (!System.IO.Directory.Exists(dir)) return;
 
+                string moduleDir = ModulePrefabsPath();
+
                 foreach (string file in System.IO.Directory.GetFiles(dir, "*.xml").OrderBy(f => f)) {
-                    string id = IOPath.GetFileNameWithoutExtension(file);
+                    // The prefab is known to the game by the NAME INSIDE the file, not by the file
+                    // name. They usually match, but a renamed file would otherwise be listed under an
+                    // id that does not exist and could never be placed.
+                    string id = ReadRootName(file) ?? IOPath.GetFileNameWithoutExtension(file);
                     if (id.Length == 0) continue;
                     if (result.Any(p => string.Equals(p.PrefabName, id, StringComparison.OrdinalIgnoreCase))) continue;
 
-                    // The game reads prefab XML only at startup, so something exported a moment ago
-                    // is on disk but not yet instantiable. Listed either way, flagged, so the
-                    // category is not mysteriously empty right after an export.
+                    // Copy it where the game will actually read it.
+                    //
+                    // The exports folder under Documents is an ARCHIVE - the game never looks there.
+                    // A prefab only becomes instantiable from a module's Prefabs folder, so a file
+                    // dropped into exports (someone else's prefab, or one brought back from another
+                    // machine) was listed in the picker and then had no ghost and would not place.
+                    // Mirroring it here is what makes "drop it in and restart" work.
+                    Mirror(file, moduleDir);
+
+                    // The game reads prefab XML only at startup, so something copied a moment ago is
+                    // on disk but not yet instantiable. Listed either way, flagged, so the category
+                    // is not mysteriously empty right after an export.
                     bool loaded = GameEntity.PrefabExists(id);
 
                     result.Add(new Placeable {
@@ -141,6 +155,52 @@ namespace CustomSceneCreator.Catalog {
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(PackCatalog), "Could not read exported prefabs", ex);
             }
+        }
+
+        /// <summary>The name on the first game_entity - what the engine will know the prefab by.</summary>
+        private static string? ReadRootName(string file) {
+            try {
+                var document = new XmlDocument();
+                document.Load(file);
+                XmlNodeList? nodes = document.GetElementsByTagName("game_entity");
+                if (nodes == null || nodes.Count == 0) return null;
+                string name = (nodes[0] as XmlElement)?.GetAttribute("name") ?? "";
+                return name.Length > 0 ? name : null;
+            } catch (Exception ex) {
+                TraceLogger.Write(nameof(PackCatalog),
+                    $"'{IOPath.GetFileName(file)}' is not readable prefab XML: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>Copies an exported prefab into the module, when it is missing or out of date.</summary>
+        private static void Mirror(string file, string moduleDir) {
+            if (moduleDir.Length == 0) return;
+            try {
+                System.IO.Directory.CreateDirectory(moduleDir);
+                string target = IOPath.Combine(moduleDir, IOPath.GetFileName(file));
+
+                if (System.IO.File.Exists(target) &&
+                    System.IO.File.GetLastWriteTimeUtc(target) >= System.IO.File.GetLastWriteTimeUtc(file)) {
+                    return;
+                }
+
+                System.IO.File.Copy(file, target, overwrite: true);
+                TraceLogger.Write(nameof(PackCatalog),
+                    $"Copied '{IOPath.GetFileName(file)}' into the module so the game can load it. " +
+                    "Restart to place it.");
+            } catch (Exception ex) {
+                TraceLogger.Write(nameof(PackCatalog),
+                    $"Could not copy '{IOPath.GetFileName(file)}' into the module: {ex.Message}");
+            }
+        }
+
+        private static string ModulePrefabsPath() {
+            try {
+                string root = IOPath.Combine(BasePath.Name, "Modules", "CustomSceneCreator");
+                if (System.IO.Directory.Exists(root)) return IOPath.Combine(root, "Prefabs");
+            } catch { }
+            return "";
         }
 
         private static string Fallback(string value, string fallback) =>

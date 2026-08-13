@@ -157,11 +157,13 @@ saved-project list, with "New - Pick a Scene" one button away. `csc.projects` li
 console and `csc.project <name>` opens one directly. A project remembers its scene and levels, so
 reopening restores the whole session rather than dropping objects into whatever scene was last used.
 
-To keep working on something you exported as a prefab, reopen the **project** it came from - the
-prefab is the finished artifact, not the source. Prefab exports
-are **also** written into `Modules/CustomSceneCreator/Prefabs/`, which is what makes them loadable by
-the game — after a restart the exported object appears in the asset picker under **Exported** and can
-be placed as a single piece.
+To keep working on something you exported as a prefab, reopen the **project** it came from — the
+prefab is the finished artifact, not the source.
+
+The picker lists whatever is in `exports/prefabs`, and exports are **also** copied into
+`Modules/CustomSceneCreator/Prefabs/`. Anything you drop into `exports/prefabs` is mirrored there
+when the editor next opens, so a prefab from someone else is loadable however the game resolves it —
+restart once and it places under **My Prefabs**.
 
 ## Logging
 

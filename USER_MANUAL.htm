@@ -978,10 +978,18 @@ that ordering is far more useful than alphabetical.</p>
 
 <h3 id="use-prefab">A prefab</h3>
 <p>
-  Prefab exports are written into <code>Modules/CustomSceneCreator/Prefabs/</code> as well as your
-  Documents folder. <strong>Restart the game</strong> — prefab XML is only read at startup — and your
-  object appears in the asset picker under <strong>My Prefabs</strong>, placeable as a single piece.
+  Prefab exports are written to your Documents folder <em>and</em> copied into
+  <code>Modules/CustomSceneCreator/Prefabs/</code>. <strong>Restart the game</strong> — prefab XML is
+  only read at startup — and your object appears in the asset picker under
+  <strong>My Prefabs</strong>, placeable as a single piece.
 </p>
+<div class="note">
+  The picker lists whatever is in <code>exports/prefabs</code>, and that folder is also the archive —
+  it survives a reinstall and it is what you send to someone else. Anything you drop in there, a
+  prefab from another machine or another modder, is copied into the module's <code>Prefabs</code>
+  folder the next time the editor opens, so it is loadable however the game resolves it. Restart
+  once and it places.
+</div>
 <p>
   To ship it in your own mod, copy the XML into your module's <code>Prefabs</code> folder. Then
   anywhere in code:

@@ -8,6 +8,9 @@
    id="svg126"
    sodipodi:docname="controls.svg"
    inkscape:version="1.4 (86a8ad7, 2024-10-11)"
+   inkscape:export-filename="controls.png"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -24,7 +27,7 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:zoom="1.0026549"
-     inkscape:cx="880.16328"
+     inkscape:cx="879.66461"
      inkscape:cy="565"
      inkscape:window-width="3440"
      inkscape:window-height="1351"
@@ -1876,9 +1879,9 @@
      font-weight="600"
      id="text97">Reset rotation and height</text>
   <path
-     d="M 1235.0 265.0 L 1203.0 537.0"
+     d="m 1180.7878,365.29205 20.2527,172.14847"
      stroke="#d2691e"
-     stroke-width="2.4"
+     stroke-width="1.51896"
      fill="none"
      stroke-linecap="round"
      id="path98" />
@@ -2210,8 +2213,8 @@
      font-weight="normal"
      id="text122">Hold Tab to leave.  No placement range limit.</text>
   <rect
-     x="1163.6809"
-     y="269.90732"
+     x="992.13635"
+     y="341.71667"
      width="232.39999"
      height="30"
      rx="6"
@@ -2236,8 +2239,8 @@
      font-weight="normal"
      id="text124">combat while an edit mode is on.</text>
   <text
-     x="1279.8809"
-     y="290.40732"
+     x="1105.3442"
+     y="364.21136"
      font-family="'Segoe UI', Helvetica, Arial, sans-serif"
      font-size="14px"
      fill="#ffffff"
