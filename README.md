@@ -102,6 +102,8 @@ A scene opens in **third person, walking around**, like any other mission. Turni
 `V` overrides that at any time, and once you have chosen a camera yourself the editor stops changing
 it for you.
 
+![Controls](docs/controls.svg)
+
 | Key | Action |
 |---|---|
 | `\` | Cycle edit mode: Off - Build - Delete - Move - Script |
