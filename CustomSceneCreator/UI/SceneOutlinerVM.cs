@@ -401,8 +401,27 @@ namespace CustomSceneCreator.UI {
         [DataSourceProperty]
         public bool IsSelected {
             get => _isSelected;
-            set { if (value != _isSelected) { _isSelected = value; OnPropertyChangedWithValue(value, nameof(IsSelected)); } }
+            set {
+                if (value == _isSelected) return;
+                _isSelected = value;
+                OnPropertyChangedWithValue(value, nameof(IsSelected));
+                // The row colour is what actually reads as "this one" in a list of forty identical
+                // wall segments - the brush's own selected state is far too subtle to find.
+                OnPropertyChangedWithValue(RowColor, nameof(RowColor));
+                OnPropertyChangedWithValue(DetailColor, nameof(DetailColor));
+            }
         }
+
+        /// <summary>Selected rows go yellow; the rest keep the panel's normal text colour.</summary>
+        [DataSourceProperty] public string RowColor => _isSelected ? SelectedColor : NormalColor;
+
+        /// <summary>Same idea for the dimmer columns, kept a step darker so they stay secondary.</summary>
+        [DataSourceProperty] public string DetailColor => _isSelected ? SelectedDim : NormalDim;
+
+        private const string SelectedColor = "#FFD34AFF";
+        private const string SelectedDim   = "#E0B84AFF";
+        private const string NormalColor   = "#D8D0BEFF";
+        private const string NormalDim     = "#9A9285FF";
 
         public void ExecuteClick() => _onClick?.Invoke(Entity);
         public void ExecuteDoubleClick() => _onDoubleClick?.Invoke(Entity);

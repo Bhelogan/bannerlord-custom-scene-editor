@@ -947,6 +947,13 @@ namespace CustomSceneCreator.Editing {
             EditorHud.ShowSelection(CurrentCategory,
                 p != null ? p.DisplayName : "(nothing here)",
                 _placeableIndex + 1, _cycleSet.Count);
+
+            // Said on selection, not only when the click fails. A prefab the game has not loaded yet
+            // shows no preview, and silence there reads as the editor being broken.
+            if (p != null && p.RequiresRestart) {
+                EditorHud.ShowMessage(
+                    $"'{p.DisplayName}' is not loaded yet - restart the game to place it.", warning: true);
+            }
         }
 
         private void CycleEditMode() {

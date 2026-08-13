@@ -59,7 +59,7 @@ namespace CustomSceneCreator.UI {
             // Come back here on the way out, so trying several scenes does not mean walking through
             // the settlement menu each time.
             ReturnToBrowser.ArmForScenes();
-            if (!SceneCreatorEntry.OpenEditor(sceneName, sceneLevels)) ReturnToBrowser.Cancel();
+            if (!SceneCreatorEntry.OpenEditorEmpty(sceneName, sceneLevels)) ReturnToBrowser.Cancel();
         }
     }
 }
