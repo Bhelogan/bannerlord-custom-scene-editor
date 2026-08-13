@@ -74,6 +74,13 @@ namespace CustomSceneCreator.Editing {
 
         // The translucent preview of the thing about to be placed.
         private GameEntity? _ghost;
+
+        /// <summary>True when the ghost is a template preview built from many pieces rather than one
+        /// instantiated prefab. Such a ghost is expensive to build, so it is hidden rather than
+        /// rebuilt when the placement ray blinks out.</summary>
+        private bool _ghostIsComposed;
+        private string? _ghostSource;
+
         private Mat3 _ghostRotation = Mat3.Identity;
         private Vec3 _ghostOffset = Vec3.Zero;
 
@@ -1198,15 +1205,38 @@ namespace CustomSceneCreator.Editing {
             bool wantGhost = (_mode == EditMode.Build && CurrentPlaceable != null && !CurrentPlaceable.RequiresRestart)
                           || (_mode == EditMode.Move && _carried != null);
 
-            if (!wantGhost || !_positionLookingAt.IsValid) {
+            if (!wantGhost) {
                 RemoveGhost();
                 return;
             }
 
+            // A template ghost is expensive to build, so a ray that blinks out - aiming at sky, or
+            // past the far edge of the terrain - hides it rather than throwing it away and building
+            // it again the next frame.
+            if (!_positionLookingAt.IsValid) {
+                if (_ghostIsComposed && _ghost != null) SetGhostVisible(false);
+                else RemoveGhost();
+                return;
+            }
+
+            // The selection changed under a composed ghost: it is showing the wrong thing.
+            if (_ghost != null && _ghostIsComposed &&
+                !string.Equals(_ghostSource, CurrentPlaceable?.PrefabName, StringComparison.Ordinal)) {
+                RemoveGhost();
+            }
+
             if (_ghost == null) {
-                string prefabName = _carried?.PrefabName ?? CurrentPlaceable!.PrefabName;
-                _ghost = Instantiate(prefabName, _positionLookingAt, _ghostRotation, enablePhysics: false);
+                Placeable? current = CurrentPlaceable;
+                if (_carried == null && current != null && current.IsTemplate) {
+                    _ghost = BuildTemplateGhost(current, _positionLookingAt);
+                } else {
+                    string prefabName = _carried?.PrefabName ?? current!.PrefabName;
+                    _ghost = Instantiate(prefabName, _positionLookingAt, _ghostRotation, enablePhysics: false);
+                }
                 if (_ghost == null) return;
+
+                _ghostIsComposed = _carried == null && current != null && current.IsTemplate;
+                _ghostSource = current?.PrefabName;
 
                 // No physics on the preview, or it collides with the world and with the player while
                 // it is still only a suggestion.
@@ -1215,6 +1245,8 @@ namespace CustomSceneCreator.Editing {
                 }
                 TintGhost();
             }
+
+            if (_ghostIsComposed) SetGhostVisible(true);
 
             Vec3 ghostPosition = _positionLookingAt + _ghostOffset;
             if (!_groundFollow) ghostPosition.z = _lockedHeight + _ghostOffset.z;
@@ -1237,10 +1269,78 @@ namespace CustomSceneCreator.Editing {
             }
         }
 
+        /// <summary>
+        /// A preview of a whole template - every piece, not a marker standing in for it.
+        ///
+        /// A pole at the centre tells you nothing about whether a hundred-piece fort will clear the
+        /// trees or hang off a slope, which is the only question worth asking before dropping it. So
+        /// the pieces are built as children of one empty entity: moving that entity moves all of
+        /// them, and the existing ghost code needs no idea it is holding more than one object.
+        ///
+        /// Offsets are the source layout re-anchored the same way placing it will re-anchor them, so
+        /// what is previewed is what lands.
+        /// </summary>
+        private GameEntity? BuildTemplateGhost(Placeable placeable, Vec3 position) {
+            try {
+                SceneProject? source = ProjectSerializer.LoadFile(placeable.TemplateProject);
+                if (source == null || source.Entities.Count == 0) return null;
+
+                GameEntity parent = GameEntity.CreateEmpty(Mission.Scene, true, false);
+                MatrixFrame frame = MatrixFrame.Identity;
+                frame.origin = position;
+                parent.SetGlobalFrame(in frame, true);
+
+                Vec3 anchor = ComputeTemplateAnchor(source);
+
+                int built = 0;
+                foreach (ProjectEntity entity in source.Entities) {
+                    PlacedEntity piece = entity.To();
+
+                    string prefab = PlaceableRegistry.ResolveSpawnPrefab(piece.PrefabName);
+                    if (!GameEntity.PrefabExists(prefab)) continue;
+
+                    GameEntity part = GameEntity.Instantiate(Mission.Scene, prefab, MatrixFrame.Identity);
+
+                    MatrixFrame local = MatrixFrame.Identity;
+                    local.rotation = piece.Rotation;
+                    local.origin = piece.Position - anchor;
+                    part.SetFrame(ref local);
+
+                    // autoLocalizeFrame false: the frame set above is ALREADY the local one, and
+                    // letting the engine recompute it would fold the parent's position in twice.
+                    parent.AddChild(part, false);
+                    built++;
+                }
+
+                if (built == 0) {
+                    DestroyEntity(parent);
+                    return null;
+                }
+
+                TraceLogger.Write(nameof(SceneEditingMissionLogic),
+                    $"Template preview: {built} piece(s).");
+                return parent;
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(SceneEditingMissionLogic), "Template preview failed", ex);
+                return null;
+            }
+        }
+
         private void RemoveGhost() {
             if (_ghost == null) return;
             DestroyEntity(_ghost);
             _ghost = null;
+            _ghostIsComposed = false;
+            _ghostSource = null;
+        }
+
+        private void SetGhostVisible(bool visible) {
+            if (_ghost == null) return;
+            try {
+                foreach (GameEntity part in _ghost.GetEntityAndChildren()) {
+                    part.SetVisibilityExcludeParents(visible);
+                }
+            } catch { }
         }
 
         // -- scene helpers ----------------------------------------------------------------------
@@ -1310,6 +1410,12 @@ namespace CustomSceneCreator.Editing {
         private static void DestroyEntity(GameEntity? entity) {
             if (entity == null) return;
             try {
+                // Removed one by one first. RemoveAllChildren detaches rather than destroys, and a
+                // composed template ghost is a hundred entities - detaching them would leave every
+                // one of them in the scene, invisible to us and never cleaned up.
+                foreach (GameEntity child in entity.GetChildren().ToList()) {
+                    try { child.Remove(0); } catch { }
+                }
                 entity.RemoveAllChildren();
                 entity.Remove(0);
             } catch (Exception ex) {
