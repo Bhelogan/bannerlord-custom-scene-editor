@@ -559,9 +559,9 @@ namespace CustomSceneCreator.Editing {
         /// sitting on the ground rather than half buried.
         /// </summary>
         private void PlaceTemplate(Placeable placeable, Vec3 position, Mat3 rotation) {
-            SceneProject? source = ProjectSerializer.Load(placeable.TemplateProject);
+            SceneProject? source = ProjectSerializer.LoadFile(placeable.TemplateProject);
             if (source == null || source.Entities.Count == 0) {
-                EditorHud.ShowMessage($"'{placeable.TemplateProject}' has nothing in it.", warning: true);
+                EditorHud.ShowMessage($"'{placeable.DisplayName}' has nothing in it.", warning: true);
                 return;
             }
 
@@ -601,7 +601,7 @@ namespace CustomSceneCreator.Editing {
             _isDirty = true;
 
             string note = skipped > 0 ? $"  {skipped} piece(s) could not be created." : "";
-            EditorHud.ShowMessage($"Placed {placed} piece(s) from '{placeable.TemplateProject}'." + note);
+            EditorHud.ShowMessage($"Placed {placed} piece(s) from the template." + note);
             TraceLogger.Write(nameof(SceneEditingMissionLogic),
                 $"Template '{placeable.TemplateProject}': placed {placed}, skipped {skipped}.");
         }
@@ -984,7 +984,22 @@ namespace CustomSceneCreator.Editing {
         private void OpenExportDialog() {
             if (_target is SceneProjectTarget projectTarget) {
                 Save();
-                UI.ExportDialogView.Instance?.Open(projectTarget.Project);
+
+                UI.ExportDialogView? dialog = UI.ExportDialogView.Instance;
+                if (dialog == null) return;
+
+                // A template exported here is placeable straight away, so the palette has to be
+                // rebuilt when the dialog closes - otherwise it only appears next time the scene is
+                // opened. The current category and object are put back: exporting must not change
+                // what you were building.
+                dialog.OnClosed = () => {
+                    string category = _cycleLabel;
+                    string? selected = CurrentPlaceable?.PrefabName;
+                    Catalog.PackCatalog.Invalidate();
+                    BuildPalette();
+                    RestoreSelection(category, selected);
+                };
+                dialog.Open(projectTarget.Project);
             } else {
                 EditorHud.ShowMessage("Export is only available for editor projects.", warning: true);
             }
@@ -1309,16 +1324,6 @@ namespace CustomSceneCreator.Editing {
             try {
                 _target.Commit();
                 _isDirty = false;
-
-                // A saved project is immediately available as a template, so the palette has to be
-                // rebuilt - otherwise it only appears after leaving and coming back. The current
-                // selection is restored around it: a save must not change what you are building.
-                string category = _cycleLabel;
-                string? selected = CurrentPlaceable?.PrefabName;
-
-                Catalog.PackCatalog.Invalidate();
-                BuildPalette();
-                RestoreSelection(category, selected);
 
                 EditorHud.ShowMessage($"Saved '{_target.DisplayName}' - {_live.Count} object(s).");
             } catch (Exception ex) {

@@ -55,6 +55,9 @@ namespace CustomSceneCreator.UI {
             }
         }
 
+        /// <summary>Raised when the dialog closes, so the palette can pick up a new template.</summary>
+        public Action? OnClosed;
+
         public void Close() {
             if (!IsOpen) return;
             IsOpen = false;
@@ -71,6 +74,8 @@ namespace CustomSceneCreator.UI {
             }
             _layer = null;
             _dataSource = null;
+
+            try { OnClosed?.Invoke(); } catch { }
         }
 
         public override void OnMissionScreenTick(float dt) {

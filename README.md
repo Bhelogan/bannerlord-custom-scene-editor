@@ -47,10 +47,10 @@ storage.
   FMOD event path like `event:/mission/ambient/detail/river_01` from memory, and the real list lives
   in sound banks the game never exposes. Attached scripts preview live where they can, and are
   written out on export either way.
-- **Templates** — every saved project appears in the picker under **My Templates** and places as
-  loose, individually editable pieces rather than as one sealed object. No restart: a project is read
-  by this mod, not registered with the engine. This is how you reuse a layout across several maps and
-  still adapt it to each one.
+- **Templates** — export a layout to `exports/templates/` and it appears in the picker under **My
+  Templates**, placing as loose, individually editable pieces rather than as one sealed object. No
+  restart: this mod reads the file itself rather than registering it with the engine. This is how you
+  reuse a layout across several maps and still adapt it to each one.
 - **Export** — project JSON, prefab XML, or a scene fragment you can paste into a real `scene.xscene`
   for the Modding Kit to bake a navmesh over.
 
@@ -155,6 +155,7 @@ Leaving with unsaved changes offers to save first.
 | `projects/` | Working files (`.json`), one per scene by default. This is what you reopen to keep building. |
 | `exports/prefabs/` | Prefab XML — one reusable object, positioned relative to its own base |
 | `exports/scenes/` | Scene fragments — everything at its real position, for pasting into a `scene.xscene` |
+| `exports/templates/` | Templates — a layout to place into other scenes as loose, still-editable pieces |
 
 **A project is what you reopen; an export is a produced artifact.** The settlement menu opens the
 saved-project list, with "New - Pick a Scene" one button away. `csc.projects` lists them in the

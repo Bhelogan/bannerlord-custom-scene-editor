@@ -165,24 +165,32 @@ namespace CustomSceneCreator.Catalog {
         }
 
         /// <summary>
-        /// Every saved project, offered as a template.
+        /// Everything in exports/templates.
         ///
-        /// Deliberately not exported or registered anywhere: a project is JSON this mod reads
-        /// itself, so a template is placeable the moment it is saved. No prefab file, no restart.
+        /// Read straight from the folder, like the exported prefabs: the folder IS the list, so a
+        /// template someone sends you works by being dropped in. And because this mod reads the file
+        /// itself rather than registering it with the engine, it is placeable immediately - no
+        /// restart, unlike a prefab.
         /// </summary>
         private static void LoadTemplates(List<Placeable> result) {
             try {
-                foreach (Editing.SceneProject project in Editing.ProjectSerializer.LoadAll()) {
+                string dir = Editing.ProjectSerializer.TemplateExportsPath;
+                if (!System.IO.Directory.Exists(dir)) return;
+
+                foreach (string file in System.IO.Directory.GetFiles(dir, "*.json").OrderBy(f => f)) {
+                    Editing.SceneProject? project = Editing.ProjectSerializer.LoadFile(file);
                     if (project == null || project.Entities.Count == 0) continue;
 
+                    string id = IOPath.GetFileNameWithoutExtension(file);
+
                     result.Add(new Placeable {
-                        PrefabName = TemplatePrefix + project.Name,
-                        DisplayName = $"{project.Name}  ({project.Entities.Count} pieces)",
+                        PrefabName = TemplatePrefix + id,
+                        DisplayName = $"{id}  ({project.Entities.Count} pieces)",
                         Category = TemplateCategory,
                         Module = "CustomSceneCreator",
                         Source = Placeable.SourceEditor,
                         IsTemplate = true,
-                        TemplateProject = project.Name,
+                        TemplateProject = file,
                         // Shown as a marker while carried: the pieces only exist once it is placed.
                         ProxyPrefab = "editor_marker",
                         IsLogical = true,

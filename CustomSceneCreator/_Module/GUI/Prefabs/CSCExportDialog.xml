@@ -35,6 +35,13 @@
                 </ButtonWidget>
                 <RichTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="CoverChildren" Text="@SceneHelpText" Brush="Popup.Description.Text" HorizontalAlignment="Center" MarginTop="6" DoNotAcceptEvents="true" />
 
+                <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="440" SuggestedHeight="44" HorizontalAlignment="Center" Command.Click="ExecuteExportTemplate" Brush="Popup.Done.Button" MarginTop="14">
+                  <Children>
+                    <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@TemplateButtonText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                  </Children>
+                </ButtonWidget>
+                <RichTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="CoverChildren" Text="@TemplateHelpText" Brush="Popup.Description.Text" HorizontalAlignment="Center" MarginTop="6" DoNotAcceptEvents="true" />
+
                 <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="26" Text="@StatusText" Brush="Popup.Title.Text" HorizontalAlignment="Center" MarginTop="8" DoNotAcceptEvents="true" />
 
                 <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="180" SuggestedHeight="44" HorizontalAlignment="Center" Command.Click="ExecuteClose" Brush="Popup.Cancel.Button" MarginTop="8">

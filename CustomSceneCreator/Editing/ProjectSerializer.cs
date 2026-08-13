@@ -57,6 +57,15 @@ namespace CustomSceneCreator.Editing {
         public static string PrefabExportsPath => EnsureSubfolder(Path.Combine("exports", "prefabs"));
         public static string SceneExportsPath => EnsureSubfolder(Path.Combine("exports", "scenes"));
 
+        /// <summary>
+        /// Exported templates - a layout meant to be placed into other scenes and then adapted.
+        ///
+        /// Its own folder beside the other two exports because that is what it is: a third kind of
+        /// artifact, not a working file. A project is where you keep building; a template is what you
+        /// take somewhere else, and what you would send to someone.
+        /// </summary>
+        public static string TemplateExportsPath => EnsureSubfolder(Path.Combine("exports", "templates"));
+
         private static string EnsureSubfolder(string relative) {
             string path = Path.Combine(RootPath, relative);
             try {
@@ -116,6 +125,20 @@ namespace CustomSceneCreator.Editing {
                 return JsonConvert.DeserializeObject<SceneProject>(File.ReadAllText(path));
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(ProjectSerializer), $"Failed to load '{name}'", ex);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Loads a project file by full path, for the folders that are not the projects folder -
+        /// exports/templates in particular, where the file name is the identity.
+        /// </summary>
+        public static SceneProject? LoadFile(string path) {
+            try {
+                if (!File.Exists(path)) return null;
+                return JsonConvert.DeserializeObject<SceneProject>(File.ReadAllText(path));
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(ProjectSerializer), $"Failed to load '{path}'", ex);
                 return null;
             }
         }

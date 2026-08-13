@@ -16,6 +16,8 @@ namespace CustomSceneCreator.IO {
         Prefab,
         /// <summary>Everything, where it actually sits, tied to its scene.</summary>
         SceneFragment,
+        /// <summary>The layout, to place into other scenes as loose pieces and adapt there.</summary>
+        Template,
     }
 
     public class ExportResult {
@@ -43,9 +45,11 @@ namespace CustomSceneCreator.IO {
                 }
 
                 string safeName = Editing.ProjectSerializer.SanitizeFileName(name.Trim());
-                return kind == ExportKind.Prefab
-                    ? ExportPrefab(project, safeName)
-                    : ExportSceneFragment(project, safeName);
+                switch (kind) {
+                    case ExportKind.Prefab: return ExportPrefab(project, safeName);
+                    case ExportKind.Template: return ExportTemplate(project, safeName);
+                    default: return ExportSceneFragment(project, safeName);
+                }
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(SceneExporter), $"Export ({kind}) failed", ex);
                 return Fail($"Export failed: {ex.Message}");
@@ -155,6 +159,44 @@ namespace CustomSceneCreator.IO {
                 Success = true,
                 Path = path,
                 Message = $"Scene fragment '{name}' exported ({project.Entities.Count} entities).",
+            };
+        }
+
+        // -- template ----------------------------------------------------------------------------
+
+        /// <summary>
+        /// The layout, saved where it can be placed into any other scene.
+        ///
+        /// Written as project JSON rather than prefab XML on purpose. The engine never needs to know
+        /// about it - this mod reads it - so a template is usable the moment it is written, with no
+        /// restart, and its pieces stay individually editable when placed. That is the whole point:
+        /// a prefab is sealed, a template is a starting point.
+        ///
+        /// The scene it was built on is kept for reference but means nothing on placement; the
+        /// pieces are re-anchored to wherever they are dropped.
+        /// </summary>
+        private static ExportResult ExportTemplate(Editing.SceneProject project, string name) {
+            var copy = new Editing.SceneProject {
+                Name = name,
+                TargetScene = project.TargetScene,
+                SceneLevels = project.SceneLevels,
+                Entities = project.Entities,
+            };
+
+            string path = IOPath.Combine(Editing.ProjectSerializer.TemplateExportsPath, name + ".json");
+            IOFile.WriteAllText(path, Newtonsoft.Json.JsonConvert.SerializeObject(copy,
+                Newtonsoft.Json.Formatting.Indented), Encoding.UTF8);
+
+            // Listed straight away - nothing has to be registered with the engine first.
+            Catalog.PackCatalog.Invalidate();
+
+            TraceLogger.Write(nameof(SceneExporter),
+                $"Exported template '{name}' ({project.Entities.Count} pieces) to {path}");
+            return new ExportResult {
+                Success = true,
+                Path = path,
+                Message = $"Template '{name}' exported ({project.Entities.Count} pieces). " +
+                          "It is in the picker under 'My Templates' now - no restart needed.",
             };
         }
 

@@ -33,6 +33,10 @@ namespace CustomSceneCreator.UI {
 
         [DataSourceProperty] public string PrefabButtonText => "Export as Prefab";
         [DataSourceProperty] public string SceneButtonText => "Export Whole Scene";
+        [DataSourceProperty] public string TemplateButtonText => "Export as Template";
+        [DataSourceProperty] public string TemplateHelpText =>
+            "The layout, to place into OTHER scenes as separate pieces you can still move. " +
+            "Appears under 'My Templates' immediately - no restart.";
         [DataSourceProperty] public string CloseText => "Close";
 
         [DataSourceProperty]
@@ -64,6 +68,7 @@ namespace CustomSceneCreator.UI {
 
         public void ExecuteExportPrefab() => Run(ExportKind.Prefab);
         public void ExecuteExportScene() => Run(ExportKind.SceneFragment);
+        public void ExecuteExportTemplate() => Run(ExportKind.Template);
         public void ExecuteClose() => _onClose?.Invoke();
 
         private void Run(ExportKind kind) {
