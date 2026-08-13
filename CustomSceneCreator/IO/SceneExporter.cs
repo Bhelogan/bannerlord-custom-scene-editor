@@ -74,9 +74,11 @@ namespace CustomSceneCreator.IO {
             sb.AppendLine($"  <game_entity name=\"{Escape(name)}\" old_prefab_name=\"\">");
             sb.AppendLine("    <children>");
 
+            PrefabInliner.BeginExport();
+
             var counters = new Dictionary<string, int>();
             foreach (Editing.ProjectEntity entity in project.Entities) {
-                AppendEntity(sb, entity, anchor, counters, indent: "      ");
+                AppendEntity(sb, entity, anchor, counters, indent: "      ", inlineDefinitions: true);
             }
 
             sb.AppendLine("    </children>");
@@ -157,7 +159,8 @@ namespace CustomSceneCreator.IO {
         /// sp_enemy_1 tagged sp_enemy, which is what FindEntitiesWithTag will later look for.
         /// </summary>
         private static void AppendEntity(StringBuilder sb, Editing.ProjectEntity entity, Vec3 anchor,
-                                         Dictionary<string, int> counters, string indent) {
+                                         Dictionary<string, int> counters, string indent,
+                                         bool inlineDefinitions = false) {
             Placeable? placeable = PlaceableRegistry.Find(entity.Prefab);
 
             Vec3 position = new Vec3(entity.Pos[0], entity.Pos[1], entity.Pos[2]) - anchor;
@@ -179,6 +182,24 @@ namespace CustomSceneCreator.IO {
                 }
                 AppendScripts(sb, entity, indent + "  ");
                 sb.AppendLine($"{indent}</game_entity>");
+            } else if (inlineDefinitions) {
+                // A world prefab may not reference another prefab - see PrefabInliner. The
+                // definition is copied in instead, so the exported file draws something.
+                System.Xml.XmlElement? definition = PrefabInliner.Find(entity.Prefab);
+                if (definition != null) {
+                    counters.TryGetValue(entity.Prefab, out int n);
+                    counters[entity.Prefab] = ++n;
+                    PrefabInliner.Append(sb, definition, entity.Prefab, transform, indent, n);
+                } else {
+                    // Better a reference than a dropped object, but it will not draw, so say so.
+                    TraceLogger.Write(nameof(SceneExporter),
+                        $"No definition found for '{entity.Prefab}' - written as a reference, which " +
+                        "does not render inside a prefab. Is its module installed?");
+                    sb.AppendLine($"{indent}<game_entity prefab=\"{Escape(entity.Prefab)}\">");
+                    sb.AppendLine($"{indent}  {transform}");
+                    AppendScripts(sb, entity, indent + "  ");
+                    sb.AppendLine($"{indent}</game_entity>");
+                }
             } else {
                 sb.AppendLine($"{indent}<game_entity prefab=\"{Escape(entity.Prefab)}\">");
                 sb.AppendLine($"{indent}  {transform}");

@@ -1143,6 +1143,13 @@ python bake_scene.py my_graveyard.xml --list   # just show what is in the file</
   rather than hidden.
 </p>
 
+<h4>My exported prefab has no ghost and will not place</h4>
+<p>
+  Re-export it. Prefabs exported before this was fixed referenced their parts by name, and a world
+  prefab cannot do that — only a scene can. Such a file loads without error and draws nothing, which
+  is why there is no preview to place. Exports now copy each part's real definition into the file.
+</p>
+
 <h4>NPCs walk through my walls, or will not enter</h4>
 <p>The navmesh has not been baked. See <a href="#use-scene">A scene</a>.</p>
 

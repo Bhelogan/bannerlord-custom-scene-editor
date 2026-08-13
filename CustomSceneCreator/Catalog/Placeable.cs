@@ -39,6 +39,14 @@ namespace CustomSceneCreator.Catalog {
         public string ChildNames = "";
         public string Mobility = "";
 
+        /// <summary>
+        /// Where this prefab is defined, relative to its module folder - "Prefabs\props_other.xml".
+        ///
+        /// Needed by the exporter. A world prefab cannot reference another prefab by name, so
+        /// exporting a composite means reading the source definitions and inlining them.
+        /// </summary>
+        public string SourcePath = "";
+
         /// <summary>Prefabs carrying scripts are not measured in the picker - instantiating one runs
         /// its script, and some of them assume a mission type we are not in.</summary>
         public bool HasScripts => Scripts.Length > 0;

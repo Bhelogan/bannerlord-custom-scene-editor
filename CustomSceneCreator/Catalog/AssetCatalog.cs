@@ -36,6 +36,7 @@ namespace CustomSceneCreator.Catalog {
         private const int ColName = 0;
         private const int ColModule = 1;
         private const int ColPrefabFile = 2;
+        private const int ColRelativePath = 3;
         private const int ColCategory = 4;
         private const int ColHasPhysics = 5;
         private const int ColPhysicsShapes = 7;
@@ -102,6 +103,7 @@ namespace CustomSceneCreator.Catalog {
                         Scripts = Column(parts, ColScripts),
                         Tags = Column(parts, ColTags),
                         Mobility = Column(parts, ColMobility),
+                        SourcePath = Column(parts, ColRelativePath),
                         ChildNames = Column(parts, ColChildNames),
                     });
                 }
