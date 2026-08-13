@@ -76,9 +76,11 @@ namespace CustomSceneCreator.IO {
 
             PrefabInliner.BeginExport();
 
+            var skipped = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var counters = new Dictionary<string, int>();
             foreach (Editing.ProjectEntity entity in project.Entities) {
-                AppendEntity(sb, entity, anchor, counters, indent: "      ", inlineDefinitions: true);
+                AppendEntity(sb, entity, anchor, counters, indent: "      ",
+                             inlineDefinitions: true, skipped: skipped);
             }
 
             sb.AppendLine("    </children>");
@@ -110,11 +112,16 @@ namespace CustomSceneCreator.IO {
 
             TraceLogger.Write(nameof(SceneExporter),
                 $"Exported prefab '{name}' ({project.Entities.Count} parts) to {path}");
+            string note = skipped.Count == 0
+                ? ""
+                : $"  {skipped.Count} unknown prefab(s) left out - see the log: " +
+                  string.Join(", ", skipped.Take(4));
+
             return new ExportResult {
                 Success = true,
                 Path = path,
-                Message = $"Prefab '{name}' exported ({project.Entities.Count} parts). " +
-                          "It is listed under 'My Prefabs'; restart the game to place it.",
+                Message = $"Prefab '{name}' exported ({project.Entities.Count - skipped.Count} parts)." +
+                          note + " Listed under 'My Prefabs'; restart the game to place it.",
             };
         }
 
@@ -160,7 +167,8 @@ namespace CustomSceneCreator.IO {
         /// </summary>
         private static void AppendEntity(StringBuilder sb, Editing.ProjectEntity entity, Vec3 anchor,
                                          Dictionary<string, int> counters, string indent,
-                                         bool inlineDefinitions = false) {
+                                         bool inlineDefinitions = false,
+                                         HashSet<string>? skipped = null) {
             Placeable? placeable = PlaceableRegistry.Find(entity.Prefab);
 
             Vec3 position = new Vec3(entity.Pos[0], entity.Pos[1], entity.Pos[2]) - anchor;
@@ -191,14 +199,21 @@ namespace CustomSceneCreator.IO {
                     counters[entity.Prefab] = ++n;
                     PrefabInliner.Append(sb, definition, entity.Prefab, transform, indent, n);
                 } else {
-                    // Better a reference than a dropped object, but it will not draw, so say so.
+                    // SKIPPED, not written as a reference.
+                    //
+                    // An unresolvable prefab reference inside a world prefab is not a missing
+                    // object - it is a CRASH. The engine loads every module prefab at startup and
+                    // resolves the references as it goes, so one bad name takes the whole game down
+                    // before the main menu, with nothing to say which file did it.
+                    //
+                    // That is exactly what happened: a project referencing marker ids from a pack
+                    // that was not installed exported them as references to prefabs that do not
+                    // exist, and the game stopped loading entirely.
+                    skipped?.Add(entity.Prefab);
                     TraceLogger.Write(nameof(SceneExporter),
-                        $"No definition found for '{entity.Prefab}' - written as a reference, which " +
-                        "does not render inside a prefab. Is its module installed?");
-                    sb.AppendLine($"{indent}<game_entity prefab=\"{Escape(entity.Prefab)}\">");
-                    sb.AppendLine($"{indent}  {transform}");
-                    AppendScripts(sb, entity, indent + "  ");
-                    sb.AppendLine($"{indent}</game_entity>");
+                        $"SKIPPED '{entity.Prefab}': no definition found, and a reference to a " +
+                        "prefab that does not exist crashes the game at startup. Is the pack or " +
+                        "module that defines it installed?");
                 }
             } else {
                 sb.AppendLine($"{indent}<game_entity prefab=\"{Escape(entity.Prefab)}\">");

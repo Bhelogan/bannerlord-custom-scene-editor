@@ -134,7 +134,7 @@ namespace CustomSceneCreator.Catalog {
                     // dropped into exports (someone else's prefab, or one brought back from another
                     // machine) was listed in the picker and then had no ghost and would not place.
                     // Mirroring it here is what makes "drop it in and restart" work.
-                    Mirror(file, moduleDir);
+                    if (!Mirror(file, moduleDir)) continue;
 
                     // The game reads prefab XML only at startup, so something copied a moment ago is
                     // on disk but not yet instantiable. Listed either way, flagged, so the category
@@ -173,16 +173,34 @@ namespace CustomSceneCreator.Catalog {
             }
         }
 
-        /// <summary>Copies an exported prefab into the module, when it is missing or out of date.</summary>
-        private static void Mirror(string file, string moduleDir) {
-            if (moduleDir.Length == 0) return;
+        /// <summary>
+        /// Copies an exported prefab into the module, when it is missing or out of date.
+        ///
+        /// Refuses anything with a reference the game cannot resolve. Every prefab in a module is
+        /// loaded at STARTUP, and one unresolvable name takes the whole game down before the main
+        /// menu with nothing to say which file was at fault - so a file that would do that must
+        /// never be copied somewhere the engine will read it.
+        /// </summary>
+        private static bool Mirror(string file, string moduleDir) {
+            if (moduleDir.Length == 0) return true;
+
+            string? danger = UnresolvableReference(file);
+            if (danger != null) {
+                TraceLogger.Write(nameof(PackCatalog),
+                    $"NOT loading '{IOPath.GetFileName(file)}': it references '{danger}', which does " +
+                    "not exist in this game. A world prefab with an unresolvable reference crashes " +
+                    "the game while it loads, so this file is being left alone. Re-export it, or " +
+                    "install the pack that defines the missing name.");
+                return false;
+            }
+
             try {
                 System.IO.Directory.CreateDirectory(moduleDir);
                 string target = IOPath.Combine(moduleDir, IOPath.GetFileName(file));
 
                 if (System.IO.File.Exists(target) &&
                     System.IO.File.GetLastWriteTimeUtc(target) >= System.IO.File.GetLastWriteTimeUtc(file)) {
-                    return;
+                    return true;              // already there and current
                 }
 
                 System.IO.File.Copy(file, target, overwrite: true);
@@ -193,6 +211,29 @@ namespace CustomSceneCreator.Catalog {
                 TraceLogger.Write(nameof(PackCatalog),
                     $"Could not copy '{IOPath.GetFileName(file)}' into the module: {ex.Message}");
             }
+            return true;
+        }
+
+        /// <summary>The first child prefab reference that does not resolve, or null when all do.</summary>
+        private static string? UnresolvableReference(string file) {
+            try {
+                var document = new XmlDocument();
+                document.Load(file);
+
+                XmlNodeList? nodes = document.GetElementsByTagName("game_entity");
+                if (nodes == null) return null;
+
+                foreach (XmlNode node in nodes) {
+                    string reference = (node as XmlElement)?.GetAttribute("prefab") ?? "";
+                    if (reference.Length == 0) continue;
+                    if (!GameEntity.PrefabExists(reference)) return reference;
+                }
+            } catch (Exception ex) {
+                TraceLogger.Write(nameof(PackCatalog),
+                    $"Could not check '{IOPath.GetFileName(file)}': {ex.Message}");
+                return "unreadable";
+            }
+            return null;
         }
 
         private static string ModulePrefabsPath() {
