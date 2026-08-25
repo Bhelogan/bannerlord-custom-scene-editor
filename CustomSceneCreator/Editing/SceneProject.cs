@@ -61,6 +61,83 @@ namespace CustomSceneCreator.Editing {
     }
 
     /// <summary>
+    /// An editor-authored request to remove walkable navmesh beneath a placed solid object.
+    ///
+    /// This is intentionally portable project data, not a copy of Bannerlord's undocumented binary
+    /// navmesh representation. Corners are stored in world space so the request can be inspected,
+    /// diffed, handed to the Modding Kit, and eventually consumed by a safe mesh writer.
+    /// </summary>
+    public class ProjectNavMeshCutout {
+        public string EntityId = "";
+        public string Prefab = "";
+        public float Clearance = 0.75f;
+        public float MinZ;
+        public float MaxZ;
+        /// <summary>Four world-space XYZ corners, clockwise, flattened to twelve floats.</summary>
+        public float[] Corners = new float[12];
+        /// <summary>Faces found beneath the footprint when it was last sampled in-game.</summary>
+        public List<int> FaceIndices = new();
+        public List<int> FaceGroups = new();
+        public List<int> FaceIslands = new();
+        public DateTime Sampled = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// An editor note marking terrain where walkable navmesh needs to be added. This does not
+    /// create geometry; it is a persistent authoring requirement for the later mesh pass.
+    /// </summary>
+    public class ProjectNavMeshRequirement {
+        public string Id = Guid.NewGuid().ToString("B").ToUpperInvariant();
+        public string Label = "Navmesh needed";
+        public float[] Pos = new float[3];
+        public float Radius = 4f;
+        /// <summary>
+        /// Terrain-snapped perimeter samples, flattened XYZ triples. Older projects leave this
+        /// empty and remain valid authoring notes, but safe face generation requires the samples.
+        /// </summary>
+        public float[] Boundary = Array.Empty<float>();
+        public int NearestFaceIndex = -1;
+        public float NearestFaceDistance = -1f;
+        public DateTime Created = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// An elevated walkable strip: stairs, a ramp, a bridge deck, or a wall walk.
+    ///
+    /// The rails are stored as paired, world-space XYZ samples from the physical surface itself.
+    /// They intentionally do not use terrain height: terrain can be many metres below a bridge or
+    /// behind a wall, while agents need to walk on the visible surface.
+    /// </summary>
+    public class ProjectNavMeshRamp {
+        public string Id = Guid.NewGuid().ToString("B").ToUpperInvariant();
+        public string Label = "Ramp";
+        /// <summary>Left rail, bottom to top, flattened XYZ triples.</summary>
+        public float[] Left = Array.Empty<float>();
+        /// <summary>Right rail, bottom to top, flattened XYZ triples.</summary>
+        public float[] Right = Array.Empty<float>();
+        /// <summary>
+        /// Preferred authoring format: a clockwise perimeter around one raised walkable surface.
+        /// Four corners make a ramp/stair/bridge quad. Left/Right remain solely for compatibility
+        /// with projects created by the former two-rail tool.
+        /// </summary>
+        public float[] Outline = Array.Empty<float>();
+        /// <summary>
+        /// True while the editor is still collecting this strip. Drafts deliberately persist with
+        /// the project so changing tools, saving, or reopening a scene never silently loses a
+        /// staircase/bridge outline. The baker ignores a draft until it is completed.
+        /// </summary>
+        public bool IsDraft = false;
+        /// <summary>0 = left rail is being drawn; 1 = right rail is being drawn.</summary>
+        public int EditingRail = 0;
+        public DateTime Created = DateTime.UtcNow;
+
+        [JsonIgnore]
+        public int SampleCount => Left != null && Right != null
+                                  && Left.Length == Right.Length
+                                  ? Left.Length / 3 : 0;
+    }
+
+    /// <summary>
     /// A saved layout: which scene, which levels, and everything placed in it.
     /// </summary>
     public class SceneProject {
@@ -73,6 +150,18 @@ namespace CustomSceneCreator.Editing {
         public string SceneLevels = "";
 
         public List<ProjectEntity> Entities = new();
+
+        /// <summary>
+        /// Solid-object footprints which should become holes in a future baked navmesh. Existing
+        /// projects deserialize with an empty list, so adding this is backwards compatible.
+        /// </summary>
+        public List<ProjectNavMeshCutout> NavMeshCutouts = new();
+
+        /// <summary>Areas which currently have no navmesh but need walkable coverage.</summary>
+        public List<ProjectNavMeshRequirement> NavMeshRequirements = new();
+
+        /// <summary>Elevated, two-rail walkable strips such as stairs, ramps, and bridge decks.</summary>
+        public List<ProjectNavMeshRamp> NavMeshRamps = new();
 
         [JsonIgnore]
         public string FileName => ProjectSerializer.SanitizeFileName(Name) + ".json";
@@ -91,6 +180,10 @@ namespace CustomSceneCreator.Editing {
 
         public SceneProjectTarget(SceneProject project) {
             _project = project;
+            _project.Entities ??= new List<ProjectEntity>();
+            _project.NavMeshCutouts ??= new List<ProjectNavMeshCutout>();
+            _project.NavMeshRequirements ??= new List<ProjectNavMeshRequirement>();
+            _project.NavMeshRamps ??= new List<ProjectNavMeshRamp>();
             _entities = project.Entities.Select(e => e.To()).ToList();
         }
 

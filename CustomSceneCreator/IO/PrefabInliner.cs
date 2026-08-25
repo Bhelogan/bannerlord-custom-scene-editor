@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Xml;
 using CustomSceneCreator.Catalog;
 using TaleWorlds.Library;
@@ -55,12 +56,41 @@ namespace CustomSceneCreator.IO {
                     XmlDocument? document = Load(path);
                     if (document != null) found = FindEntity(document, prefabName);
                 }
+
+                // A prefab copied into CSC's Prefabs directory (or freshly exported there) may be
+                // placeable before the catalog has recorded its source path.  It is still a real
+                // prefab definition and must not vanish from a composite export.  Search CSC's
+                // own small prefab folder directly as a safe fallback; this keeps every placed
+                // companion part, and therefore its relative transform, in the exported prefab.
+                if (found == null) found = FindInCscPrefabFolders(prefabName);
             } catch (Exception ex) {
                 TraceLogger.Write(nameof(PrefabInliner), $"Could not read '{prefabName}': {ex.Message}");
             }
 
             Cache[prefabName] = found;
             return found;
+        }
+
+        private static XmlElement? FindInCscPrefabFolders(string prefabName) {
+            var roots = new List<string> {
+                IOPath.Combine(BasePath.Name, "Modules", "CustomSceneCreator", "Prefabs"),
+            };
+            try { roots.Add(Editing.ProjectSerializer.PrefabExportsPath); } catch { }
+
+            foreach (string root in roots) {
+                if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) continue;
+                try {
+                    foreach (string path in Directory.EnumerateFiles(root, "*.xml", SearchOption.AllDirectories)) {
+                        XmlDocument? document = Load(path);
+                        XmlElement? found = document == null ? null : FindEntity(document, prefabName);
+                        if (found != null) return found;
+                    }
+                } catch (Exception ex) {
+                    TraceLogger.Write(nameof(PrefabInliner),
+                        $"Could not search CSC prefab folder '{root}': {ex.Message}");
+                }
+            }
+            return null;
         }
 
         private static XmlDocument? Load(string path) {

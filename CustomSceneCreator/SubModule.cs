@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using CustomSceneCreator.Boot;
 using CustomSceneCreator.CampaignEntry;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.Core;
@@ -20,6 +21,22 @@ namespace CustomSceneCreator {
             TraceLogger.StartSession("OnSubModuleLoad");
             TraceLogger.Write(nameof(SubModule),
                 "Loaded. Editor entry: settlement menu option, or console command 'csc.open <scene>'.");
+
+            // Exported prefabs live in Documents, which the game never reads. Copy them into the
+            // module now rather than when the editor first opens: the engine reads prefab XML as it
+            // starts, so a mirror that happens mid-session is always one launch too late, and
+            // dropping a file into exports cost two restarts instead of one.
+            Catalog.PackCatalog.MirrorExportsIntoModule();
+
+            // A fixed SceneObj folder lets a saved bake be swapped into the running game without
+            // creating a new scene folder mid-session (which is the known engine stall/crash path).
+            CscNavMeshTestSlot.EnsureSlotExists();
+
+            // Audit every module's scene folders once, at startup, and say plainly what is wrong.
+            // The faults it looks for are all silent in game - a scene with no navmesh loads and
+            // draws perfectly, and only stops working when something tries to walk in it. Nothing
+            // is changed; other modules' files are not ours to rewrite.
+            IO.SceneFolderAudit.Run();
         }
 
         protected override void OnGameStart(Game game, IGameStarter gameStarterObject) {
@@ -55,6 +72,11 @@ namespace CustomSceneCreator {
                 ReturnToBrowser.Tick();
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(SubModule), "Return-to-browser tick failed", ex);
+            }
+            try {
+                UI.ProjectBrowserScreen.Tick();
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(SubModule), "Project-browser tick failed", ex);
             }
         }
     }

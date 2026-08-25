@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using CustomSceneCreator.Catalog;
+using CustomSceneCreator.Editing;
 using TaleWorlds.Engine;
 using TaleWorlds.Engine.GauntletUI;
 using TaleWorlds.InputSystem;
@@ -57,7 +58,7 @@ namespace CustomSceneCreator.UI {
             if (IsOpen || MissionScreen == null) return;
 
             try {
-                _dataSource = new AssetPickerVM(placeables, Choose, Close, _lastSearch, _lastCategory);
+                _dataSource = new AssetPickerVM(placeables, Choose, ChooseMode, Close, _lastSearch, _lastCategory);
 
                 _layer = new GauntletLayer("CSCAssetPicker", 4000) { IsFocusLayer = true };
                 _layer.InputRestrictions.SetInputRestrictions();
@@ -107,6 +108,13 @@ namespace CustomSceneCreator.UI {
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(AssetPickerView), "OnAssetChosen threw", ex);
             }
+        }
+
+        private void ChooseMode(EditMode mode) {
+            // This is the build selector the author is already using. Choose the tool and return
+            // to the live editor in one action; the next click then does exactly that tool's work.
+            Close();
+            SceneEditingMissionLogic.Active?.SelectEditMode(mode);
         }
 
         public override void OnMissionScreenTick(float dt) {

@@ -385,7 +385,12 @@ Derived from `HomesteadTemplate` + `HomesteadSceneSavedEntity` (`HomesteadSceneS
 3. **Scene-fragment XML** — a `<game_entity>` block pasteable into a real `scene.xscene`. Now confirmed straightforward: §8 established the file is plain XML at version 2 with a flat `<game_entity><transform position rotation_euler/></game_entity>` shape. This is the Modding-Kit handoff — lay everything out in-game where it's pleasant, open the Kit once to bake navmesh.
 4. **Derived scene** — write directly into a `csc_*` scene folder (§8), skipping the Kit entirely for anything that doesn't need a navmesh rebake.
 
-**Out of scope for v1: navmesh generation.** Placed props get collision but no AI pathing. Say it in the README — `CUSTOM_SCENE_GUIDE.md` calls "no navmesh = no AI" the #1 source of broken-scene reports, and users will assume this tool handles it. Output 3 is the sanctioned path to a real navmesh.
+**Out of scope for v1: navmesh generation.** Placed props get collision but do not rewrite the copied
+scene navmesh. Say it in the README — users will otherwise assume this tool handles routing. Output 3
+is the sanctioned path to a real Modding Kit bake. Post-v1, add the probe, two-point route test, spawn
+audit, stale-bake warning, and navmesh-prefab metadata described in `docs/navmesh.md`. Runtime dynamic
+navmesh prefabs are a promising preview/blocker path, but they still must be authored/exported in the
+Kit and are not a replacement for static scene baking.
 
 ---
 

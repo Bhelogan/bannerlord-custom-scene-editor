@@ -17,6 +17,7 @@ namespace CustomSceneCreator.UI {
         private string _modeText = "";
         private string _primaryText = "";
         private string _detailText = "";
+        private string _extraText = "";
         private string _modeColor = ColorNeutral;
 
         // Kept as hex strings because Gauntlet brushes take colours that way.
@@ -24,6 +25,7 @@ namespace CustomSceneCreator.UI {
         private const string ColorBuild   = "#9BE08AFF";
         private const string ColorDelete  = "#E58A8AFF";
         private const string ColorMove    = "#8ABEE5FF";
+        private const string ColorNavMesh = "#69D8E5FF";
 
         [DataSourceProperty]
         public bool IsVisible {
@@ -49,6 +51,13 @@ namespace CustomSceneCreator.UI {
         public string DetailText {
             get => _detailText;
             set { if (value != _detailText) { _detailText = value; OnPropertyChangedWithValue(value, nameof(DetailText)); } }
+        }
+
+        /// <summary>Optional fourth line, used for diagnostics whose result must remain visible.</summary>
+        [DataSourceProperty]
+        public string ExtraText {
+            get => _extraText;
+            set { if (value != _extraText) { _extraText = value; OnPropertyChangedWithValue(value, nameof(ExtraText)); } }
         }
 
         // -- unsaved-changes reminder --------------------------------------------------------------
@@ -83,18 +92,20 @@ namespace CustomSceneCreator.UI {
             set { if (value != _modeColor) { _modeColor = value; OnPropertyChangedWithValue(value, nameof(ModeColor)); } }
         }
 
-        public void Set(string mode, string primary, string detail, StatusTone tone) {
+        public void Set(string mode, string primary, string detail, StatusTone tone, string extra = "") {
             ModeText = mode;
             PrimaryText = primary;
             DetailText = detail;
+            ExtraText = extra;
             ModeColor = tone switch {
                 StatusTone.Build => ColorBuild,
                 StatusTone.Delete => ColorDelete,
                 StatusTone.Move => ColorMove,
+                StatusTone.NavMesh => ColorNavMesh,
                 _ => ColorNeutral,
             };
         }
     }
 
-    public enum StatusTone { Neutral, Build, Delete, Move }
+    public enum StatusTone { Neutral, Build, Delete, Move, NavMesh }
 }

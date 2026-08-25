@@ -19,6 +19,14 @@ namespace CustomSceneCreator.Editing {
         /// <summary>Click a placed object to open its scripts. Its own mode rather than part of Move,
         /// so a click never means two different things depending on hidden state.</summary>
         Script = 4,
+        /// <summary>Read-only cursor probe and two-point route test for the baked scene navmesh.</summary>
+        NavMesh = 5,
+        /// <summary>Author a portable solid-object footprint for a future navmesh cutout pass.</summary>
+        NavCutout = 6,
+        /// <summary>Mark an unmeshed area so the addition pass builds walkable navmesh over it.</summary>
+        NavRequired = 7,
+        /// <summary>Author an elevated perimeter for stairs, ramps, bridges, or wall walks.</summary>
+        NavRamp = 8,
     }
 
     /// <summary>
@@ -39,6 +47,9 @@ namespace CustomSceneCreator.Editing {
     /// things because you want them there.
     /// </summary>
     public class SceneEditingMissionLogic : MissionLogic {
+        /// <summary>The editor currently receiving direct build-selector commands, if any.</summary>
+        public static SceneEditingMissionLogic? Active { get; private set; }
+
         private readonly ISceneEditTarget _target;
         private readonly IPlaceableProvider _provider;
 
@@ -110,11 +121,35 @@ namespace CustomSceneCreator.Editing {
 
         private readonly List<PlacedEntity> _live = new();
 
+        // Read-only navmesh diagnostic state. First click stores A, second stores B and measures the
+        // route; a third click starts a new A/B pair. These are never serialized into the project.
+        private NavMeshProbe? _navPointA;
+        private NavMeshProbe? _navPointB;
+        private NavMeshRoute? _navRoute;
+
+        // Ramp authoring deliberately keeps its partially-drawn strip in the project. A mode
+        // switch must never discard a bridge/stair outline that the player has already clicked.
+        private ProjectNavMeshRamp? _activeNavRamp;
+        private bool _selectedNavRampLeft;
+        private int _selectedNavRampPoint = -1;
+        // Closing an outline is immediately followed by authoring the next one surprisingly often:
+        // a ramp shares its top corners with the raised platform.  The next placement belongs to a
+        // new outline even if it lands precisely on an existing saved point.
+        private bool _startFreshNavRampOnNextPlacement;
+
+        private SceneProject? Project => (_target as SceneProjectTarget)?.Project;
+
         /// <summary>
         /// Unsaved changes. Tracked rather than always saving on exit so leaving can offer a real
         /// choice - and so the exit prompt does not appear after a session where nothing changed.
         /// </summary>
         private bool _isDirty;
+
+        // MissionLogic continues receiving ticks while the escape/options/MCM UI is open. Those
+        // screens pause the engine and focus their own Gauntlet layer, but global Input still sees
+        // the same keypresses. Remember the blocked state both to suppress those presses and to
+        // consume the first frame after the menu closes.
+        private bool _inputWasBlockedByMenu;
 
         public SceneEditingMissionLogic(ISceneEditTarget target, IPlaceableProvider provider) {
             _target = target;
@@ -131,6 +166,7 @@ namespace CustomSceneCreator.Editing {
 
         public override void AfterStart() {
             base.AfterStart();
+            Active = this;
             try {
                 // Read before anything draws a key hint, and on every scene open rather than once at
                 // startup - so rebinding in the options screen takes effect on reopening the editor
@@ -146,12 +182,29 @@ namespace CustomSceneCreator.Editing {
 
                 BuildPalette();
                 RestoreExistingEntities();
+                int upgradedRequirements = EnsureRequirementTerrainBoundaries();
+                if (upgradedRequirements > 0) {
+                    _isDirty = true;
+                    EditorHud.ShowMessage(
+                        $"Captured terrain geometry for {upgradedRequirements} older navmesh-required " +
+                        "area(s). Save to update their handoff manifest.");
+                }
                 EditorHud.ShowMessage(
                     $"Scene Creator ready. {Keys.Describe(Keys.EditMode)}: cycle edit modes. " +
                     $"{_live.Count} object(s) restored.");
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(SceneEditingMissionLogic), "AfterStart failed", ex);
             }
+        }
+
+        private int EnsureRequirementTerrainBoundaries() {
+            if (Project?.NavMeshRequirements == null) return 0;
+            int upgraded = 0;
+            foreach (ProjectNavMeshRequirement requirement in Project.NavMeshRequirements) {
+                if (NavMeshRequirementAuthoring.EnsureTerrainBoundary(Mission.Scene, requirement))
+                    upgraded++;
+            }
+            return upgraded;
         }
 
         private void BuildPalette() {
@@ -236,6 +289,7 @@ namespace CustomSceneCreator.Editing {
                 UpdateLookTarget();
                 HandleInput(dt);
                 UpdateGhost();
+                RenderNavMeshVisuals();
                 UpdateStatus();
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(SceneEditingMissionLogic), "Tick failed", ex);
@@ -374,10 +428,29 @@ namespace CustomSceneCreator.Editing {
         }
 
         private void HandleInput(float dt) {
-            // Nothing else may act while the picker owns input: it pauses the engine and takes focus,
-            // so a stray keypress reaching here would edit the scene behind a modal panel.
-            if (UI.AssetPickerView.IsOpen || UI.ExportDialogView.IsOpen
-                || UI.ScriptPanelView.IsOpen || UI.SceneOutlinerView.IsOpen) return;
+            bool menuOwnsInput = MBCommon.IsPaused
+                || UI.AssetPickerView.IsOpen || UI.ExportDialogView.IsOpen
+                || UI.ScriptPanelView.IsOpen || UI.SceneOutlinerView.IsOpen;
+
+            // Global Input is not filtered by Gauntlet's focused-layer restrictions. Explicitly
+            // ignore it while any modal menu owns the keyboard, including Bannerlord's options and
+            // MCM screens as well as our own panels.
+            if (menuOwnsInput) {
+                _inputWasBlockedByMenu = true;
+                return;
+            }
+
+            if (_inputWasBlockedByMenu) {
+                _inputWasBlockedByMenu = false;
+
+                // MCM applies its text settings when the options UI closes. Re-read them on that
+                // exact transition, then consume this frame so the key used to close the menu can
+                // never also trigger an editor command.
+                if (Settings.KeyBindings.Refresh()) {
+                    EditorHud.ShowMessage("Key bindings updated.");
+                }
+                return;
+            }
 
             if (Settings.KeyBindings.KeyDetectionMode) ReportPressedKey();
 
@@ -393,6 +466,14 @@ namespace CustomSceneCreator.Editing {
 
             if (Input.IsKeyPressed(Keys.CameraMode)) { CameraModes.Cycle(); return; }
 
+            // In elevated-navmesh authoring, Delete applies only to an already selected rail dot.
+            // It is deliberately before the ghost guard: ramp dots do not use a placeable ghost.
+            if (_mode == EditMode.NavRamp && _selectedNavRampPoint >= 0
+                && Input.IsKeyPressed(InputKey.Delete)) {
+                DeleteSelectedNavMeshRampPoint();
+                return;
+            }
+
             // Left click is the natural place action with a visible cursor. Read through the scene
             // layer, since Gauntlet consumes mouse buttons on the global path first. F still works
             // everywhere, including the player-attached cameras where the cursor is captured.
@@ -404,7 +485,8 @@ namespace CustomSceneCreator.Editing {
                 ? (RtsCameraView.Instance?.IsKeyPressedOnScene(Keys.Place) ?? false)
                 : Input.IsKeyPressed(Keys.Place);
 
-            if (clickPlaced || Input.IsKeyPressed(Keys.PlaceAlt)) { HandlePlaceKey(); return; }
+            bool alternatePlace = Input.IsKeyPressed(Keys.PlaceAlt);
+            if (clickPlaced || alternatePlace) { HandlePlaceKey(alternatePlace); return; }
 
             bool savePressed = Input.IsKeyPressed(Keys.Save)
                             || (Input.IsKeyDown(Keys.SaveModifier) && Input.IsKeyPressed(Keys.SaveWithModifier));
@@ -469,7 +551,7 @@ namespace CustomSceneCreator.Editing {
             if (Input.IsKeyPressed(Keys.PrevPlaceable)) { CyclePlaceable(-1); return; }
         }
 
-        private void HandlePlaceKey() {
+        private void HandlePlaceKey(bool alternate = false) {
             switch (_mode) {
                 case EditMode.Build:
                     if (_ghost != null) PlaceGhost();
@@ -482,6 +564,23 @@ namespace CustomSceneCreator.Editing {
                 case EditMode.Move:
                     if (_carried != null && _ghost != null) PlaceGhost();
                     else if (_hovered != null) PickUpLookedAt();
+                    break;
+
+                case EditMode.NavMesh:
+                    SetNavMeshRoutePoint();
+                    break;
+
+                case EditMode.NavCutout:
+                    ToggleNavMeshCutout();
+                    break;
+
+                case EditMode.NavRequired:
+                    ToggleNavMeshRequirement();
+                    break;
+
+                case EditMode.NavRamp:
+                    if (alternate) AdvanceOrFinishNavMeshRamp();
+                    else AddNavMeshRampPoint();
                     break;
 
                 case EditMode.Script:
@@ -529,6 +628,7 @@ namespace CustomSceneCreator.Editing {
                 ScriptAttacher.ApplyAll(spawned, _carried);
                 _target.OnEntityAdded(_carried);
                 _live.Add(_carried);
+                RefreshNavMeshCutout(_carried);
                 _carried = null;
                 _isDirty = true;
             } else {
@@ -639,6 +739,8 @@ namespace CustomSceneCreator.Editing {
         /// <summary>Removes a placed object. Public so the outliner can act on a listed row.</summary>
         public void Delete(PlacedEntity owner) {
             if (owner == null) return;
+
+            RemoveNavMeshCutout(owner.Id);
 
             DestroyEntity(owner.SceneEntity);
             owner.SceneEntity = null;
@@ -1075,14 +1177,25 @@ namespace CustomSceneCreator.Editing {
             }
         }
 
+        /// <summary>Selects an editor tool from the on-screen toolbar.</summary>
+        public void SelectEditMode(EditMode mode) {
+            if (mode == EditMode.Off) return;
+            SetEditMode(mode);
+        }
+
         private void CycleEditMode() {
+            SetEditMode((EditMode)(((int)_mode + 1) % 9));
+        }
+
+        private void SetEditMode(EditMode mode) {
             if (_carried != null) {
                 EditorHud.ShowMessage("Place what you are carrying before switching mode.", warning: true);
                 return;
             }
 
-            _mode = (EditMode)(((int)_mode + 1) % 5);
+            _mode = mode;
             RemoveGhost();
+            _selectedNavRampPoint = -1;
 
             // The camera follows the edit mode unless the player has picked one themselves: RTS for
             // editing, third person for walking around. Turning editing on is the moment an overhead
@@ -1120,7 +1233,41 @@ namespace CustomSceneCreator.Editing {
                     EditorHud.ShowMessage(
                         $"Script mode. {Keys.Describe(Keys.Place)}: open the scripts on an object.");
                     break;
+                case EditMode.NavMesh:
+                    NavMeshFaceVisualizer.Clear();
+                    NavMeshSpatialIndex.Reset();
+                    _navPointA = null;
+                    _navPointB = null;
+                    _navRoute = null;
+                    EditorHud.ShowMessage(
+                        $"Navmesh diagnostics (read only). Aim to inspect face/group/island. " +
+                        $"{Keys.Describe(Keys.Place)}: set route point A, then B; a third click starts over.");
+                    break;
+                case EditMode.NavCutout:
+                    NavMeshSpatialIndex.Reset();
+                    EditorHud.ShowMessage(
+                        $"Navmesh cutout authoring. Aim at a placed solid object and press " +
+                        $"{Keys.Describe(Keys.Place)} to add/remove its padded footprint. " +
+                        "This previews and exports the request; it does not alter navmesh.bin yet.");
+                    break;
+                case EditMode.NavRequired:
+                    NavMeshSpatialIndex.Reset();
+                    EditorHud.ShowMessage(
+                        $"Add navmesh area. Aim at unmeshed ground and press " +
+                        $"{Keys.Describe(Keys.Place)} to mark a 4 m area that needs walkable navmesh; " +
+                        "aim at a marked center to remove it. Marks are saved with the project and " +
+                        "drive the navmesh addition pass.");
+                    break;
+                case EditMode.NavRamp:
+                    NavMeshSpatialIndex.Reset();
+                    EditorHud.ShowMessage(
+                        $"Elevated navmesh. Click the physical corners of one stair, ramp, bridge deck, or wall-walk " +
+                        $"in perimeter order, then press {Keys.Describe(Keys.PlaceAlt)} to close it. Click a saved dot " +
+                        "to select it; click again to move it; Delete removes it. After closing, click empty ground " +
+                        "to start another elevated area.");
+                    break;
             }
+
         }
 
         /// <summary>
@@ -1196,7 +1343,604 @@ namespace CustomSceneCreator.Editing {
                     }
                     break;
                 }
+
+                case EditMode.NavMesh: {
+                    NavMeshProbe cursor = NavMeshDiagnostics.Probe(Mission.Scene, _positionLookingAt);
+                    string cursorText = cursor.IsValid
+                        ? $"Cursor: {cursor.FaceSummary}   surface/nav ΔZ {cursor.VerticalDelta:0.00} m"
+                        : $"Cursor: {cursor.Note}{NearestNavMeshStatus()}";
+
+                    string endpoints =
+                        $"A: {(_navPointA?.PointSummary ?? "unset")}   " +
+                        $"B: {(_navPointB?.PointSummary ?? "unset")}";
+
+                    string routeText;
+                    if (_navRoute == null) {
+                        routeText = _navPointA == null
+                            ? $"{Keys.Describe(Keys.Place)} to set A"
+                            : $"{Keys.Describe(Keys.Place)} to set B";
+                    } else if (!string.IsNullOrEmpty(_navRoute.Error)) {
+                        routeText = _navRoute.Error;
+                    } else if (!_navRoute.Reachable) {
+                        routeText = "UNREACHABLE for a 0.4 m infantry radius";
+                    } else if (!_navRoute.HasDistance) {
+                        routeText = "Reachable; engine did not return a path distance";
+                    } else {
+                        routeText =
+                            $"Reachable   straight {_navRoute.StraightDistance:0.0} m   " +
+                            $"path {_navRoute.PathDistance:0.0} m   detour {_navRoute.DetourRatio:0.00}x   " +
+                            $"{(_navRoute.RequiresRedirect ? "must go around" : "straight route")}   " +
+                            $"line clear {(_navRoute.Direct ? "yes" : "no")}";
+                    }
+
+                    status.Set("NAVMESH - READ ONLY", cursorText, endpoints, UI.StatusTone.NavMesh,
+                        routeText + "   •   approximated face boundary shown at cursor");
+                    break;
+                }
+
+                case EditMode.NavCutout: {
+                    PlacedEntity? target = _hovered;
+                    ProjectNavMeshCutout? existing = target == null ? null : FindNavMeshCutout(target.Id);
+                    string detail;
+                    if (target == null) {
+                        detail = "Aim at an object placed by this editor";
+                    } else if (existing == null) {
+                        detail = $"{Keys.Describe(Keys.Place)} to mark its padded footprint";
+                    } else {
+                        detail = $"{existing.FaceIndices.Count} sampled face(s), " +
+                                 $"{existing.FaceGroups.Count} group(s)   {Keys.Describe(Keys.Place)} to remove";
+                    }
+                    string nearest = NavMeshDiagnostics.Probe(Mission.Scene, _positionLookingAt).IsValid
+                        ? "Cursor is on existing navmesh"
+                        : "Cursor has no navmesh" + NearestNavMeshStatus();
+                    status.Set("NAVMESH CUTOUT PLAN",
+                        target != null ? Placeable.ToDisplayName(target.PrefabName) : "(nothing under cursor)",
+                        detail + "   •   " + nearest, UI.StatusTone.NavMesh,
+                        "PLAN ONLY: records affected faces; does not change AI routing or navmesh.bin.");
+                    break;
+                }
+
+                case EditMode.NavRequired: {
+                    SceneProject? project = Project;
+                    ProjectNavMeshRequirement? existing = FindNavMeshRequirement(_positionLookingAt);
+                    NavMeshProbe cursor = NavMeshDiagnostics.Probe(Mission.Scene, _positionLookingAt);
+                    string primary = existing != null
+                        ? existing.Label
+                        : cursor.IsValid ? "Already covered by navmesh" : "Unmeshed ground";
+                    string detail = existing != null
+                        ? $"{Keys.Describe(Keys.Place)} to remove this requirement"
+                        : cursor.IsValid
+                            ? "Move the cursor outside the green navmesh"
+                            : $"{Keys.Describe(Keys.Place)} to add a 4 m navmesh-needed area";
+                    int count = project?.NavMeshRequirements?.Count ?? 0;
+                    string nearest = cursor.IsValid
+                        ? cursor.FaceSummary
+                        : "No navmesh here" + NearestNavMeshStatus();
+                    status.Set("ADD NAVMESH AREA", primary,
+                        detail + $"   •   {count} saved note(s)", UI.StatusTone.NavMesh,
+                        nearest + "   •   orange ring = navmesh must be added here");
+                    break;
+                }
+
+                case EditMode.NavRamp: {
+                    SceneProject? project = Project;
+                    ProjectNavMeshRamp? active = _activeNavRamp;
+                    int outlinePoints = active == null ? 0 : NavMeshRampAuthoring.PointCount(active.Outline);
+                    ProjectNavMeshRamp? nearby = FindNavMeshRamp(_positionLookingAt);
+                    string primary = active != null
+                        ? $"{active.Label}: {outlinePoints} perimeter corners" +
+                          (_selectedNavRampPoint >= 0 ? " • point selected" : "")
+                        : nearby != null ? nearby.Label : "Elevated ramp, stairs, or bridge";
+                    string detail = _selectedNavRampPoint >= 0
+                        ? $"{Keys.Describe(Keys.Place)} moves selected corner • Delete removes it"
+                        : active == null
+                            ? $"{Keys.Describe(Keys.Place)} starts a perimeter outline"
+                            : $"{Keys.Describe(Keys.Place)} adds the next perimeter corner";
+                    string finish = active != null
+                        ? $"{Keys.Describe(Keys.PlaceAlt)} closes with 4+ corners; then {Keys.Describe(Keys.Place)} starts another"
+                        : nearby != null
+                            ? $"Click a blue dot to select it"
+                            : $"{Keys.Describe(Keys.Place)} on the physical surface starts a new area";
+                    status.Set("ADD ELEVATED NAVMESH", primary,
+                        detail + $"   •   {project?.NavMeshRamps?.Count ?? 0} saved ramp(s)",
+                        UI.StatusTone.NavMesh,
+                        finish + "   •   cyan cross = next corner's exact physical hit height");
+                    break;
+                }
             }
+        }
+
+        private ProjectNavMeshRequirement? FindNavMeshRequirement(Vec3 position) {
+            if (!position.IsValid || Project?.NavMeshRequirements == null) return null;
+            ProjectNavMeshRequirement? nearest = null;
+            float best = float.MaxValue;
+            foreach (ProjectNavMeshRequirement requirement in Project.NavMeshRequirements) {
+                Vec3 notePosition = NavMeshRequirementAuthoring.Position(requirement);
+                if (!notePosition.IsValid) continue;
+                float squared = (notePosition.AsVec2 - position.AsVec2).LengthSquared;
+                float pickRadius = Math.Max(1.25f, requirement.Radius * 0.35f);
+                if (squared <= pickRadius * pickRadius && squared < best) {
+                    best = squared;
+                    nearest = requirement;
+                }
+            }
+            return nearest;
+        }
+
+        private void ToggleNavMeshRequirement() {
+            SceneProject? project = Project;
+            if (project == null) {
+                EditorHud.ShowMessage("Navmesh notes are only available in saved editor projects.", warning: true);
+                return;
+            }
+            project.NavMeshRequirements ??= new List<ProjectNavMeshRequirement>();
+
+            ProjectNavMeshRequirement? existing = FindNavMeshRequirement(_positionLookingAt);
+            if (existing != null) {
+                project.NavMeshRequirements.Remove(existing);
+                _isDirty = true;
+                EditorHud.ShowMessage("Removed navmesh-needed area.");
+                return;
+            }
+            if (!_positionLookingAt.IsValid) {
+                EditorHud.ShowMessage("Aim at terrain where navmesh is needed.", warning: true);
+                return;
+            }
+
+            NavMeshProbe cursor = NavMeshDiagnostics.Probe(Mission.Scene, _positionLookingAt);
+            if (cursor.IsValid) {
+                EditorHud.ShowMessage(
+                    $"That position already has navmesh ({cursor.FaceSummary}); no requirement was added.",
+                    warning: true);
+                return;
+            }
+
+            ProjectNavMeshRequirement requirement =
+                NavMeshRequirementAuthoring.Create(Mission.Scene, _positionLookingAt);
+            if (NavMeshSpatialIndex.TryFindNearest(_positionLookingAt,
+                    out int faceIndex, out _, out float distance)) {
+                requirement.NearestFaceIndex = faceIndex;
+                requirement.NearestFaceDistance = distance;
+            }
+            project.NavMeshRequirements.Add(requirement);
+            _isDirty = true;
+            string distanceText = requirement.NearestFaceDistance >= 0f
+                ? $" Nearest existing face is {requirement.NearestFaceDistance:0.0} m away."
+                : "";
+            EditorHud.ShowMessage("Added a 4 m navmesh-needed area." + distanceText);
+        }
+
+        private void ToggleNavMeshCutout() {
+            SceneProject? project = Project;
+            if (project == null) {
+                EditorHud.ShowMessage("Navmesh cutouts are only available in saved editor projects.", warning: true);
+                return;
+            }
+            if (_hovered == null || _hovered.SceneEntity == null) {
+                EditorHud.ShowMessage("Aim at an object placed by this editor.", warning: true);
+                return;
+            }
+            if (string.IsNullOrEmpty(_hovered.Id)) _hovered.Id = Guid.NewGuid().ToString("B").ToUpperInvariant();
+
+            ProjectNavMeshCutout? existing = FindNavMeshCutout(_hovered.Id);
+            if (existing != null) {
+                project.NavMeshCutouts.Remove(existing);
+                _isDirty = true;
+                EditorHud.ShowMessage($"Removed navmesh cutout for {Placeable.ToDisplayName(_hovered.PrefabName)}.");
+                return;
+            }
+
+            try {
+                ProjectNavMeshCutout cutout = NavMeshCutoutAuthoring.Create(Mission.Scene, _hovered);
+                project.NavMeshCutouts.Add(cutout);
+                _isDirty = true;
+                EditorHud.ShowMessage(
+                    $"Marked {Placeable.ToDisplayName(_hovered.PrefabName)}: " +
+                    $"{cutout.FaceIndices.Count} navmesh face(s) sampled beneath its footprint.",
+                    warning: cutout.FaceIndices.Count == 0);
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(SceneEditingMissionLogic), "Cutout authoring failed", ex);
+                EditorHud.ShowMessage($"Could not measure that object's footprint: {ex.Message}", warning: true);
+            }
+        }
+
+        private void AddNavMeshRampPoint() {
+            if (Project == null) {
+                EditorHud.ShowMessage("Elevated navmesh ramps are only available in saved editor projects.", warning: true);
+                return;
+            }
+            if (!_positionLookingAt.IsValid) {
+                EditorHud.ShowMessage("Aim at the physical ramp, stair, bridge, or wall-walk surface.", warning: true);
+                return;
+            }
+
+            if (_selectedNavRampPoint >= 0 && _activeNavRamp != null) {
+                if (NavMeshRampAuthoring.HasOutline(_activeNavRamp))
+                    NavMeshRampAuthoring.SetOutlinePoint(_activeNavRamp, _selectedNavRampPoint, _positionLookingAt);
+                else
+                    NavMeshRampAuthoring.SetPoint(_activeNavRamp, _selectedNavRampLeft,
+                        _selectedNavRampPoint, _positionLookingAt);
+                _isDirty = true;
+                EditorHud.ShowMessage("Moved the selected ramp point. Click another dot to select it.");
+                _selectedNavRampPoint = -1;
+                return;
+            }
+
+            // A newly started draft owns its first click.  Corners are frequently shared: the top
+            // of a stair is also the edge of the wall-walk it joins.  Letting the global point
+            // picker run first made that click select the old stair point instead of beginning the
+            // new walkway, forcing authors to nudge geometry apart just to record two surfaces.
+            bool startingFreshOutline = _startFreshNavRampOnNextPlacement
+                                       || (_activeNavRamp != null
+                                       && _activeNavRamp.IsDraft
+                                       && NavMeshRampAuthoring.HasOutline(_activeNavRamp) == false);
+            // An active outline owns point picking. Its corners can intentionally occupy the same
+            // physical spot as a completed ramp/landing, and a click there must add the new corner
+            // (or select this outline's own corner), never pull an older area back into editing.
+            // Only when no outline is active may the global picker select a completed area.
+            if (!startingFreshOutline
+                && TryFindNavMeshRampPoint(_positionLookingAt, _activeNavRamp,
+                    out ProjectNavMeshRamp? hit, out bool left, out int index)) {
+                _activeNavRamp = hit;
+                _selectedNavRampLeft = left;
+                _selectedNavRampPoint = index;
+                EditorHud.ShowMessage($"Selected {(left ? "left" : "right")} rail point {index + 1}. " +
+                                      $"Click its new position to move it.");
+                return;
+            }
+
+            SceneProject project = Project;
+            project.NavMeshRamps ??= new List<ProjectNavMeshRamp>();
+            // New authoring is a perimeter, not a pair of rails. Legacy two-rail records remain
+            // readable and bakeable, but never capture a newly clicked outline.
+            if (_activeNavRamp == null || !project.NavMeshRamps.Contains(_activeNavRamp)
+                || !NavMeshRampAuthoring.HasOutline(_activeNavRamp)) {
+                _activeNavRamp = new ProjectNavMeshRamp {
+                    Label = $"Elevated area {project.NavMeshRamps.Count + 1}", IsDraft = true,
+                };
+                project.NavMeshRamps.Add(_activeNavRamp);
+            }
+            NavMeshRampAuthoring.AppendOutlinePoint(_activeNavRamp, _positionLookingAt);
+            _startFreshNavRampOnNextPlacement = false;
+            _isDirty = true;
+            int number = NavMeshRampAuthoring.PointCount(_activeNavRamp.Outline);
+            EditorHud.ShowMessage($"Added outline corner {number}. " +
+                                  "Trace the physical edge clockwise or counter-clockwise.");
+        }
+
+        private void DeleteSelectedNavMeshRampPoint() {
+            if (_activeNavRamp == null || _selectedNavRampPoint < 0) return;
+
+            int index = _selectedNavRampPoint;
+            bool outline = NavMeshRampAuthoring.HasOutline(_activeNavRamp);
+            bool left = _selectedNavRampLeft;
+            bool removed = outline
+                ? NavMeshRampAuthoring.RemoveOutlinePoint(_activeNavRamp, index)
+                : NavMeshRampAuthoring.RemovePoint(_activeNavRamp, left, index);
+            if (!removed) {
+                EditorHud.ShowMessage("That ramp point could not be removed.", warning: true);
+                return;
+            }
+
+            // Removing a point from one rail normally leaves the pair counts unequal. Keep the
+            // strip and its remaining geometry visible, but make its draft state honest so it
+            // cannot accidentally enter a bake until the author restores a valid pair layout.
+            if (outline || !NavMeshRampAuthoring.IsUsable(_activeNavRamp)) _activeNavRamp.IsDraft = true;
+            _activeNavRamp.EditingRail = left ? 0 : 1;
+            _selectedNavRampPoint = -1;
+            _isDirty = true;
+
+            int remaining = NavMeshRampAuthoring.PointCount(outline
+                ? _activeNavRamp.Outline : left ? _activeNavRamp.Left : _activeNavRamp.Right);
+            EditorHud.ShowMessage(outline
+                ? $"Removed outline corner {index + 1}. Keep at least four corners, then press F to close."
+                : $"Removed legacy {(left ? "left" : "right")} rail point {index + 1}. {remaining} remain on that rail.");
+        }
+
+        private void AdvanceOrFinishNavMeshRamp() {
+            SceneProject? project = Project;
+            if (project == null) {
+                EditorHud.ShowMessage("Elevated navmesh ramps are only available in saved editor projects.", warning: true);
+                return;
+            }
+            project.NavMeshRamps ??= new List<ProjectNavMeshRamp>();
+
+            if (_selectedNavRampPoint >= 0) {
+                _selectedNavRampPoint = -1;
+                EditorHud.ShowMessage("Ramp point selection cleared.");
+                return;
+            }
+
+            if (_activeNavRamp == null || !project.NavMeshRamps.Contains(_activeNavRamp)
+                || !NavMeshRampAuthoring.HasOutline(_activeNavRamp)) {
+                // F is a workflow key, never a destructive one. Previously it deleted whichever
+                // completed strip happened to be under the cursor, making a second stair/ramp feel
+                // as though it was still connected to the first. A fresh draft explicitly breaks
+                // that link and remains empty until the next placement click.
+                _activeNavRamp = new ProjectNavMeshRamp {
+                    Label = $"Elevated area {project.NavMeshRamps.Count + 1}", IsDraft = true,
+                };
+                project.NavMeshRamps.Add(_activeNavRamp);
+                _isDirty = true;
+                EditorHud.ShowMessage("Started a separate elevated area. Trace its four physical corners.");
+                return;
+            }
+
+            int outlineCount = NavMeshRampAuthoring.PointCount(_activeNavRamp.Outline);
+            if (outlineCount < 4) {
+                EditorHud.ShowMessage($"An elevated area needs at least four perimeter corners (you have {outlineCount}).", warning: true);
+                return;
+            }
+            _activeNavRamp.IsDraft = false;
+            _isDirty = true;
+            EditorHud.ShowMessage("Closed elevated navmesh area. It will be included in the next bake.");
+            _activeNavRamp = null;
+            _startFreshNavRampOnNextPlacement = true;
+        }
+
+        private ProjectNavMeshRamp? FindNavMeshRamp(Vec3 position) {
+            if (!position.IsValid || Project?.NavMeshRamps == null) return null;
+            ProjectNavMeshRamp? nearest = null;
+            float best = 2.0f * 2.0f;
+            foreach (ProjectNavMeshRamp ramp in Project.NavMeshRamps) {
+                float distance = NavMeshRampAuthoring.DistanceSquaredTo(ramp, position);
+                if (distance < best) {
+                    best = distance;
+                    nearest = ramp;
+                }
+            }
+            return nearest;
+        }
+
+        /// <summary>
+        /// Finds a saved elevated point. Passing an active area scopes selection to that area only;
+        /// passing null is the deliberate "nothing open, choose an existing area" interaction.
+        /// </summary>
+        private bool TryFindNavMeshRampPoint(Vec3 position, ProjectNavMeshRamp? scope,
+                                             out ProjectNavMeshRamp? ramp, out bool left, out int index) {
+            ramp = null; left = false; index = -1;
+            if (!position.IsValid || Project?.NavMeshRamps == null) return false;
+            float best = 1.25f * 1.25f;
+            foreach (ProjectNavMeshRamp candidate in Project.NavMeshRamps) {
+                if (scope != null && !ReferenceEquals(candidate, scope)) continue;
+                if (NavMeshRampAuthoring.HasOutline(candidate)) {
+                    int outlineCount = NavMeshRampAuthoring.PointCount(candidate.Outline);
+                    for (int i = 0; i < outlineCount; i++) {
+                        float distance = (NavMeshRampAuthoring.Point(candidate.Outline, i) - position).LengthSquared;
+                        if (distance >= best) continue;
+                        best = distance; ramp = candidate; left = true; index = i;
+                    }
+                    continue;
+                }
+                foreach (bool candidateLeft in new[] { true, false }) {
+                    float[] rail = candidateLeft ? candidate.Left : candidate.Right;
+                    int count = NavMeshRampAuthoring.PointCount(rail);
+                    for (int i = 0; i < count; i++) {
+                        float distance = (NavMeshRampAuthoring.Point(rail, i) - position).LengthSquared;
+                        if (distance >= best) continue;
+                        best = distance; ramp = candidate; left = candidateLeft; index = i;
+                    }
+                }
+            }
+            return ramp != null;
+        }
+
+        private ProjectNavMeshCutout? FindNavMeshCutout(string entityId) =>
+            string.IsNullOrEmpty(entityId)
+                ? null
+                : Project?.NavMeshCutouts.FirstOrDefault(c =>
+                    string.Equals(c.EntityId, entityId, StringComparison.OrdinalIgnoreCase));
+
+        private void RemoveNavMeshCutout(string entityId) {
+            ProjectNavMeshCutout? cutout = FindNavMeshCutout(entityId);
+            if (cutout != null) Project!.NavMeshCutouts.Remove(cutout);
+        }
+
+        private void RefreshNavMeshCutout(PlacedEntity placed) {
+            ProjectNavMeshCutout? old = FindNavMeshCutout(placed.Id);
+            if (old == null || placed.SceneEntity == null) return;
+            try {
+                int at = Project!.NavMeshCutouts.IndexOf(old);
+                Project.NavMeshCutouts[at] = NavMeshCutoutAuthoring.Create(Mission.Scene, placed);
+            } catch (Exception ex) {
+                TraceLogger.Write(nameof(SceneEditingMissionLogic),
+                    $"Could not refresh moved navmesh cutout '{placed.PrefabName}': {ex.Message}");
+            }
+        }
+
+        private void RenderNavMeshCutouts() {
+            SceneProject? project = Project;
+            if (_mode != EditMode.NavCutout || project == null || project.NavMeshCutouts == null) return;
+            string hoveredId = _hovered?.Id ?? "";
+            foreach (ProjectNavMeshCutout cutout in project.NavMeshCutouts)
+                NavMeshCutoutAuthoring.Render(cutout,
+                    _mode == EditMode.NavCutout && string.Equals(cutout.EntityId, hoveredId,
+                        StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void RenderNavMeshRamps() {
+            SceneProject? project = Project;
+            if (project?.NavMeshRamps == null) return;
+            ProjectNavMeshRamp? selected = _mode == EditMode.NavRamp
+                ? FindNavMeshRamp(_positionLookingAt)
+                : null;
+            foreach (ProjectNavMeshRamp ramp in project.NavMeshRamps) {
+                bool active = ReferenceEquals(ramp, _activeNavRamp);
+                NavMeshRampAuthoring.Render(ramp, ReferenceEquals(ramp, selected) || active,
+                    active && _selectedNavRampLeft, active ? _selectedNavRampPoint : -1);
+            }
+        }
+
+        /// <summary>
+        /// Build mode has a full prefab ghost, but elevated-navmesh authoring previously left
+        /// first/third-person users guessing at the exact physics hit. Draw a compact cyan marker
+        /// on that hit with the same durable marker system as the saved route.
+        /// </summary>
+        private void RenderNavMeshRampPlacementGhost() {
+            if (_mode != EditMode.NavRamp || !_positionLookingAt.IsValid) return;
+
+            const uint PreviewColor = 0xFF00FFFFu;
+            Vec3 surface = _positionLookingAt;
+            Vec3 raised = surface + new Vec3(0f, 0f, 0.07f);
+            const float radius = 0.36f;
+
+            // Dot = exact click location; cross = its actual physical surface height.
+            NavMeshVisualMarkers.Show(surface + new Vec3(0f, 0f, 0.12f), PreviewColor, size: 0.28f);
+            NavMeshVisualMarkers.ShowLine(raised + new Vec3(-radius, 0f, 0f),
+                raised + new Vec3(radius, 0f, 0f), PreviewColor, size: 0.07f);
+            NavMeshVisualMarkers.ShowLine(raised + new Vec3(0f, -radius, 0f),
+                raised + new Vec3(0f, radius, 0f), PreviewColor, size: 0.07f);
+        }
+
+        private void RenderNavMeshVisuals() {
+            bool inNavMode = _mode == EditMode.NavMesh || _mode == EditMode.NavCutout
+                             || _mode == EditMode.NavRequired || _mode == EditMode.NavRamp;
+
+            // Audit findings stay visible in every mode. They are the answer to "where is the
+            // problem", and hunting for one while also holding the right edit mode is needless.
+            if (!inNavMode && !NavMeshAuditMarkers.HasFindings) {
+                NavMeshVisualMarkers.HideAll();
+                return;
+            }
+
+            NavMeshVisualMarkers.Begin(Mission.Scene);
+            NavMeshAuditMarkers.Render(Mission.Scene, Project?.TargetScene ?? "");
+            if (!inNavMode) {
+                NavMeshVisualMarkers.End();
+                return;
+            }
+            // Persistent notes are the authoring intent and must remain visible even when a dense
+            // overview or a large cutout set uses the rest of the bounded marker pool.
+            RenderNavMeshRequirements();
+            RenderNavMeshCutouts();
+            RenderNavMeshRamps();
+            RenderNavMeshFaceOverlay();
+            // Render last so the immediate click-location preview remains visible above the
+            // face/route overlays.
+            RenderNavMeshRampPlacementGhost();
+            NavMeshVisualMarkers.End();
+        }
+
+        private void RenderNavMeshRequirements() {
+            if (Project?.NavMeshRequirements == null) return;
+            ProjectNavMeshRequirement? selected = _mode == EditMode.NavRequired
+                ? FindNavMeshRequirement(_positionLookingAt)
+                : null;
+            foreach (ProjectNavMeshRequirement requirement in Project.NavMeshRequirements)
+                NavMeshRequirementAuthoring.Render(requirement, ReferenceEquals(requirement, selected));
+        }
+
+        private void RenderNavMeshFaceOverlay() {
+            if (_mode == EditMode.NavMesh || _mode == EditMode.NavCutout
+                || _mode == EditMode.NavRequired || _mode == EditMode.NavRamp) {
+                NavMeshSpatialIndex.Tick(Mission.Scene);
+                NavMeshProbe cursor = NavMeshDiagnostics.Probe(Mission.Scene, _positionLookingAt);
+                // An elevated route needs clean sight of its two physical boundaries. The broad
+                // green overview is useful for diagnostics/ground additions but overwhelms the
+                // orange/cyan ramp rails, so ramp mode keeps only the hover/nearest face.
+                if (_mode == EditMode.NavMesh || _mode == EditMode.NavRequired)
+                    RenderNearbyNavMeshOverview(cursor.IsValid ? cursor.Face.FaceIndex : -1);
+                if (cursor.IsValid) {
+                    // Render the hovered face last so its brighter cyan contour remains legible
+                    // above the subdued green working-area overview.
+                    NavMeshFaceVisualizer.Render(Mission.Scene, cursor.Face.FaceIndex,
+                        0xFF00FFFFu, drawSampleNodes: true);
+                } else if (NavMeshSpatialIndex.IsReady &&
+                           NavMeshSpatialIndex.TryFindNearest(_positionLookingAt,
+                               out int nearestFace, out Vec3 nearestCenter, out _)) {
+                    NavMeshFaceVisualizer.Render(Mission.Scene, nearestFace,
+                        0xFFFF00FFu, drawSampleNodes: true);
+                    Vec3 from = _positionLookingAt;
+                    from.z += 0.8f;
+                    nearestCenter.z += 0.8f;
+                    NavMeshVisualMarkers.ShowLine(from, nearestCenter,
+                        0xFFFF00FFu, spacing: 1.0f, size: 0.14f, maximumPoints: 96);
+                }
+                if (_mode == EditMode.NavMesh || _mode == EditMode.NavRequired) return;
+            }
+
+            if (_mode != EditMode.NavCutout || Project?.NavMeshCutouts == null) return;
+            // The manifest's sampled faces are precisely the region we need to inspect. Showing
+            // their reconstructed boundaries makes holes, giant faces, and footprint mismatch
+            // visible before any future writer is allowed to touch the binary mesh.
+            const int maximumDisplayedFaces = 120;
+            int displayed = 0;
+            foreach (ProjectNavMeshCutout cutout in Project.NavMeshCutouts) {
+                foreach (int faceIndex in cutout.FaceIndices) {
+                    NavMeshFaceVisualizer.Render(Mission.Scene, faceIndex,
+                        0xFFFFA500u, drawSampleNodes: false);
+                    if (++displayed >= maximumDisplayedFaces) return;
+                }
+            }
+        }
+
+        private readonly List<int> _nearbyNavMeshFaces = new();
+
+        private void RenderNearbyNavMeshOverview(int highlightedFace) {
+            // Reconstructing every face on a 20k+ face battle map is not safe in a retail mission:
+            // every uncached polygon needs dozens of native edge queries. This bounded overview
+            // follows the cursor's working area and admits only a few new faces each frame, while
+            // already reconstructed faces redraw cheaply from the cache.
+            const float overviewRadius = 55f;
+            const int maximumOverviewFaces = 72;
+            const int maximumNewFacesPerFrame = 4;
+            const uint overviewColor = 0xFF35A854u;
+
+            NavMeshSpatialIndex.FindNearestWithin(_positionLookingAt, overviewRadius,
+                maximumOverviewFaces, _nearbyNavMeshFaces);
+            int reconstructed = 0;
+            foreach (int faceIndex in _nearbyNavMeshFaces) {
+                if (faceIndex == highlightedFace) continue;
+                bool cached = NavMeshFaceVisualizer.IsCached(faceIndex);
+                if (!cached && reconstructed >= maximumNewFacesPerFrame) continue;
+                NavMeshFaceVisualizer.Render(Mission.Scene, faceIndex, overviewColor,
+                    drawSampleNodes: false);
+                if (!cached) reconstructed++;
+            }
+        }
+
+        private string NearestNavMeshStatus() {
+            if (!NavMeshSpatialIndex.IsReady)
+                return NavMeshSpatialIndex.Count > 0
+                    ? $"; indexing faces {NavMeshSpatialIndex.Built}/{NavMeshSpatialIndex.Count}"
+                    : "; indexing face locations";
+            return NavMeshSpatialIndex.TryFindNearest(_positionLookingAt, out _, out _, out float distance)
+                ? $"; nearest existing face center is {distance:0.0} m away (magenta)"
+                : "; no usable face center found";
+        }
+
+        private void SetNavMeshRoutePoint() {
+            NavMeshProbe point = NavMeshDiagnostics.Probe(Mission.Scene, _positionLookingAt);
+            if (!point.IsValid) {
+                EditorHud.ShowMessage($"Cannot set route point: {point.Note}.", warning: true);
+                return;
+            }
+
+            if (_navPointA == null || _navPointB != null) {
+                _navPointA = point;
+                _navPointB = null;
+                _navRoute = null;
+                EditorHud.ShowMessage(
+                    $"Navmesh A = {point.PointSummary}; {point.FaceSummary}; " +
+                    $"surface delta {point.VerticalDelta:0.00} m. Set point B.");
+                return;
+            }
+
+            _navPointB = point;
+            _navRoute = NavMeshDiagnostics.TestRoute(Mission.Scene, _navPointA, _navPointB);
+
+            string result = !_navRoute.Reachable
+                ? "UNREACHABLE"
+                : _navRoute.HasDistance
+                    ? $"path {_navRoute.PathDistance:0.0} m, straight {_navRoute.StraightDistance:0.0} m, " +
+                      $"detour {_navRoute.DetourRatio:0.00}x, " +
+                      $"{(_navRoute.RequiresRedirect ? "must go around" : "straight route")}, " +
+                      $"line clear {(_navRoute.Direct ? "yes" : "no")}"
+                    : "reachable, but no path distance returned";
+
+            EditorHud.ShowMessage(
+                $"Navmesh B = {point.PointSummary}; {point.FaceSummary}; route {result}.",
+                warning: !_navRoute.Reachable);
         }
 
         // -- ghost ------------------------------------------------------------------------------
@@ -1428,10 +2172,15 @@ namespace CustomSceneCreator.Editing {
         /// end up doing three times.</summary>
         private void Save() {
             try {
+                ProjectSerializer.LastNavMeshBakeMessage = "";
                 _target.Commit();
                 _isDirty = false;
 
-                EditorHud.ShowMessage($"Saved '{_target.DisplayName}' - {_live.Count} object(s).");
+                // The navmesh is baked as part of the save, so the save message says what happened to
+                // it. Silently baking would leave the user unsure whether their cutouts took effect.
+                string bake = ProjectSerializer.LastNavMeshBakeMessage;
+                string saved = $"Saved '{_target.DisplayName}' - {_live.Count} object(s).";
+                EditorHud.ShowMessage(bake.Length > 0 ? saved + " " + bake : saved);
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(SceneEditingMissionLogic), "Save failed", ex);
                 EditorHud.ShowMessage("Save FAILED - see CustomSceneCreator.trace.log.", warning: true);
@@ -1488,6 +2237,7 @@ namespace CustomSceneCreator.Editing {
 
         protected override void OnEndMission() {
             base.OnEndMission();
+            if (Active == this) Active = null;
             RemoveGhost();
             WeaponSheather.SetEditing(false);
             // Deliberately does NOT commit. OnEndMissionRequest already asked, and committing here

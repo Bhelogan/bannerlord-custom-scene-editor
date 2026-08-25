@@ -1,7 +1,8 @@
 <Module>
 	<Name value="Custom Bannerlord Scene Creator"/>
 	<Id value="CustomSceneCreator"/>
-	<Version value="v1.0.2"/>
+	<!-- Intentionally pinned at 1.0.4 until the project owner approves the Nexus Mods release. -->
+	<Version value="v1.0.4"/>
 	<SingleplayerModule value="true"/>
 	<MultiplayerModule value="false"/>
 	<DependedModules>

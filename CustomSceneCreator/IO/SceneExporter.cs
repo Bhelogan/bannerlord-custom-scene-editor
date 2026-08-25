@@ -18,6 +18,8 @@ namespace CustomSceneCreator.IO {
         SceneFragment,
         /// <summary>The layout, to place into other scenes as loose pieces and adapt there.</summary>
         Template,
+        /// <summary>A complete uniquely named derived scene folder for the official Modding Kit.</summary>
+        ModdingKitScene,
     }
 
     public class ExportResult {
@@ -48,6 +50,7 @@ namespace CustomSceneCreator.IO {
                 switch (kind) {
                     case ExportKind.Prefab: return ExportPrefab(project, safeName);
                     case ExportKind.Template: return ExportTemplate(project, safeName);
+                    case ExportKind.ModdingKitScene: return ModdingKitSceneExporter.Export(project, safeName);
                     default: return ExportSceneFragment(project, safeName);
                 }
             } catch (Exception ex) {
@@ -87,6 +90,9 @@ namespace CustomSceneCreator.IO {
                              inlineDefinitions: true, skipped: skipped);
             }
 
+            int cutoutMarkers = AppendNavMeshCutoutMarkers(sb, project, anchor, "      ");
+            int elevatedRoutes = AppendElevatedNavMeshMarkers(sb, project, anchor, "      ");
+
             sb.AppendLine("    </children>");
             sb.AppendLine("  </game_entity>");
             sb.AppendLine("</prefabs>");
@@ -124,9 +130,81 @@ namespace CustomSceneCreator.IO {
             return new ExportResult {
                 Success = true,
                 Path = path,
-                Message = $"Prefab '{name}' exported ({project.Entities.Count - skipped.Count} parts)." +
+                Message = $"Prefab '{name}' exported ({project.Entities.Count - skipped.Count} parts)"
+                          + (cutoutMarkers > 0 ? $" with {cutoutMarkers} cutout marker(s)" : "")
+                          + (elevatedRoutes > 0 ? $" and {elevatedRoutes} elevated route(s) attached" : "") + "." +
                           note + " Listed under 'My Prefabs'; restart the game to place it.",
             };
+        }
+
+        /// <summary>
+        /// Carries a solid object's navmesh exclusion with a reusable composite prefab. A cutout
+        /// is stored in a project as four world-space corners, while Homesteads reads prefab-local
+        /// hsr_navcut rectangles. The editor's cutout authoring produces rectangular footprints,
+        /// so express each as its centre, full side lengths, and yaw relative to the export anchor.
+        /// </summary>
+        private static int AppendNavMeshCutoutMarkers(StringBuilder sb, Editing.SceneProject project,
+                                                      Vec3 anchor, string indent) {
+            if (project.NavMeshCutouts == null) return 0;
+
+            int written = 0;
+            foreach (Editing.ProjectNavMeshCutout cutout in project.NavMeshCutouts) {
+                if (cutout?.Corners == null || cutout.Corners.Length < 12) continue;
+
+                Vec3 a = new Vec3(cutout.Corners[0], cutout.Corners[1], cutout.Corners[2]);
+                Vec3 b = new Vec3(cutout.Corners[3], cutout.Corners[4], cutout.Corners[5]);
+                Vec3 c = new Vec3(cutout.Corners[6], cutout.Corners[7], cutout.Corners[8]);
+                Vec3 d = new Vec3(cutout.Corners[9], cutout.Corners[10], cutout.Corners[11]);
+                Vec3 centre = (a + b + c + d) * 0.25f - anchor;
+
+                float width = DistanceXY(a, b);
+                float depth = DistanceXY(b, c);
+                if (width < 0.05f || depth < 0.05f) continue;
+                float yaw = MathF.Atan2(b.y - a.y, b.x - a.x);
+
+                sb.AppendLine($"{indent}<game_entity name=\"hsr_navcut\" old_prefab_name=\"\">");
+                sb.AppendLine($"{indent}  <transform position=\"{F(centre.x)}, {F(centre.y)}, 0.000\" "
+                              + $"rotation_euler=\"0.000, 0.000, {F(yaw)}\" "
+                              + $"scale=\"{F(width)}, {F(depth)}, 1.000\"/>");
+                sb.AppendLine($"{indent}</game_entity>");
+                written++;
+            }
+            return written;
+        }
+
+        /// <summary>
+        /// Carries an elevated surface out with a reusable prefab instead of leaving it as an
+        /// absolute scene-only annotation. Homesteads reads these lightweight groups when it bakes
+        /// a placed asset and applies the asset's own position and yaw to every point.
+        ///
+        /// The export anchor is also the prefab root's local origin, so subtracting it is the same
+        /// coordinate conversion used for the visible child entities above. The groups are only
+        /// authoring metadata: they have no mesh, physics, scripts, or in-game visual.
+        /// </summary>
+        private static int AppendElevatedNavMeshMarkers(StringBuilder sb, Editing.SceneProject project,
+                                                        Vec3 anchor, string indent) {
+            if (project.NavMeshRamps == null) return 0;
+
+            int written = 0;
+            foreach (Editing.ProjectNavMeshRamp ramp in project.NavMeshRamps) {
+                if (ramp == null || ramp.IsDraft || !Editing.NavMeshRampAuthoring.IsOutlineUsable(ramp)) continue;
+
+                int count = Editing.NavMeshRampAuthoring.PointCount(ramp.Outline);
+                if (count < 4) continue;
+
+                sb.AppendLine($"{indent}<game_entity name=\"hsr_navelevated\" old_prefab_name=\"\">");
+                sb.AppendLine($"{indent}  <children>");
+                for (int i = 0; i < count; i++) {
+                    Vec3 point = Editing.NavMeshRampAuthoring.Point(ramp.Outline, i) - anchor;
+                    sb.AppendLine($"{indent}    <game_entity name=\"hsr_navpoint\" old_prefab_name=\"\">");
+                    sb.AppendLine($"{indent}      <transform position=\"{F(point.x)}, {F(point.y)}, {F(point.z)}\"/>");
+                    sb.AppendLine($"{indent}    </game_entity>");
+                }
+                sb.AppendLine($"{indent}  </children>");
+                sb.AppendLine($"{indent}</game_entity>");
+                written++;
+            }
+            return written;
         }
 
         // -- scene fragment ----------------------------------------------------------------------
@@ -134,8 +212,8 @@ namespace CustomSceneCreator.IO {
         /// <summary>
         /// The placed objects at their real positions, as a block that pastes into a scene.xscene.
         ///
-        /// This is the Modding Kit handoff: lay the scene out in-game where it is pleasant, then open
-        /// the Kit once to bake a navmesh over the result.
+        /// This is the absolute-coordinate fragment handoff for a scene that another module already
+        /// owns. A matching navmesh plan is written whenever the project contains any authoring.
         /// </summary>
         private static ExportResult ExportSceneFragment(Editing.SceneProject project, string name) {
             var sb = new StringBuilder();
@@ -144,14 +222,16 @@ namespace CustomSceneCreator.IO {
             sb.AppendLine($"<!-- {project.Entities.Count} entities, absolute scene coordinates. -->");
             sb.AppendLine("<!-- Paste these inside the <entities> block of the target scene.xscene. -->");
 
-            var counters = new Dictionary<string, int>();
-            foreach (Editing.ProjectEntity entity in project.Entities) {
-                AppendEntity(sb, entity, Vec3.Zero, counters, indent: "");
-            }
+            sb.Append(BuildSceneEntityFragment(project, indent: ""));
 
             string path = IOPath.Combine(
                 Editing.ProjectSerializer.SceneExportsPath, name + ".scene_fragment.xml");
             IOFile.WriteAllText(path, sb.ToString(), Encoding.UTF8);
+
+            if ((project.NavMeshCutouts != null && project.NavMeshCutouts.Count > 0)
+                || (project.NavMeshRequirements != null && project.NavMeshRequirements.Count > 0)
+                || (project.NavMeshRamps != null && project.NavMeshRamps.Any(r => r != null && !r.IsDraft)))
+                NavMeshCutoutManifestExporter.WriteDocumentsCopy(project, name);
 
             TraceLogger.Write(nameof(SceneExporter),
                 $"Exported scene fragment '{name}' ({project.Entities.Count} entities) to {path}");
@@ -160,6 +240,15 @@ namespace CustomSceneCreator.IO {
                 Path = path,
                 Message = $"Scene fragment '{name}' exported ({project.Entities.Count} entities).",
             };
+        }
+
+        /// <summary>Placed entities in scene.xscene form, shared by fragment and Kit-scene export.</summary>
+        internal static string BuildSceneEntityFragment(Editing.SceneProject project, string indent) {
+            var sb = new StringBuilder();
+            var counters = new Dictionary<string, int>();
+            foreach (Editing.ProjectEntity entity in project.Entities)
+                AppendEntity(sb, entity, Vec3.Zero, counters, indent);
+            return sb.ToString();
         }
 
         // -- template ----------------------------------------------------------------------------
@@ -347,6 +436,11 @@ namespace CustomSceneCreator.IO {
 
         /// <summary>Invariant culture: a comma decimal separator would corrupt the XML outright.</summary>
         private static string F(float value) => value.ToString("0.000", CultureInfo.InvariantCulture);
+
+        private static float DistanceXY(Vec3 a, Vec3 b) {
+            float x = b.x - a.x, y = b.y - a.y;
+            return MathF.Sqrt(x * x + y * y);
+        }
 
         private static string Escape(string value) =>
             (value ?? "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");

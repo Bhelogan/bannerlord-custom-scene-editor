@@ -6,6 +6,50 @@ Post-processes an export from the in-game editor. Python 3.7+, no third-party pa
 can place, or a scene fragment you can paste into a `scene.xscene`. Baking is for the work that comes
 *after* layout, and that you want done the same way every time.
 
+> ### Before you paste a fragment into a scene — read this
+>
+> Pasting a fragment means making a scene folder of your own, usually by copying a stock one. That
+> hand-copy is where the silent failures live, and this script cannot protect you from them: it
+> post-processes a *file*, it never touches a scene folder, a `navmesh.bin`, or anything else on disk
+> that it was not pointed at.
+>
+> A copied scene folder gives you a scene that **loads and draws perfectly, and that nothing can fight
+> in**. Agents spawn, draw their weapons, and stand there; only archers appear to work, because they
+> never need to move. It reads exactly like an AI bug.
+>
+> Three causes, all silent:
+>
+> 1. **The navmesh was never re-baked.** Copying a scene copies its `navmesh.bin`, but that navmesh
+>    knows nothing about what you added and may not cover where you built. Open the scene once in the
+>    **Modding Kit** and bake it. This is the handoff step, and it is the one people skip.
+> 2. **The folder name and the scene name disagree.** Renaming a copied directory leaves
+>    `<scene name="battle_terrain_006">` inside a folder called `my_scene`. Every stock scene has
+>    these matching — make yours match.
+> 3. **A leftover folder shadows a stock scene.** Bannerlord resolves scenes by name across every
+>    loaded module, so a `SceneObj/battle_terrain_006/` in your mod that holds only a `ShaderCache`
+>    directory can win over the real scene and hand the game a scene with no navmesh. Delete any such
+>    folder.
+>
+> Check all three, before shipping and without launching the game:
+>
+> ```bash
+> python check_scene_folders.py "…\Mount & Blade II Bannerlord\Modules"
+> ```
+>
+> The editor runs the same checks at startup and writes any problems to its trace log.
+>
+> ### Or avoid scene folders altogether
+>
+> Export a **prefab** instead of a fragment, and have your mod instantiate it at an anchor on a stock
+> battle map. The stock map brings a working navmesh, your props and spawn markers ride on top, and
+> there is no scene folder to get wrong. This is what the Homesteads sparring matches and race tracks
+> do, and it sidesteps all three causes above.
+>
+> One rule if you go that way: a prop inside a prefab must be an **empty point named after the prefab
+> it stands for**, which your mod instantiates at runtime. A nested `<game_entity prefab="bd_cart_a"/>`
+> inside another prefab's `<children>` is not resolvable — it access-violates in the native loader and
+> the entire prefab fails to load, spawn markers and all.
+
 ## Quick start
 
 ```bash

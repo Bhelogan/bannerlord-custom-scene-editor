@@ -63,23 +63,35 @@ namespace CustomSceneCreator.Settings {
         private static bool _loaded;
 
         /// <summary>
-        /// Re-reads the settings. Called when a scene opens, so changing a binding in the options
-        /// screen and reopening the editor is enough - no restart.
+        /// Re-reads the settings and reports whether an already-loaded binding changed.
+        ///
+        /// Mission input calls this when a modal menu releases input, so MCM changes take effect as
+        /// soon as the options screen closes. The return value keeps ordinary menu closes quiet.
         /// </summary>
-        public static void Refresh() {
+        public static bool Refresh() {
             if (!IsMcmLoaded()) {
                 if (!_loaded) {
                     TraceLogger.Write(nameof(KeyBindings),
                         "MCM not installed - using default key bindings.");
                     _loaded = true;
                 }
-                return;
+                return false;
             }
 
+            string before = GetSignature();
+            bool wasLoaded = _loaded;
             try {
                 ReadSettings();
                 UsingMcm = true;
-                TraceLogger.Write(nameof(KeyBindings), "Key bindings loaded from MCM.");
+                bool changed = wasLoaded && !string.Equals(
+                    before, GetSignature(), StringComparison.Ordinal);
+                if (!wasLoaded || changed) {
+                    TraceLogger.Write(nameof(KeyBindings), changed
+                        ? "Key bindings refreshed from MCM."
+                        : "Key bindings loaded from MCM.");
+                }
+                _loaded = true;
+                return changed;
             } catch (Exception ex) {
                 // Defaults are already in place, so a broken settings file costs the rebinds and
                 // nothing else.
@@ -87,7 +99,18 @@ namespace CustomSceneCreator.Settings {
                     "Could not read MCM settings - keeping default bindings", ex);
             }
             _loaded = true;
+            return false;
         }
+
+        private static string GetSignature() => string.Join("|", new[] {
+            KeyDetectionMode.ToString(),
+            EditMode.ToString(), CameraMode.ToString(), AssetPicker.ToString(), Outliner.ToString(),
+            SaveModifier.ToString(), Save.ToString(), PlaceAlt.ToString(),
+            PrevPlaceable.ToString(), NextPlaceable.ToString(), NextCategory.ToString(),
+            RotateTurnLeft.ToString(), RotateTurnRight.ToString(), SnapToGround.ToString(),
+            ToggleGroundLock.ToString(), ResetRotation.ToString(), MoveUp.ToString(),
+            MoveDown.ToString(),
+        });
 
         /// <summary>
         /// True only when MCM's assembly is really in the process.

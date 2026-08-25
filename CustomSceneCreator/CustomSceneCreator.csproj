@@ -7,10 +7,11 @@
     <Platforms>x64</Platforms>
     <AssemblyName>CustomSceneCreator</AssemblyName>
     <RootNamespace>CustomSceneCreator</RootNamespace>
-    <!-- Keep in step with _Module/SubModule.xml: the release zip is named from this. -->
-    <Version>1.0.0</Version>
-    <FileVersion>1.0.0.0</FileVersion>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <!-- Keep in step with _Module/SubModule.xml. Intentionally pinned at 1.0.4 until the project
+         owner approves the first public Nexus Mods revision; development builds do not bump it. -->
+    <Version>1.0.4</Version>
+    <FileVersion>1.0.4.0</FileVersion>
+    <AssemblyVersion>1.0.4.0</AssemblyVersion>
     <Product>Custom Bannerlord Scene Creator</Product>
     <Description>Standalone in-game scene editor for Mount &amp; Blade II: Bannerlord.</Description>
 
@@ -57,6 +58,8 @@
     </ItemGroup>
     <Copy SourceFiles="@(ModuleDataFiles)" DestinationFolder="$(DistFolder)\ModuleData\%(RecursiveDir)" Condition="'@(ModuleDataFiles)' != ''" />
     <Copy SourceFiles="@(ModuleGuiFiles)" DestinationFolder="$(DistFolder)\GUI\%(RecursiveDir)" Condition="'@(ModuleGuiFiles)' != ''" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\..\USER_MANUAL.htm" DestinationFolder="$(DistFolder)" Condition="Exists('$(MSBuildProjectDirectory)\..\USER_MANUAL.htm')" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\..\MOD_INTEGRATION.md" DestinationFolder="$(DistFolder)" Condition="Exists('$(MSBuildProjectDirectory)\..\MOD_INTEGRATION.md')" />
   </Target>
 
 </Project>

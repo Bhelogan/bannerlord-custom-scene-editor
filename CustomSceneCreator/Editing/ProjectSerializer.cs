@@ -56,6 +56,16 @@ namespace CustomSceneCreator.Editing {
         public static string ProjectsPath => EnsureSubfolder("projects");
         public static string PrefabExportsPath => EnsureSubfolder(Path.Combine("exports", "prefabs"));
         public static string SceneExportsPath => EnsureSubfolder(Path.Combine("exports", "scenes"));
+        public static string NavMeshCutoutExportsPath =>
+            EnsureSubfolder(Path.Combine("exports", "navmesh-cutouts"));
+
+        /// <summary>
+        /// Baked navmeshes, one per project, produced whenever the project is saved.
+        ///
+        /// A layout and the walkable ground it implies belong together; keeping the bake here means
+        /// saving a project always produces both, and neither can be found without the other.
+        /// </summary>
+        public static string NavMeshBakesPath => EnsureSubfolder(Path.Combine("exports", "navmesh"));
 
         /// <summary>
         /// Exported templates - a layout meant to be placed into other scenes and then adapted.
@@ -99,6 +109,11 @@ namespace CustomSceneCreator.Editing {
             }
         }
 
+        /// <summary>
+        /// What the last save's navmesh bake reported, for the editor to show after saving.
+        /// </summary>
+        public static string LastNavMeshBakeMessage = "";
+
         public static bool Save(SceneProject project) {
             if (project == null || string.IsNullOrWhiteSpace(project.Name)) {
                 TraceLogger.Write(nameof(ProjectSerializer), "Save skipped: project has no name.");
@@ -109,6 +124,19 @@ namespace CustomSceneCreator.Editing {
                 string path = Path.Combine(ProjectsPath, project.FileName);
                 // Indented on purpose: these files are meant to be opened, diffed and hand-edited.
                 File.WriteAllText(path, JsonConvert.SerializeObject(project, Formatting.Indented));
+                // Always refresh the portable handoff when cutouts exist. Saving the editable
+                // project is enough to produce the input for the next-stage mesh experiment.
+                if ((project.NavMeshCutouts != null && project.NavMeshCutouts.Count > 0)
+                    || (project.NavMeshRequirements != null && project.NavMeshRequirements.Count > 0)
+                    || (project.NavMeshRamps != null && project.NavMeshRamps.Count > 0)) {
+                    CustomSceneCreator.IO.NavMeshCutoutManifestExporter.WriteDocumentsCopy(project, project.Name);
+
+                    // The layout and its navmesh are saved as a pair. A bake that fails is reported
+                    // and nothing more: losing the navmesh is recoverable, losing the layout the user
+                    // just asked to save is not.
+                    LastNavMeshBakeMessage =
+                        CustomSceneCreator.IO.SceneNavMeshBaker.BakeForProject(project).Message;
+                }
                 TraceLogger.Write(nameof(ProjectSerializer),
                     $"Saved '{project.Name}' ({project.Entities.Count} entities) to {path}");
                 return true;

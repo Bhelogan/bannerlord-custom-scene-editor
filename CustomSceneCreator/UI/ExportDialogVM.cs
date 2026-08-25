@@ -32,7 +32,8 @@ namespace CustomSceneCreator.UI {
         [DataSourceProperty] public string NameLabelText => "Name";
 
         [DataSourceProperty] public string PrefabButtonText => "Export as Prefab";
-        [DataSourceProperty] public string SceneButtonText => "Export Whole Scene";
+        [DataSourceProperty] public string FragmentButtonText => "Export Whole Scene";
+        [DataSourceProperty] public string SceneButtonText => "Create Modding Kit Scene";
         [DataSourceProperty] public string TemplateButtonText => "Export as Template";
         [DataSourceProperty] public string TemplateHelpText =>
             "The layout, to place into OTHER scenes as separate pieces you can still move. " +
@@ -47,8 +48,15 @@ namespace CustomSceneCreator.UI {
 
         [DataSourceProperty]
         public string SceneHelpText =>
-            "Everything where it actually sits, tied to this scene. Written as a block you can paste "
-            + "into the scene's own scene.xscene and open in the Modding Kit to bake a navmesh.";
+            "Clones the base scene into a unique csc_ scene in this module, renames it internally, "
+            + "and inserts everything you placed. Open that complete scene in the Modding Kit and "
+            + "re-bake its navmesh. Existing exports are never overwritten.";
+
+        [DataSourceProperty]
+        public string FragmentHelpText =>
+            "Everything where it actually sits, tied to this scene. Writes an absolute-coordinate "
+            + ".scene_fragment.xml for code-driven layouts such as racetracks, or for manually "
+            + "pasting into a scene.xscene.";
 
         [DataSourceProperty]
         public string ExportName {
@@ -67,7 +75,8 @@ namespace CustomSceneCreator.UI {
         }
 
         public void ExecuteExportPrefab() => Run(ExportKind.Prefab);
-        public void ExecuteExportScene() => Run(ExportKind.SceneFragment);
+        public void ExecuteExportFragment() => Run(ExportKind.SceneFragment);
+        public void ExecuteExportScene() => Run(ExportKind.ModdingKitScene);
         public void ExecuteExportTemplate() => Run(ExportKind.Template);
         public void ExecuteClose() => _onClose?.Invoke();
 

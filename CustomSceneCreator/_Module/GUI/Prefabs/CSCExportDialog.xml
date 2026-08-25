@@ -2,7 +2,7 @@
   <Window>
     <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="BlankWhiteSquare_9" Color="#000000CC" DoNotPassEventsToChildren="false" DoNotAcceptEvents="false">
       <Children>
-        <Widget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="900" SuggestedHeight="600" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true">
+        <Widget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="900" SuggestedHeight="720" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true">
           <Children>
             <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="StdAssets\Popup\canvas" IsEnabled="false" />
             <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="StdAssets\Popup\canvas_gradient" IsEnabled="false" />
@@ -27,6 +27,13 @@
                   </Children>
                 </ButtonWidget>
                 <RichTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="CoverChildren" Text="@PrefabHelpText" Brush="Popup.Description.Text" HorizontalAlignment="Center" MarginTop="6" DoNotAcceptEvents="true" />
+
+                <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="440" SuggestedHeight="44" HorizontalAlignment="Center" Command.Click="ExecuteExportFragment" Brush="Popup.Done.Button" MarginTop="14">
+                  <Children>
+                    <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@FragmentButtonText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                  </Children>
+                </ButtonWidget>
+                <RichTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="CoverChildren" Text="@FragmentHelpText" Brush="Popup.Description.Text" HorizontalAlignment="Center" MarginTop="6" DoNotAcceptEvents="true" />
 
                 <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="440" SuggestedHeight="44" HorizontalAlignment="Center" Command.Click="ExecuteExportScene" Brush="Popup.Done.Button" MarginTop="14">
                   <Children>

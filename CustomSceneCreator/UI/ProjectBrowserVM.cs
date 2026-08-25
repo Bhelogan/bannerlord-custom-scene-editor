@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CustomSceneCreator.Catalog;
 using CustomSceneCreator.Editing;
 using TaleWorlds.Library;
 
@@ -15,24 +16,52 @@ namespace CustomSceneCreator.UI {
     /// </summary>
     public class ProjectBrowserVM : ViewModel {
         private readonly Action<SceneProject> _onOpen;
+        private readonly Action<SceneProject> _onWalkaround;
+        private readonly Action<SceneProject> _onBattle;
+        private readonly Action<SceneProject> _onBake;
         private readonly Action _onNewScene;
         private readonly Action _onCancel;
 
         private readonly List<SceneProject> _all;
         private MBBindingList<ProjectItemVM> _items = new();
         private string _searchText = "";
+        private string _activityText = "";
+        private bool _isBaking;
+        private int _bakeProgress;
+        private string _bakeProgressText = "";
         private SceneProject? _selected;
 
-        public ProjectBrowserVM(Action<SceneProject> onOpen, Action onNewScene, Action onCancel) {
+        public ProjectBrowserVM(Action<SceneProject> onOpen, Action<SceneProject> onWalkaround,
+                                Action<SceneProject> onBattle, Action<SceneProject> onBake,
+                                Action onNewScene, Action onCancel) {
             _onOpen = onOpen;
+            _onWalkaround = onWalkaround;
+            _onBattle = onBattle;
+            _onBake = onBake;
             _onNewScene = onNewScene;
             _onCancel = onCancel;
             _all = ProjectSerializer.LoadAll();
+            // A complete derived scene is immediately usable even before it has its own project
+            // JSON. Surface it in the normal entry screen as an empty project; objects exported
+            // into scene.xscene must not be instantiated a second time by the project layer.
+            foreach (SceneEntry scene in SceneCatalog.Openable.Where(s =>
+                         s.Category == "My Derived Scenes" &&
+                         !_all.Any(p => string.Equals(p.TargetScene, s.Name,
+                             StringComparison.OrdinalIgnoreCase)))) {
+                _all.Add(new SceneProject {
+                    Name = scene.Name,
+                    TargetScene = scene.Name,
+                    SceneLevels = scene.Levels,
+                });
+            }
             RefreshList();
         }
 
         [DataSourceProperty] public string TitleText => "Saved Projects";
         [DataSourceProperty] public string OpenText => "Open";
+        [DataSourceProperty] public string WalkaroundText => "Walk Around";
+        [DataSourceProperty] public string BattleText => "Raid-Scale Battle";
+        [DataSourceProperty] public string BakeText => "Rebake Navmesh";
         [DataSourceProperty] public string NewSceneText => "New - Pick a Scene";
         [DataSourceProperty] public string CancelText => "Cancel";
 
@@ -53,7 +82,39 @@ namespace CustomSceneCreator.UI {
             }
         }
 
-        [DataSourceProperty] public bool CanOpen => _selected != null;
+        [DataSourceProperty] public bool CanOpen => _selected != null && !_isBaking;
+        [DataSourceProperty] public bool CanBake => _selected != null && !_isBaking;
+        [DataSourceProperty] public bool CanInteract => !_isBaking;
+        [DataSourceProperty] public bool IsBaking {
+            get => _isBaking;
+            private set {
+                if (value == _isBaking) return;
+                _isBaking = value;
+                OnPropertyChangedWithValue(value, nameof(IsBaking));
+                NotifyAvailability();
+            }
+        }
+        [DataSourceProperty] public int BakeProgress {
+            get => _bakeProgress;
+            private set {
+                value = Math.Max(0, Math.Min(100, value));
+                if (value == _bakeProgress) return;
+                _bakeProgress = value;
+                OnPropertyChangedWithValue(value, nameof(BakeProgress));
+            }
+        }
+        [DataSourceProperty] public string BakeProgressText {
+            get => _bakeProgressText;
+            private set {
+                if (value == _bakeProgressText) return;
+                _bakeProgressText = value;
+                OnPropertyChangedWithValue(value, nameof(BakeProgressText));
+            }
+        }
+        [DataSourceProperty] public string ActivityText {
+            get => _activityText;
+            private set { if (value != _activityText) { _activityText = value; OnPropertyChangedWithValue(value, nameof(ActivityText)); } }
+        }
 
         [DataSourceProperty]
         public MBBindingList<ProjectItemVM> Items {
@@ -73,12 +134,49 @@ namespace CustomSceneCreator.UI {
         }
 
         public void ExecuteOpen() {
-            if (_selected == null) return;
+            if (_selected == null || _isBaking) return;
             _onOpen?.Invoke(_selected);
         }
 
-        public void ExecuteNewScene() => _onNewScene?.Invoke();
-        public void ExecuteCancel() => _onCancel?.Invoke();
+        public void ExecuteWalkaround() {
+            if (_selected == null || _isBaking) return;
+            _onWalkaround?.Invoke(_selected);
+        }
+
+        public void ExecuteBattle() {
+            if (_selected == null || _isBaking) return;
+            _onBattle?.Invoke(_selected);
+        }
+
+        public void ExecuteBake() {
+            if (_selected == null || _isBaking) return;
+            ActivityText = "Baking selected project's navmesh...";
+            _onBake?.Invoke(_selected);
+        }
+
+        public void SetActivity(string text) => ActivityText = text ?? "";
+
+        public void BeginBake(string projectName) {
+            BakeProgress = 0;
+            BakeProgressText = "Preparing navmesh bake... 0%";
+            ActivityText = $"Baking navmesh for '{projectName}'...";
+            IsBaking = true;
+        }
+
+        public void SetBakeProgress(int percent) {
+            BakeProgress = percent;
+            BakeProgressText = $"Baking navmesh... {BakeProgress}%";
+        }
+
+        public void FinishBake(string message, bool succeeded) {
+            BakeProgress = succeeded ? 100 : BakeProgress;
+            BakeProgressText = succeeded ? "Navmesh bake complete." : "Navmesh bake stopped.";
+            ActivityText = message ?? "";
+            IsBaking = false;
+        }
+
+        public void ExecuteNewScene() { if (!_isBaking) _onNewScene?.Invoke(); }
+        public void ExecuteCancel() { if (!_isBaking) _onCancel?.Invoke(); }
 
         private void RefreshList() {
             _items.Clear();
@@ -97,6 +195,8 @@ namespace CustomSceneCreator.UI {
             }
             OnPropertyChangedWithValue(SelectionText, nameof(SelectionText));
             OnPropertyChangedWithValue(CanOpen, nameof(CanOpen));
+            OnPropertyChangedWithValue(CanBake, nameof(CanBake));
+            OnPropertyChangedWithValue(CanInteract, nameof(CanInteract));
         }
 
         private void OnClicked(SceneProject project) {
@@ -104,6 +204,12 @@ namespace CustomSceneCreator.UI {
             foreach (ProjectItemVM item in _items) item.IsSelected = item.Name == project.Name;
             OnPropertyChangedWithValue(SelectionText, nameof(SelectionText));
             OnPropertyChangedWithValue(CanOpen, nameof(CanOpen));
+            OnPropertyChangedWithValue(CanBake, nameof(CanBake));
+        }
+
+        private void NotifyAvailability() {
+            OnPropertyChangedWithValue(CanOpen, nameof(CanOpen));
+            OnPropertyChangedWithValue(CanBake, nameof(CanBake));
         }
 
         private void OnDoubleClicked(SceneProject project) {

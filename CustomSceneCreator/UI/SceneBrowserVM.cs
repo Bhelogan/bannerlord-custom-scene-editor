@@ -10,7 +10,7 @@ namespace CustomSceneCreator.UI {
     /// box, with per-scene level selection.
     /// </summary>
     public class SceneBrowserVM : ViewModel {
-        private readonly Action<string, string> _onConfirm;   // (sceneName, sceneLevels)
+        private readonly Action<string, string, SceneLaunchMode> _onConfirm;
         private readonly Action _onCancel;
 
         private readonly List<string> _categories = new();
@@ -21,7 +21,7 @@ namespace CustomSceneCreator.UI {
         private string _searchText = "";
         private SceneEntry? _selected;
 
-        public SceneBrowserVM(Action<string, string> onConfirm, Action onCancel) {
+        public SceneBrowserVM(Action<string, string, SceneLaunchMode> onConfirm, Action onCancel) {
             _onConfirm = onConfirm;
             _onCancel = onCancel;
 
@@ -125,9 +125,8 @@ namespace CustomSceneCreator.UI {
             // be opened by name.
             string scene = _selected?.Name ?? _searchText?.Trim() ?? "";
             if (scene.Length == 0) return;
-            _onConfirm?.Invoke(scene, SelectedLevels());
+            _onConfirm?.Invoke(scene, SelectedLevels(), SceneLaunchMode.Editor);
         }
-
         public void ExecuteCancel() => _onCancel?.Invoke();
 
         // -- internals --------------------------------------------------------------------------
@@ -202,6 +201,8 @@ namespace CustomSceneCreator.UI {
             return string.Join(" ", levels);
         }
     }
+
+    public enum SceneLaunchMode { Editor, Walkaround, Skirmish }
 
     public class SceneItemVM : ViewModel {
         private readonly Action<SceneEntry> _onClick;

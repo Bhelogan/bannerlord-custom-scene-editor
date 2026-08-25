@@ -1,8 +1,11 @@
 <Prefab>
+  <Constants>
+    <Constant Name="BoundaryCrossing.FillBar.Fill.Height" BrushName="BoundaryCrossing.FillBar.Fill" BrushLayer="DefaultFill" BrushValueType="Height" />
+  </Constants>
   <Window>
     <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="BlankWhiteSquare_9" Color="#000000CC" DoNotPassEventsToChildren="false" DoNotAcceptEvents="false">
       <Children>
-        <Widget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="900" SuggestedHeight="660" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true">
+        <Widget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="900" SuggestedHeight="720" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true">
           <Children>
             <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="StdAssets\Popup\canvas" IsEnabled="false" />
             <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="StdAssets\Popup\canvas_gradient" IsEnabled="false" />
@@ -14,6 +17,15 @@
                 <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="38" Text="@TitleText" Brush="Popup.Title.Text" HorizontalAlignment="Center" MarginTop="10" DoNotAcceptEvents="true" />
                 <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="24" Text="@HintText" Brush="Popup.Description.Text" HorizontalAlignment="Center" DoNotAcceptEvents="true" />
                 <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="26" Text="@SelectionText" Brush="Popup.Title.Text" HorizontalAlignment="Center" MarginTop="6" DoNotAcceptEvents="true" />
+                <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="22" Text="@ActivityText" Brush="Popup.Description.Text" HorizontalAlignment="Center" DoNotAcceptEvents="true" />
+
+                <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="30" IsVisible="@IsBaking" MarginTop="5" DoNotAcceptEvents="true">
+                  <Children>
+                    <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="14" VerticalAlignment="Center" Sprite="BlankWhiteSquare_9" Color="#151515FF" IsEnabled="false" />
+                    <FillBar WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="!BoundaryCrossing.FillBar.Fill.Height" VerticalAlignment="Center" MaxAmount="100" CurrentAmount="@BakeProgress" InitialAmount="@BakeProgress" Brush="BoundaryCrossing.FillBar.Fill" />
+                    <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@BakeProgressText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                  </Children>
+                </Widget>
 
                 <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="44" Sprite="BlankWhiteSquare_9" Color="#111111FF" MarginTop="10" DoNotAcceptEvents="true">
                   <Children>
@@ -29,6 +41,9 @@
                           <ItemTemplate>
                             <ButtonWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="44" Command.Click="ExecuteClick" Command.DoubleClick="ExecuteDoubleClick" IsSelected="@IsSelected" Brush="Saveload.SaveList.Item" MarginBottom="4">
                               <Children>
+                                <!-- An explicit selected-row fill remains visible when a total-conversion
+                                     theme replaces the native Saveload selected-state brush. -->
+                                <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="BlankWhiteSquare_9" Color="#2A78B8B8" IsVisible="@IsSelected" IsEnabled="false" DoNotAcceptEvents="true" />
                                 <!-- Columns in a horizontal panel. A StretchToParent TextWidget centres
                                      its text across the WHOLE row, so two of them draw on top of each
                                      other; fixed slots keep each string in its own space. -->
@@ -56,17 +71,32 @@
 
                 <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="50" StackLayout.LayoutMethod="HorizontalLeftToRight" HorizontalAlignment="Center" MarginBottom="8">
                   <Children>
-                    <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="200" Command.Click="ExecuteOpen" IsEnabled="@CanOpen" Brush="Popup.Done.Button" MarginRight="16">
+                    <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="110" Command.Click="ExecuteOpen" IsEnabled="@CanOpen" Brush="Popup.Done.Button" MarginRight="8">
                       <Children>
                         <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@OpenText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                       </Children>
                     </ButtonWidget>
-                    <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="280" Command.Click="ExecuteNewScene" Brush="Popup.Done.Button" MarginRight="16">
+                    <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="130" Command.Click="ExecuteWalkaround" IsEnabled="@CanOpen" Brush="Popup.Done.Button" MarginRight="8">
+                      <Children>
+                        <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@WalkaroundText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                      </Children>
+                    </ButtonWidget>
+                    <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="150" Command.Click="ExecuteBattle" IsEnabled="@CanOpen" Brush="Popup.Done.Button" MarginRight="8">
+                      <Children>
+                        <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@BattleText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                      </Children>
+                    </ButtonWidget>
+                    <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="130" Command.Click="ExecuteBake" IsEnabled="@CanBake" Brush="Popup.Done.Button" MarginRight="8">
+                      <Children>
+                        <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@BakeText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                      </Children>
+                    </ButtonWidget>
+                    <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="170" Command.Click="ExecuteNewScene" IsEnabled="@CanInteract" Brush="Popup.Done.Button" MarginRight="8">
                       <Children>
                         <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@NewSceneText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                       </Children>
                     </ButtonWidget>
-                    <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="160" Command.Click="ExecuteCancel" Brush="Popup.Cancel.Button">
+                    <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="100" Command.Click="ExecuteCancel" IsEnabled="@CanInteract" Brush="Popup.Cancel.Button">
                       <Children>
                         <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@CancelText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                       </Children>

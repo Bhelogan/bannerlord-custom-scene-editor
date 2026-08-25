@@ -96,6 +96,26 @@ namespace CustomSceneCreator.Catalog {
         public static SceneEntry? Find(string sceneName) =>
             All.FirstOrDefault(s => string.Equals(s.Name, sceneName, StringComparison.OrdinalIgnoreCase));
 
+        /// <summary>Adds a scene produced during this session to the browser immediately.</summary>
+        public static void RegisterDerived(string sceneName, string levels, bool noNavMesh) {
+            List<SceneEntry> scenes = _scenes ??= Load();
+            SceneEntry? existing = scenes.FirstOrDefault(s =>
+                string.Equals(s.Name, sceneName, StringComparison.OrdinalIgnoreCase));
+            if (existing != null) {
+                existing.Levels = levels ?? "";
+                existing.NoNavMesh = noNavMesh;
+                return;
+            }
+            scenes.Add(new SceneEntry {
+                Name = sceneName,
+                Module = "CustomSceneCreator",
+                Category = "My Derived Scenes",
+                Levels = levels ?? "",
+                NoNavMesh = noNavMesh,
+                Openable = true,
+            });
+        }
+
         /// <summary>Scenes the browser should offer. Excludes non-mission scenes.</summary>
         public static IEnumerable<SceneEntry> Openable => All.Where(s => s.Openable);
 
@@ -110,6 +130,7 @@ namespace CustomSceneCreator.Catalog {
                 TraceLogger.Write(nameof(SceneCatalog),
                     $"scene_catalog.xml not found (looked at '{path}'). " +
                     "Scene browsing will be unavailable; csc.open still works by name.");
+                AddWorkbenchScenes(result);
                 return result;
             }
 
@@ -133,6 +154,7 @@ namespace CustomSceneCreator.Catalog {
                         });
                     }
                 }
+                AddWorkbenchScenes(result);
                 TraceLogger.Write(nameof(SceneCatalog),
                     $"Loaded {result.Count} scenes from '{path}' " +
                     $"({result.Count(s => !s.IsWalkable)} without a navmesh, " +
@@ -142,6 +164,50 @@ namespace CustomSceneCreator.Catalog {
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Derived scenes are user artifacts, not part of the generated stock catalog. Scan only our
+        /// own small workbench folder so they remain available after restarting the game.
+        /// </summary>
+        private static void AddWorkbenchScenes(List<SceneEntry> result) {
+            string root = Path.Combine(BasePath.Name, "Modules", "CustomSceneCreator", "SceneObj");
+            if (!Directory.Exists(root)) return;
+
+            foreach (string directory in Directory.GetDirectories(root)) {
+                string sceneXml = Path.Combine(directory, "scene.xscene");
+                if (!File.Exists(sceneXml)) continue;
+                string name = Path.GetFileName(directory);
+                if (result.Any(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                string levels = "";
+                try {
+                    var document = new XmlDocument();
+                    document.Load(sceneXml);
+                    XmlNodeList? nodes = document.SelectNodes("/scene/levels/level");
+                    if (nodes != null) {
+                        levels = string.Join(" ", nodes.Cast<XmlNode>()
+                            .OfType<XmlElement>()
+                            .Select(e => e.GetAttribute("name"))
+                            .Where(n => !string.IsNullOrWhiteSpace(n)));
+                    }
+                } catch (Exception ex) {
+                    TraceLogger.Write(nameof(SceneCatalog),
+                        $"Could not inspect derived scene '{name}': {ex.Message}");
+                }
+
+                result.Add(new SceneEntry {
+                    Name = name,
+                    Module = "CustomSceneCreator",
+                    Category = "My Derived Scenes",
+                    Levels = levels,
+                    NoNavMesh = !File.Exists(Path.Combine(directory, "navmesh.bin")),
+                    Openable = true,
+                    NoTerrain = !File.Exists(Path.Combine(directory, "terrain.bin")),
+                    NoAtmosphere = !File.Exists(Path.Combine(directory, "atmosphere.xml")),
+                });
+            }
         }
 
         private static string ResolveCatalogPath() {

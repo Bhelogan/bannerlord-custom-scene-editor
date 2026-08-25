@@ -250,8 +250,8 @@
 
 <p>
   Bannerlord's scenes are built with the official Modding Kit — a separate multi-gigabyte download
-  running a full editor outside the game. It is powerful and it is the only way to do some things
-  (terrain sculpting and navmesh baking among them). It is also a lot of machinery to start up before
+  running a full editor outside the game. It is powerful and it is still the only way to do some things
+  (terrain sculpting and unusual manual navmesh repairs among them). It is also a lot of machinery to start up before
   you can place a single crate.
 </p>
 <p>
@@ -272,9 +272,10 @@
 
 <h3>What it does not do</h3>
 <p>
-  It does not sculpt terrain and it does not bake navmesh. Both are engine-side operations with no
-  in-game equivalent. See <a href="#sec16">Limits</a> — this matters most if you are building
-  interiors that NPCs need to walk around.
+  It does not sculpt terrain. Navmesh editing is authoring plus a safe file-side bake: CSC can cut
+  walkable ground from beneath solid objects and add ground-level or elevated routes for tunnels,
+  stairs, ramps, bridges, platforms, and wall walks. It does not replace every free-form repair in
+  the official Modding Kit. See <a href="#sec16">Limits</a>.
 </p>
 
 <!-- ============================================================== -->
@@ -319,6 +320,46 @@
 <p>
   The scene browser lists <strong>611 scenes</strong> — battle terrain, multiplayer maps, towns,
   castles, villages, hideouts, arenas, interiors and naval — grouped and searchable.
+</p>
+
+<h3>Testing a saved scene</h3>
+<p>
+  Select a saved project first. <strong>Open</strong> is for building. <strong>Walk Around</strong>
+  loads that saved project as a normal non-editing mission, restores its placed objects, and spawns
+  every healthy companion hero currently in your party plus five additional Empire peasants. All
+  followers are on foot and follow the player. Use this mode to check collision, tunnels, narrow
+  routes, stairs, ramps, bridges, platforms, and transitions between ground and elevated navmesh.
+  <strong>Raid-Scale Battle</strong> restores the same saved layout and baked navmesh as a combat
+  mission. Your healthy party members spawn beside you, while a matching raid-style force of
+  bandits and looters spawns across the authored obstacle cluster. The test is capped at 100 agents
+  per side and uses no horses. Neither mode writes casualties, temporary peasants, or roster changes
+  back into the campaign.
+</p>
+<div class="tip">
+  <strong>Which test should I use?</strong> Walk Around is the precise traversal test: lead the
+  followers through each doorway and tunnel, then up every stair, ramp, bridge, and wall walk.
+  Raid-Scale Battle is the crowd and combat-routing test: watch whether formations route around
+  solid cutouts and reach one another without piling up. When a project contains cutouts, CSC puts
+  the two battle sides on opposite sides of that cutout cluster and at least 200 m apart. Projects
+  without cutouts use a shorter fallback placement around the project, so add the required solid
+  cutouts before treating the battle as an obstacle-routing proof.
+</div>
+<p>
+  The new-scene picker only selects a base map for editing. Testing is intentionally available only
+  from Saved Projects, so there is always a placed layout and—when authored—a matching baked navmesh.
+  Neither test option opens the editor or changes your campaign party; leaving returns to Saved Projects.
+</p>
+<p>
+  Saved Projects also has <strong>Bake Navmesh</strong>. It runs the project bake immediately, writes
+  the result into the project&rsquo;s Documents export folder, and reports progress/result in the browser
+  and trace log. Use it before testing when you want an explicit bake step or need its refusal message.
+</p>
+<p>
+  When a saved project has navmesh work, CSC publishes its current baked mesh into one reusable
+  <em>test slot</em> before opening Walk Around or Raid-Scale Battle. The slot is a disposable copy;
+  your project and its durable bake remain in Documents. After installing the CSC version that adds
+  this feature, restart Bannerlord once so it can register that one slot. After that first restart,
+  changing scenes or bakes does not require another restart.
 </p>
 
 <h3>Scene levels</h3>
@@ -394,11 +435,10 @@
 <div class="tip">
   There is no maximum placement range. If you can see it, you can build on it — from any height.
 </div>
-
 <!-- ============================================================== -->
 <h2 id="sec6"><span class="section-num">6</span>Edit modes</h2>
 
-<p><kbd>\</kbd> cycles through five modes. The mode decides what a left-click does.</p>
+<p>The row across the top of the <strong>Assets</strong> build selector selects Build, Delete, Move, Scripts, and the navmesh tools directly, then returns you to the editor. <kbd>\</kbd> still cycles through all nine modes (including Off) if you prefer the keyboard. The selected mode decides what a left-click does.</p>
 
 <div class="table-wrap">
 <table>
@@ -408,7 +448,121 @@
   <tr><td>Delete</td><td>Removes what you click</td></tr>
   <tr><td>Move</td><td>Picks up what you click; click again to put it down</td></tr>
   <tr><td>Script</td><td>Opens the scripts attached to what you click</td></tr>
+  <tr><td>Navmesh</td><td>Sets route point A, then B; a third click starts over</td></tr>
+  <tr><td>Navmesh Cutout Plan</td><td>Records/removes a padded footprint that becomes a hole when you save</td></tr>
+  <tr><td>Add Navmesh Area</td><td>Marks/removes ground that should become walkable when you save</td></tr>
+  <tr><td>Elevated Navmesh</td><td>Authors a raised walkable strip for stairs, ramps, bridges, and wall walks</td></tr>
 </table>
+</div>
+
+<div class="tip">
+  <strong>Navmesh Cutout Plan mode marks what should stop being walkable.</strong> Click a solid object
+  placed by this editor to measure its physics footprint, add 0.75 m clearance, and draw the perimeter.
+  The footprint is saved with the project.
+</div>
+
+<div class="tip">
+  <strong>Add Navmesh Area marks the opposite problem.</strong> Click unmeshed terrain where agents
+  will need to walk to mark a 4 m area. Aim near its center and click again to remove it. The mark
+  samples the terrain height around its rim, so the ground built there follows slopes and steps
+  instead of lying flat across them. Overlapping marks are filled as one continuous surface.
+</div>
+
+<div class="tip">
+  <strong>Elevated Navmesh is for surfaces above the terrain.</strong> Trace four or more physical
+  corners of one stair, ramp, bridge deck, or wall-walk in order around its perimeter, then press
+  <kbd>F</kbd> to close it. There are no left/right rails to manage. A cyan cross and dot follows
+  your aim and shows the exact physical surface hit where the next corner will land&mdash;use it when
+  working inside a building in first or third person. The corners retain the height you clicked on;
+  they are not pulled down to terrain. Click a saved dot to select it, click again
+  to move it, or press <kbd>Delete</kbd> to remove it. A draft remains visible and is saved with the
+  project when you change modes. After closing one area, left-click to begin another. Four corners
+  are the minimum, but add as many perimeter corners as the physical shape needs. Only closed areas
+  are included in a bake. While an area is open, only its own dots can be selected; a new area may
+  safely share an exact corner with a completed ramp or platform.
+</div>
+
+<div class="tip">
+  <strong>Making a reusable stair, bridge, or defensive wall:</strong> author its elevated outline
+  before choosing <strong>Export as Prefab</strong>. The exported prefab carries that outline in its
+  own local coordinates, alongside its visible parts. When the prefab is later used by Homesteads,
+  the homestead bake moves and rotates the walkable route with the placed asset&mdash;the player does
+  not draw navmesh. Copy the finished XML into the Homesteads <code>Prefabs</code> folder under a
+  unique <code>hsr_</code> name, then add that same prefab name to the Homesteads placeables list.
+  Keep the outline on the actual walking surface; add a cutout only where ground below the asset must
+  be blocked, not beneath an ordinary raised bridge deck.
+</div>
+
+<h3 id="navmesh-baking">Navmesh baking</h3>
+
+<p>
+  The navmesh is the invisible surface that tells everyone in the scene where they can walk. Placing a
+  house does not change it by itself: without a bake, soldiers walk straight through the walls, and
+  ground you cleared stays off-limits. Baking is what turns your three kinds of marks &mdash; footprints
+  that should become holes, ground that should become walkable, and completed elevated outlines &mdash;
+  into an actual navmesh.
+</p>
+
+<p><strong>You do not need external tools to bake.</strong> It happens with your save, or you can use
+<strong>Bake Navmesh</strong> from Saved Projects to create or refresh a test bake on demand:</p>
+
+<ul>
+  <li><strong>When you save a project</strong>, the baked navmesh is written beside it, in
+    <code>Documents\Mount and Blade II Bannerlord\CustomSceneCreator\exports\navmesh\</code>,
+    named after the project. The save message tells you what it did &mdash; how many footprints were
+    cut out, how many areas filled, and how many were skipped.</li>
+  <li><strong>When you export a Modding Kit scene</strong>, the navmesh inside that exported scene
+    folder is baked too. The folder you get is complete: scene, objects, and matching navmesh.</li>
+</ul>
+
+<p>
+  The game's own scene files are never written to. Baking only ever produces files in your own
+  Documents folder, and it keeps the original as <code>.prebake</code> where it replaces anything.
+</p>
+
+<div class="note">
+  A bake never fails halfway. Each footprint is applied on its own, and one that cannot be done
+  cleanly &mdash; a shape that would split the walkable ground in two, or one that reaches off the edge
+  of the mesh &mdash; is skipped and named in the message, while everything else still bakes.
+</div>
+
+<h3 id="navmesh-checking">Checking the whole map</h3>
+
+<p>
+  Watching a few soldiers fight only tests the ground they fight on. To check the whole scene, open the
+  console and run:
+</p>
+
+<pre><code>csc.navmesh_audit &lt;project name&gt;</code></pre>
+
+<p>It walks the entire baked navmesh and reports, with coordinates you can walk to:</p>
+
+<ul>
+  <li><strong>Cut-off ground</strong> &mdash; walkable areas nothing can reach from the rest of the map.
+    This is the failure that is invisible until someone needs to make that journey.</li>
+  <li><strong>Objects still walkable</strong> &mdash; a footprint you marked that is still navmesh, so
+    agents will walk through that building.</li>
+  <li><strong>Marked ground still unwalkable</strong> &mdash; an area you marked that did not get filled,
+    so agents will refuse to go there.</li>
+  <li><strong>Broken or overlapping geometry</strong>.</li>
+</ul>
+
+<p>
+  Every finding is also <strong>marked in the scene</strong>: a ring on the ground with a tall mast
+  above it, red where movement will break and amber where something is merely worth a look. The marks
+  stay visible in every edit mode so you can walk to one without also holding the right mode, and
+  <code>csc.navmesh_audit_clear</code> hides them again.
+</p>
+
+<p>
+  Run this before you ship a scene. <code>csc.navtest</code> is still the way to watch agents actually
+  move once the audit is clean.
+</p>
+
+<div class="tip">
+  <strong>Navmesh mode is read-only.</strong> The panel shows the cursor's face, group, island, and
+  surface-to-navmesh height difference. Click A and B to test infantry reachability, path distance,
+  detour ratio, and direct-line clearance. The points are temporary and are not saved or exported.
 </div>
 
 <div class="note">
@@ -2694,7 +2848,7 @@
      fill="#1b1815"
      text-anchor="middle"
      font-weight="600"
-     id="text126">Edit modes cycle with  \  :  Off → Build → Delete → Move → Script</text>
+     id="text126">Edit modes: Off → Build → Delete → Move → Script → Navmesh → Cutout → Add Area</text>
 </svg>
 </div>
 <p style="text-align:center;color:var(--text-muted);font-size:0.85rem;margin-top:-14px">
@@ -2704,8 +2858,9 @@
 <div class="table-wrap">
 <table>
   <tr><th>Key</th><th>Action</th></tr>
-  <tr><td><kbd>\</kbd></td><td>Cycle edit mode: Off → Build → Delete → Move → Script</td></tr>
-  <tr><td><kbd>Left mouse</kbd></td><td>Place / delete / pick up / open scripts</td></tr>
+  <tr><td>Top row of the Assets selector</td><td>Directly select Build, Delete, Move, Scripts, or Inspect. The boxed <strong>Navmesh</strong> group contains Cutout, Add Area, and Elevated Navmesh.</td></tr>
+  <tr><td><kbd>\</kbd></td><td>Cycle edit mode: Off → Build → Delete → Move → Script → Navmesh → Navmesh Cutout → Add Navmesh Area → Elevated Navmesh</td></tr>
+  <tr><td><kbd>Left mouse</kbd></td><td>Place / delete / pick up / open scripts / set navmesh points / toggle cutout or navmesh-needed area</td></tr>
   <tr><td><kbd>F</kbd></td><td>The same, from the keyboard</td></tr>
   <tr><td>Hold <kbd>right mouse</kbd> + move</td><td>Tilt and roll the held object</td></tr>
   <tr><td><kbd>Q</kbd> <kbd>E</kbd></td><td>Rotate left / right</td></tr>
@@ -2957,8 +3112,11 @@ that ordering is far more useful than alphabetical.</p>
 <table>
   <tr><th>Folder</th><th>Contents</th></tr>
   <tr><td><code>projects/</code></td><td>Your working files. <strong>This is what you reopen.</strong></td></tr>
-  <tr><td><code>exports/prefabs/</code></td><td>Prefab XML — one reusable object</td></tr>
-  <tr><td><code>exports/scenes/</code></td><td>Scene fragments — everything at its real position</td></tr>
+  <tr><td><code>exports/prefabs/</code></td><td>Prefab XML — one reusable object, including local cutout/elevated metadata you authored</td></tr>
+  <tr><td><code>exports/scenes/</code></td><td>Absolute-coordinate scene fragments — used by scene-specific layouts such as racetracks</td></tr>
+  <tr><td><code>exports/navmesh-cutouts/</code></td><td>Readable navmesh plans (<code>.navcut.json</code>); Bannerlord does not load these directly</td></tr>
+  <tr><td><code>exports/navmesh/</code></td><td>Durable baked navmesh for each saved project</td></tr>
+  <tr><td><code>Modules/CustomSceneCreator/SceneObj/csc_*/</code></td><td>Complete derived scenes for the Modding Kit</td></tr>
   <tr><td><code>exports/templates/</code></td><td>Templates — a layout to place into other scenes and adapt</td></tr>
 </table>
 </div>
@@ -2993,6 +3151,12 @@ that ordering is far more useful than alphabetical.</p>
   this mod reads itself, so it is placeable the moment you export it — the picker updates as soon as
   the export dialog closes.
 </div>
+<div class="note">
+  Templates contain the visible, separately editable objects only. They do not carry the project's
+  cutout, ground-addition, or elevated-navmesh authoring into the destination project. Redraw those
+  marks after placing the template, or use a prefab/complete-scene export when navigation must travel
+  with the artifact.
+</div>
 <p>
   This is the way to build the same thing across several maps: lay it out once, export it as a
   template, then open each map and place it where it suits that ground. A template is also a single
@@ -3000,17 +3164,17 @@ that ordering is far more useful than alphabetical.</p>
   do.
 </p>
 
-<h3 id="prefab-vs-scene">Prefab or scene fragment</h3>
-<p><kbd>Alt</kbd>+<kbd>E</kbd> exports, and asks which of two things you meant.</p>
+<h3 id="prefab-vs-scene">Prefab or Modding Kit scene</h3>
+<p><kbd>Alt</kbd>+<kbd>E</kbd> exports, and asks what kind of artifact you need.</p>
 
 <div class="table-wrap">
 <table>
-  <tr><th></th><th>Prefab</th><th>Scene fragment</th></tr>
-  <tr><td>Contains</td><td>Just what you built</td><td>Just what you built</td></tr>
+  <tr><th></th><th>Prefab</th><th>Modding Kit scene</th></tr>
+  <tr><td>Contains</td><td>Just what you built</td><td>Base scene plus everything you built</td></tr>
   <tr><td>Positions</td><td>Relative to the object's own base</td><td>Real scene coordinates</td></tr>
   <tr><td>Tied to a scene</td><td>No</td><td>Yes</td></tr>
   <tr><td>Use it for</td><td>Something you will place many times</td><td>Dressing one particular scene</td></tr>
-  <tr><td>Goes to</td><td><code>exports/prefabs/</code> and the module's <code>Prefabs</code> folder</td><td><code>exports/scenes/</code></td></tr>
+  <tr><td>Goes to</td><td><code>exports/prefabs/</code> and the module's <code>Prefabs</code> folder</td><td><code>Modules/CustomSceneCreator/SceneObj/csc_*</code></td></tr>
 </table>
 </div>
 
@@ -3018,6 +3182,12 @@ that ordering is far more useful than alphabetical.</p>
   Both come from the same saved data, so the choice is never final — export the same project both
   ways if you want.
 </p>
+<div class="note">
+  <strong>Export Whole Scene</strong> is still available for scene-specific, absolute-coordinate
+  layouts such as horse racetracks. It writes
+  <code>exports/scenes/&lt;name&gt;.scene_fragment.xml</code>. <strong>Create Modding Kit Scene</strong>
+  is a separate option that clones the complete base scene; it does not replace the fragment workflow.
+</div>
 <p>
   A prefab's origin is the <strong>centre of its footprint, at its lowest point</strong>, so it sits on
   the ground when you place it later instead of being buried halfway.
@@ -3046,25 +3216,63 @@ that ordering is far more useful than alphabetical.</p>
 </p>
 <pre><code>GameEntity.Instantiate(mission.Scene, "my_fortified_camp", frame);</code></pre>
 
+<div class="warn">
+  Prefab XML carries cutout and elevated-route <em>authoring metadata</em>, but Bannerlord does not
+  apply that metadata by itself. If your mod places the prefab dynamically, it must use a compatible
+  file-side baker <strong>before the target scene loads</strong>. Instantiating the prefab creates its
+  visible parts; it does not change the stock scene's navmesh. Homesteads Reloaded is an example of a
+  consuming mod that performs this bake.
+</div>
+
 <h3 id="use-scene">A scene</h3>
 <p>
-  A scene fragment is a block of entities meant to be pasted into a real scene file. The target is the
-  <code>&lt;entities&gt;</code> section of:
+  Choose <strong>Create Modding Kit Scene</strong>. The editor clones the base scene, renames it, and
+  inserts everything you placed into a complete workbench scene at:
 </p>
-<pre><code>Modules/&lt;YourModule&gt;/SceneObj/&lt;scene_name&gt;/scene.xscene</code></pre>
+<pre><code>Modules/CustomSceneCreator/SceneObj/csc_&lt;name&gt;/</code></pre>
 
 <ol class="steps">
-  <li>Copy an existing scene's folder into your module, and rename it.</li>
-  <li>Open <code>scene.xscene</code> in a text editor and paste the fragment inside
-      <code>&lt;entities&gt;</code>.</li>
-  <li>If anything you placed needs NPCs to walk on or around it, open the scene once in the Modding
-      Kit and <strong>bake the navmesh</strong>.</li>
+  <li>Close the retail game and start the Modding Kit with CustomSceneCreator enabled.</li>
+  <li>Open the new <code>csc_*</code> scene. Read <code>CSC_MODDING_KIT_HANDOFF.txt</code> in its
+      folder if you need the source and selected-level details.</li>
+  <li>Only if you need the Kit's own navmesh work: the export already carries a baked navmesh for
+      every footprint you marked, so re-bake here only for changes the editor could not express, then
+      use <strong>File → Save Navigation Mesh</strong>. When only navigation changed, avoid the broader
+      Save Scene operation; current Kit builds may crash while staging terrain.</li>
+  <li>Reopen it in our editor with <code>csc.open csc_&lt;name&gt;</code> and repeat the Navmesh A/B tests.</li>
+  <li>Move the finished <code>SceneObj</code> folder into the module that will own the scene before
+      release. Move matching <code>SceneEditData</code> only if you want future Modding Kit editing;
+      the retail game does not need it.</li>
 </ol>
 
 <div class="warn">
-  Skipping the navmesh bake is the single most common way a hand-built scene disappoints. Everything
-  looks right, and then NPCs walk through your new wall, or refuse to enter the area at all. Objects
-  do not create walkable ground by themselves.
+  The exporter bakes the folder's navmesh for every footprint and area you marked, so the scene leaves
+  here complete. Anything the bake had to skip is named in the export message &mdash; check it, and run
+  <code>csc.navmesh_audit</code> before you ship. Objects you never marked do not change walkable
+  ground by themselves. Existing <code>csc_*</code> folders are never overwritten, because they may
+  contain hours of Kit work.
+</div>
+
+<h3 id="use-files">Which files belong in your mod</h3>
+<div class="table-wrap">
+<table>
+  <tr><th>Artifact</th><th>What it is</th><th>Ship it?</th></tr>
+  <tr><td><code>projects/&lt;name&gt;.json</code></td><td>Your editable CSC source</td><td>No — keep it as source or a backup</td></tr>
+  <tr><td><code>exports/templates/&lt;name&gt;.json</code></td><td>A loose layout for other CSC authors</td><td>No runtime use</td></tr>
+  <tr><td><code>exports/prefabs/&lt;name&gt;.xml</code></td><td>One reusable object in local coordinates</td><td>Yes — copy to <code>YourMod/Prefabs/</code></td></tr>
+  <tr><td><code>exports/scenes/&lt;name&gt;.scene_fragment.xml</code></td><td>Entities at absolute coordinates</td><td>Merge into the matching target <code>scene.xscene</code></td></tr>
+  <tr><td><code>exports/navmesh-cutouts/&lt;name&gt;.navcut.json</code></td><td>Readable bake plan; not an engine file</td><td>Only if your own tool or mod deliberately consumes it</td></tr>
+  <tr><td><code>exports/navmesh/&lt;name&gt;.navmesh.bin</code></td><td>Bake for that exact project and base scene</td><td>Normally use the copy inside the complete scene export</td></tr>
+  <tr><td><code>SceneObj/csc_&lt;name&gt;/</code></td><td>Complete runtime scene and its matching <code>navmesh.bin</code></td><td>Yes — copy the whole folder to <code>YourMod/SceneObj/</code></td></tr>
+  <tr><td><code>SceneEditData/csc_&lt;name&gt;/</code></td><td>Official Modding Kit workspace data</td><td>Optional; not needed by players</td></tr>
+</table>
+</div>
+
+<div class="note">
+  A baked <code>navmesh.bin</code> belongs to one exact scene and terrain. Do not copy it onto another
+  map. The <code>csc_navmesh_test_slot_*</code> folders are disposable Walk Around/Battle test caches,
+  not release content. The release also includes <code>MOD_INTEGRATION.md</code> as a concise checklist
+  for mod authors.
 </div>
 
 <h3 id="use-code">From mod code</h3>
@@ -3149,10 +3357,12 @@ python bake_scene.py my_graveyard.xml --list   # just show what is in the file</
   <li><strong>Check the layout.</strong> <kbd>L</kbd>, sort by name, and confirm the spawns read 1
       through 8 with none missing. Nudge positions with the number fields if any are inside a wall.</li>
   <li><strong>Save</strong> with <kbd>Alt</kbd>+<kbd>S</kbd>, then <kbd>Alt</kbd>+<kbd>E</kbd> and
-      export a <strong>scene fragment</strong> — this belongs to one particular map.</li>
-  <li><strong>Make it a scene.</strong> Copy the base scene's folder into your module, rename it, and
-      paste the fragment into its <code>scene.xscene</code>.</li>
-  <li><strong>Bake the navmesh</strong> in the Modding Kit, or the ambushers will not move.</li>
+      choose <strong>Create Modding Kit Scene</strong> — this belongs to one particular map.</li>
+  <li><strong>Open the generated scene.</strong> It is already cloned, renamed, and populated under
+      <code>CustomSceneCreator/SceneObj/csc_*</code>; no XML pasting is needed.</li>
+  <li><strong>Check the CSC bake result.</strong> Resolve every skipped operation, then use
+      <strong>Walk Around</strong> or <strong>Raid-Scale Battle</strong>. Open the Modding Kit only if
+      you need a manual navmesh edit CSC cannot express.</li>
   <li><strong>Spawn them</strong> from your mission code:</li>
 </ol>
 
@@ -3176,7 +3386,7 @@ python bake_scene.py my_graveyard.xml --list   # just show what is in the file</
 <table>
   <tr><th>Limit</th><th>What it means</th></tr>
   <tr><td>No terrain editing</td><td>You cannot raise a hill or dig a ditch. Terrain lives in a binary file the game does not expose. Pick a scene whose ground already suits you, or shape space with objects.</td></tr>
-  <tr><td>No navmesh baking</td><td>Placing a building does not tell NPCs how to walk around it. The Modding Kit does this. Player-only spaces are fine without it.</td></tr>
+  <tr><td>Navmesh baking is file-side</td><td>Saving bakes the navmesh into a file, but the mission you are standing in keeps the one it loaded with. To see a bake take effect, load the exported scene.</td></tr>
   <tr><td>No undo</td><td>Delete mode and the contents list are the ways back. Save often.</td></tr>
   <tr><td>No scaling</td><td>Objects are placed at their authored size.</td></tr>
   <tr><td>A moment on leaving</td><td>The browser reappears a frame or two after the mission closes, since it has to attach to the screen underneath once that screen exists.</td></tr>
@@ -3209,7 +3419,14 @@ python bake_scene.py my_graveyard.xml --list   # just show what is in the file</
 </p>
 
 <h4>NPCs walk through my walls, or will not enter</h4>
-<p>The navmesh has not been baked. See <a href="#use-scene">A scene</a>.</p>
+<p>
+  Open the saved project and use <strong>Rebake Navmesh</strong>. Read the full result: a skipped
+  cutout leaves a wall walkable, while a skipped or disconnected elevated outline prevents entry or
+  stops followers partway up. Confirm solid objects were marked with Cutout, stairs/ramps/tunnels
+  were closed in Elevated Navmesh, then use Walk Around to test actual agents. Remember that the
+  editor mission keeps the mesh it loaded with; the new bake appears in the test mission or complete
+  exported scene, not live under your feet.
+</p>
 
 <h4>The game closed itself while I was browsing assets</h4>
 <p>

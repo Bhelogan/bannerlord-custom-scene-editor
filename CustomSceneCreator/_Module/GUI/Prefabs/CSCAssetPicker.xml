@@ -14,6 +14,35 @@
                 <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="38" Text="@TitleText" Brush="Popup.Title.Text" HorizontalAlignment="Center" MarginTop="10" DoNotAcceptEvents="true" />
                 <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="24" Text="@HintText" Brush="Popup.Description.Text" HorizontalAlignment="Center" DoNotAcceptEvents="true" />
 
+                <!-- The build selector is also the fastest place to choose what the next live
+                     editor click does. Each tool closes this panel and returns directly to it. -->
+                <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="44" StackLayout.LayoutMethod="HorizontalLeftToRight" HorizontalAlignment="Center" MarginTop="8">
+                  <Children>
+                    <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="132" Command.Click="ExecuteBuildMode" Brush="Popup.Done.Button" MarginRight="4"><Children><TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@BuildModeText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true"/></Children></ButtonWidget>
+                    <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="132" Command.Click="ExecuteDeleteMode" Brush="Popup.Done.Button" MarginRight="4"><Children><TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@DeleteModeText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true"/></Children></ButtonWidget>
+                    <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="132" Command.Click="ExecuteMoveMode" Brush="Popup.Done.Button" MarginRight="4"><Children><TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@MoveModeText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true"/></Children></ButtonWidget>
+                    <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="132" Command.Click="ExecuteScriptsMode" Brush="Popup.Done.Button" MarginRight="4"><Children><TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@ScriptsModeText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true"/></Children></ButtonWidget>
+                    <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="132" Command.Click="ExecuteInspectMode" Brush="Popup.Done.Button" MarginRight="4"><Children><TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@InspectModeText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true"/></Children></ButtonWidget>
+                    <!-- These three author navmesh. The enclosing panel deliberately distinguishes
+                         them from ordinary object editing without hiding their individual actions. -->
+                    <Widget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="468" Sprite="BlankWhiteSquare_9" Color="#27351AE8" MarginLeft="4">
+                      <Children>
+                        <!-- Keep the heading and the buttons in one horizontal layout panel.  They
+                             used to be sibling overlays, which let the buttons paint over the
+                             heading on some UI scales. -->
+                        <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" StackLayout.LayoutMethod="HorizontalLeftToRight" MarginLeft="4" MarginRight="4" MarginTop="3" MarginBottom="3">
+                          <Children>
+                            <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="96" Text="@NavmeshToolsText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                            <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="112" Command.Click="ExecuteCutoutMode" Brush="Popup.Done.Button" MarginRight="3"><Children><TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@CutoutModeText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true"/></Children></ButtonWidget>
+                            <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="112" Command.Click="ExecuteAddAreaMode" Brush="Popup.Done.Button" MarginRight="3"><Children><TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@AddAreaModeText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true"/></Children></ButtonWidget>
+                            <ButtonWidget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="133" SuggestedHeight="38" Command.Click="ExecuteElevatedMode" Brush="Popup.Done.Button"><Children><TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Text="@ElevatedModeText" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true"/></Children></ButtonWidget>
+                          </Children>
+                        </ListPanel>
+                      </Children>
+                    </Widget>
+                  </Children>
+                </ListPanel>
+
                 <!-- Search first: with thousands of prefabs this is the primary way in, not the category pager. -->
                 <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="46" Sprite="BlankWhiteSquare_9" Color="#111111FF" MarginTop="10" DoNotAcceptEvents="true">
                   <Children>

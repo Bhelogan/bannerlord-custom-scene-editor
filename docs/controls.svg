@@ -2264,5 +2264,5 @@
      fill="#1b1815"
      text-anchor="middle"
      font-weight="600"
-     id="text126">Edit modes cycle with  \  :  Off → Build → Delete → Move → Script</text>
+     id="text126">Edit modes: Off → Build → Delete → Move → Script → Navmesh → Cutout → Add Area</text>
 </svg>

@@ -40,12 +40,15 @@ namespace CustomSceneCreator.Boot {
             CameraModes.Reset();
             WeaponSheather.Reset();
 
-            MissionInitializerRecord record = CreateRecord(sceneName, sceneLevels);
+            TraceLogger.Write(nameof(SceneCreatorMission), "Creating mission initializer record.");
+            MissionInitializerRecord record = CreateRecord(sceneName, sceneLevels ?? "");
+            TraceLogger.Write(nameof(SceneCreatorMission), "Mission initializer record created; calling MissionState.OpenNew.");
 
-            return MissionState.OpenNew(
+            Mission? opened = MissionState.OpenNew(
                 "CustomSceneCreator",
                 record,
                 mission => {
+                    TraceLogger.Write(nameof(SceneCreatorMission), "Mission behavior factory entered.");
                     // Mirrors the behaviour set the shipping homestead walk-around uses, minus its
                     // homestead-specific logics. That configuration is known to give a controllable
                     // free-roaming player in a non-battle scene, so it is a better starting point
@@ -92,8 +95,13 @@ namespace CustomSceneCreator.Boot {
                         new UI.ScriptPanelView(),
                         new UI.SceneOutlinerView(),
                     };
+                    TraceLogger.Write(nameof(SceneCreatorMission),
+                        $"Mission behavior factory returning {behaviors.Count} behaviors.");
                     return behaviors.ToArray();
                 });
+            TraceLogger.Write(nameof(SceneCreatorMission),
+                opened == null ? "MissionState.OpenNew returned null." : "MissionState.OpenNew returned a mission.");
+            return opened;
         }
 
         /// <summary>

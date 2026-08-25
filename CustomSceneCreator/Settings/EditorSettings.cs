@@ -45,7 +45,7 @@ namespace CustomSceneCreator.Settings {
         // unbinding, so an empty box can never leave the editor unusable.
 
         [SettingPropertyText("{=CSC_Key_EditMode_Name}Cycle Edit Mode", Order = 1, RequireRestart = false,
-            HintText = "{=CSC_Key_EditMode_Hint}Steps through Off, Build, Delete, Move and Script.")]
+            HintText = "{=CSC_Key_EditMode_Hint}Steps through Off, Build, Delete, Move, Script and read-only Navmesh Diagnostics.")]
         [SettingPropertyGroup(KeyGroup, GroupOrder = 10)]
         public string KeyEditMode { get; set; } = "\\";
 

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Desktop harness for the C# navmesh port.
+
+    It compiles the SAME source files the mod uses and runs them outside Bannerlord, which is only
+    possible because the NavMesh folder takes no TaleWorlds dependency. That keeps the feedback loop
+    at seconds rather than a game launch, and lets the port be checked against the Python writer's
+    recorded output by hash rather than by eye.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <!-- The shared NavMesh sources target the mod's net472 build, which is not nullable-aware.
+         Enabling it here would only produce warnings about code that cannot use the annotations. -->
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>NavMeshPortTests</AssemblyName>
+    <RootNamespace>NavMeshPortTests</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="..\..\CustomSceneCreator\NavMesh\*.cs" />
+  </ItemGroup>
+
+</Project>

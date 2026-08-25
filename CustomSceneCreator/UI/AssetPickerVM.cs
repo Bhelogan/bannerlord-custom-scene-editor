@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using CustomSceneCreator.Catalog;
+using CustomSceneCreator.Editing;
 using TaleWorlds.Engine;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
@@ -16,6 +17,7 @@ namespace CustomSceneCreator.UI {
     /// </summary>
     public class AssetPickerVM : ViewModel {
         private readonly Action<Placeable, IReadOnlyList<Placeable>, string> _onBuild;
+        private readonly Action<EditMode> _onModeSelected;
         private readonly Action _onClose;
         private readonly List<Placeable> _all;
 
@@ -33,11 +35,13 @@ namespace CustomSceneCreator.UI {
 
         public AssetPickerVM(IEnumerable<Placeable> placeables,
                              Action<Placeable, IReadOnlyList<Placeable>, string> onBuild,
+                             Action<EditMode> onModeSelected,
                              Action onClose,
                              string initialSearch,
                              string initialCategory) {
             _all = placeables.ToList();
             _onBuild = onBuild;
+            _onModeSelected = onModeSelected;
             _onClose = onClose;
 
             _categories.Add(AllCategories);
@@ -65,6 +69,15 @@ namespace CustomSceneCreator.UI {
         // -- bindable ---------------------------------------------------------------------------
 
         [DataSourceProperty] public string TitleText => "Assets";
+        [DataSourceProperty] public string BuildModeText => "Build";
+        [DataSourceProperty] public string DeleteModeText => "Delete";
+        [DataSourceProperty] public string MoveModeText => "Move";
+        [DataSourceProperty] public string ScriptsModeText => "Scripts";
+        [DataSourceProperty] public string InspectModeText => "Inspect";
+        [DataSourceProperty] public string NavmeshToolsText => "NAVMESH";
+        [DataSourceProperty] public string CutoutModeText => "Cutout";
+        [DataSourceProperty] public string AddAreaModeText => "Add Area";
+        [DataSourceProperty] public string ElevatedModeText => "Elevated Navmesh";
         [DataSourceProperty] public string BuildText => "Build";
         [DataSourceProperty] public string CloseText => "Close";
         [DataSourceProperty] public string HintText =>
@@ -206,6 +219,17 @@ namespace CustomSceneCreator.UI {
         }
 
         public void ExecuteClose() => _onClose?.Invoke();
+
+        public void ExecuteBuildMode() => ChooseMode(EditMode.Build);
+        public void ExecuteDeleteMode() => ChooseMode(EditMode.Delete);
+        public void ExecuteMoveMode() => ChooseMode(EditMode.Move);
+        public void ExecuteScriptsMode() => ChooseMode(EditMode.Script);
+        public void ExecuteInspectMode() => ChooseMode(EditMode.NavMesh);
+        public void ExecuteCutoutMode() => ChooseMode(EditMode.NavCutout);
+        public void ExecuteAddAreaMode() => ChooseMode(EditMode.NavRequired);
+        public void ExecuteElevatedMode() => ChooseMode(EditMode.NavRamp);
+
+        private void ChooseMode(EditMode mode) => _onModeSelected?.Invoke(mode);
 
         // -- internals --------------------------------------------------------------------------
 

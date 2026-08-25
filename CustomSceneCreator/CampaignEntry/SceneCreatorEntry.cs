@@ -1,6 +1,7 @@
 using System;
 using CustomSceneCreator.Boot;
 using CustomSceneCreator.Editing;
+using TaleWorlds.Library;
 using TaleWorlds.CampaignSystem;
 
 namespace CustomSceneCreator.CampaignEntry {
@@ -93,6 +94,72 @@ namespace CustomSceneCreator.CampaignEntry {
             } catch (Exception ex) {
                 TraceLogger.WriteException(nameof(SceneCreatorEntry),
                     $"Failed to open editor on scene '{sceneName}'", ex);
+                return false;
+            }
+        }
+
+        /// <summary>Launches a saved layout as a non-editing walk-around with the player's party.</summary>
+        public static bool OpenWalkaround(string sceneName, string sceneLevels) {
+            try {
+                SceneProject project = ProjectSerializer.Load(sceneName) ?? new SceneProject {
+                    Name = sceneName, TargetScene = sceneName, SceneLevels = sceneLevels ?? ""
+                };
+                project.TargetScene = sceneName;
+                project.SceneLevels = sceneLevels ?? "";
+                return OpenWalkaround(project);
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(SceneCreatorEntry), "Could not open party walk-around", ex);
+                return false;
+            }
+        }
+
+        /// <summary>Launches a selected saved project directly, retaining projects whose name differs from their scene.</summary>
+        public static bool OpenWalkaround(SceneProject project) {
+            try {
+                if (project == null || string.IsNullOrWhiteSpace(project.TargetScene)) return false;
+                string? slot = CscNavMeshTestSlot.Prepare(project);
+                if (slot == null) {
+                    TraceLogger.Write(nameof(SceneCreatorEntry),
+                        "Walk-around refused: reusable test slot could not be published.");
+                    return false;
+                }
+                return SceneWalkaroundMission.Open(project, slot) != null;
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(SceneCreatorEntry), "Could not open party walk-around", ex);
+                return false;
+            }
+        }
+
+        /// <summary>Launches the existing navmesh skirmish directly from the selected saved layout.</summary>
+        public static bool OpenNavmeshSkirmish(string sceneName, string sceneLevels) {
+            try {
+                SceneProject? project = ProjectSerializer.Load(sceneName);
+                if (project == null) return false;
+                project.TargetScene = sceneName;
+                project.SceneLevels = sceneLevels ?? "";
+                return OpenNavmeshSkirmish(project);
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(SceneCreatorEntry), "Could not open navmesh skirmish", ex);
+                return false;
+            }
+        }
+
+        /// <summary>Launches a selected saved project directly, retaining projects whose name differs from their scene.</summary>
+        public static bool OpenNavmeshSkirmish(SceneProject project) {
+            try {
+                if (project == null || string.IsNullOrWhiteSpace(project.TargetScene)) return false;
+                var positions = NavMeshTestBattleLogic.DerivePositionsFromProject(project);
+                int raiderCount = NavMeshTestBattleLogic.DeriveRaidEnemyCount();
+                string? slot = CscNavMeshTestSlot.Prepare(project);
+                if (slot == null) {
+                    TraceLogger.Write(nameof(SceneCreatorEntry),
+                        "Raid-scale battle refused: reusable test slot could not be published.");
+                    return false;
+                }
+                return NavMeshTestMission.Open(slot, project.SceneLevels ?? "", positions.playerPos,
+                    positions.enemyPos, raiderCount, project) != null;
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(SceneCreatorEntry), "Could not open navmesh skirmish", ex);
                 return false;
             }
         }

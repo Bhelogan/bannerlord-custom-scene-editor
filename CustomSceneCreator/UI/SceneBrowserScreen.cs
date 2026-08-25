@@ -54,12 +54,18 @@ namespace CustomSceneCreator.UI {
             }
         }
 
-        private static void OnConfirm(string sceneName, string sceneLevels) {
+        private static void OnConfirm(string sceneName, string sceneLevels, SceneLaunchMode mode) {
             Close();
             // Come back here on the way out, so trying several scenes does not mean walking through
             // the settlement menu each time.
             ReturnToBrowser.ArmForScenes();
-            if (!SceneCreatorEntry.OpenEditorEmpty(sceneName, sceneLevels)) ReturnToBrowser.Cancel();
+            if (mode == SceneLaunchMode.Editor) {
+                if (!SceneCreatorEntry.OpenEditorEmpty(sceneName, sceneLevels)) ReturnToBrowser.Cancel();
+            } else if (mode == SceneLaunchMode.Walkaround) {
+                if (!SceneCreatorEntry.OpenWalkaround(sceneName, sceneLevels)) ReturnToBrowser.Cancel();
+            } else if (!SceneCreatorEntry.OpenNavmeshSkirmish(sceneName, sceneLevels)) {
+                ReturnToBrowser.Cancel();
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml;
@@ -226,6 +226,50 @@ namespace CustomSceneCreator.Catalog {
         /// menu with nothing to say which file was at fault - so a file that would do that must
         /// never be copied somewhere the engine will read it.
         /// </summary>
+        /// <summary>
+        /// Copies every exported prefab into the module's Prefabs folder, as early as the mod loads.
+        ///
+        /// <b>Why this is separate from the catalog.</b> The mirror used to happen only when the
+        /// catalog was first built, and the catalog is not built until the editor mission starts -
+        /// long after the engine has read prefab XML. So dropping a file into exports cost TWO
+        /// launches: one to get it copied into the module, and another for the engine to read it.
+        ///
+        /// Running the copy at module load removes the first of those, IF module load happens before
+        /// the engine indexes prefabs. That ordering has not been proven either way, so this is
+        /// written to be harmless if it loses the race - the file simply lands early instead of late
+        /// and is picked up next launch, exactly as before.
+        ///
+        /// Deliberately does no engine work: no GameEntity.PrefabExists, no catalog build, nothing
+        /// that assumes a loaded game. It is file copying and nothing else, because at this point in
+        /// startup very little is safe to touch.
+        /// </summary>
+        public static void MirrorExportsIntoModule() {
+            try {
+                string dir = Editing.ProjectSerializer.PrefabExportsPath;
+                string moduleDir = ModulePrefabsPath();
+                if (moduleDir.Length == 0 || !System.IO.Directory.Exists(dir)) return;
+
+                int copied = 0;
+                foreach (string file in System.IO.Directory.GetFiles(dir, "*.xml")) {
+                    string target = IOPath.Combine(moduleDir, IOPath.GetFileName(file));
+                    bool current = System.IO.File.Exists(target)
+                        && System.IO.File.GetLastWriteTimeUtc(target)
+                           >= System.IO.File.GetLastWriteTimeUtc(file);
+                    if (current) continue;
+                    if (Mirror(file, moduleDir)) copied++;
+                }
+
+                if (copied > 0) {
+                    TraceLogger.Write(nameof(PackCatalog),
+                        $"Mirrored {copied} exported prefab(s) into the module at startup. If they are "
+                        + "not placeable this session, they will be on the next launch - the engine "
+                        + "reads prefab XML once, as it starts.");
+                }
+            } catch (Exception ex) {
+                TraceLogger.Write(nameof(PackCatalog), $"Startup prefab mirror failed: {ex.Message}");
+            }
+        }
+
         private static bool Mirror(string file, string moduleDir) {
             if (moduleDir.Length == 0) return true;
 

@@ -7,9 +7,10 @@
     Anyone who got two of the three had a broken install or no documentation, and there was nothing
     in the zip to say which version it was. This produces one file:
 
-        CustomSceneCreator-v0.1.0.zip
+        CustomSceneCreator-v1.0.4.zip
           CustomSceneCreator/          <- drop this straight into Modules
           USER_MANUAL.htm
+          MOD_INTEGRATION.md            <- using exports in another mod
           README.txt                   <- install instructions, generated
           LICENSE
           tools/                       <- bake script and the catalog generators
@@ -92,6 +93,12 @@ foreach ($required in @('ModuleData\bannerlord_assets_v1.4.7.txt',
 try { [xml] (Get-Content (Join-Path $distDir 'SubModule.xml') -Raw) | Out-Null }
 catch { throw "SubModule.xml is not valid XML: $($_.Exception.Message)" }
 
+[xml] $moduleXml = Get-Content (Join-Path $distDir 'SubModule.xml') -Raw
+$moduleVersion = [string] $moduleXml.Module.Version.value
+if ($moduleVersion.TrimStart('v') -ne $version) {
+    throw "Version mismatch: project is $version but packaged SubModule.xml is $moduleVersion."
+}
+
 # A pack that will not parse costs every marker in it, and the failure is invisible until someone
 # opens the editor and finds the category missing. Cheap to check here.
 Get-ChildItem (Join-Path $distDir 'ModuleData\packs') -Filter *.xml | ForEach-Object {
@@ -109,10 +116,16 @@ New-Item -ItemType Directory -Force -Path $staging | Out-Null
 try {
     Copy-Item $distDir (Join-Path $staging 'CustomSceneCreator') -Recurse
 
-    foreach ($file in @('USER_MANUAL.htm', 'LICENSE')) {
+    foreach ($file in @('USER_MANUAL.htm', 'MOD_INTEGRATION.md', 'LICENSE')) {
         $source = Join-Path $repoRoot $file
-        if (Test-Path $source) { Copy-Item $source $staging }
+        if (-not (Test-Path $source)) { throw "Missing release document '$file'." }
+        Copy-Item $source $staging
     }
+
+    # Keep the copies inside the installed module identical to the top-level release documents even
+    # when -SkipBuild packages an older Dist staging folder.
+    Copy-Item (Join-Path $repoRoot 'USER_MANUAL.htm') (Join-Path $staging 'CustomSceneCreator\USER_MANUAL.htm') -Force
+    Copy-Item (Join-Path $repoRoot 'MOD_INTEGRATION.md') (Join-Path $staging 'CustomSceneCreator\MOD_INTEGRATION.md') -Force
 
     # Two kinds of tool, kept apart. The bake script is something a user reaches for as soon as they
     # have exported something; the catalog generators are for two narrow cases (a game update, or
@@ -120,7 +133,11 @@ try {
     # one look like an option among equals.
     $toolsOut = Join-Path $staging 'tools'
     New-Item -ItemType Directory -Force -Path $toolsOut | Out-Null
-    foreach ($file in @('bake_scene.py', 'bake_config.json', 'README_BAKE.md')) {
+    foreach ($file in @('bake_scene.py', 'bake_config.json', 'README_BAKE.md',
+                        'navmesh_inspect.py', 'navmesh_cutout.py', 'navmesh_addition_plan.py',
+                        'navmesh_apply_cutout.py', 'navmesh_apply_addition.py',
+                        'navmesh_workflow.py', 'validate_navmeshes.py',
+                        'check_scene_folders.py', 'README_NAVMESH.md')) {
         $source = Join-Path $scriptDir $file
         if (Test-Path $source) { Copy-Item $source $toolsOut }
     }
@@ -151,7 +168,24 @@ INSTALLING
 
 FIRST STEPS
   Press \ to start building, ` to choose what to build, and left-click to place.
-  Open USER_MANUAL.htm in a browser for everything else.
+  Open USER_MANUAL.htm in a browser for building, navmesh authoring, baking,
+  Walk Around following tests, Raid-Scale Battle tests, and troubleshooting.
+
+TESTING SAVED PROJECTS
+  Select a saved project before choosing a test mode.
+  Walk Around restores the project and spawns all healthy companion heroes plus
+  five additional Empire peasants, all on foot and following you.
+  Raid-Scale Battle restores the same project and baked navmesh, then copies your
+  healthy party against a matching on-foot bandit/looter force (100 per side max).
+  With cutouts, the sides start across the obstacle cluster at least 200 m apart.
+  Neither mode changes the campaign roster or casualties. Test-slot scene folders
+  are disposable caches and must not be shipped. Read MOD_INTEGRATION.md for the
+  exact traversal, combat-routing, and release checks.
+
+USING OUTPUT IN YOUR OWN MOD
+  Read MOD_INTEGRATION.md before shipping anything. It explains the difference
+  between prefabs, templates, scene fragments, complete scenes, readable
+  .navcut.json plans, and runtime navmesh.bin files.
 
 WHAT YOU MAKE
   Your work is saved under
@@ -162,6 +196,11 @@ WHAT YOU MAKE
 TOOLS
   tools\bake_scene.py post-processes an export. You do not need it to start -
   see tools\README_BAKE.md.
+
+  Navmesh authoring and release baking are built into CSC. Use Cutout, Add Area,
+  and Elevated Navmesh, then Save or Rebake Navmesh. The tools\navmesh_*.py
+  scripts are advanced inspection/regression utilities; they do not apply
+  elevated routes. Read tools\README_NAVMESH.md before using them.
 
   PowerShell scripts here must be run as:
       powershell -ExecutionPolicy Bypass -File <script>.ps1
