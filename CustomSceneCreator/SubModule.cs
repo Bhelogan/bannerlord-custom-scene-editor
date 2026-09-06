@@ -22,6 +22,13 @@ namespace CustomSceneCreator {
             TraceLogger.Write(nameof(SubModule),
                 "Loaded. Editor entry: settlement menu option, or console command 'csc.open <scene>'.");
 
+            try {
+                new HarmonyLib.Harmony("com.cball.customscenecreator").PatchAll();
+                TraceLogger.Write(nameof(SubModule), "Runtime input patches applied.");
+            } catch (Exception ex) {
+                TraceLogger.WriteException(nameof(SubModule), "Could not apply runtime patches", ex);
+            }
+
             // Exported prefabs live in Documents, which the game never reads. Copy them into the
             // module now rather than when the editor first opens: the engine reads prefab XML as it
             // starts, so a mirror that happens mid-session is always one launch too late, and

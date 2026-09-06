@@ -282,6 +282,8 @@
 <h2 id="sec2"><span class="section-num">2</span>Installing</h2>
 
 <ol class="steps">
+  <li>Install and enable <strong>Bannerlord.Harmony</strong>. CSC uses it to keep all combat and
+      character-action bindings out of its editing modes.</li>
   <li>Copy the <code>CustomSceneCreator</code> folder into your game's <code>Modules</code> folder.</li>
   <li>Enable <strong>Custom Scene Creator</strong> in the launcher's Singleplayer mod list.</li>
   <li><em>Optional:</em> install <strong>Mod Configuration Menu (MCM)</strong> if you want to rebind
@@ -395,7 +397,7 @@
   <li>Place a few more. Hold <kbd>right mouse</kbd> and move the mouse to tilt one; <kbd>Q</kbd> and
       <kbd>E</kbd> spin it; <kbd>Left Ctrl</kbd> resets it.</li>
   <li>Press <kbd>\</kbd> twice more to reach <strong>Delete</strong> mode, and click one to remove it.</li>
-  <li>Press <kbd>L</kbd>. Everything you placed is listed, with its exact position and rotation.</li>
+  <li>Press <kbd>L</kbd>. Everything you placed is listed, with its exact position, rotation, and scale.</li>
   <li>Press <kbd>Alt</kbd>+<kbd>S</kbd> to save.</li>
 </ol>
 
@@ -408,6 +410,13 @@
   A scene opens in <strong>third person</strong>, walking around like any other mission — useful for
   judging how a place feels at eye level. Turning on an edit mode switches you to the
   <strong>overhead (RTS) camera</strong>, which is where most building happens. <kbd>V</kbd> cycles.
+</p>
+<p>
+  <kbd>V</kbd> also works while editing is <strong>Off</strong>. RTS is a free camera in every editor
+  state: <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> movement preserves the camera's absolute
+  world height instead of following hills, valleys, indoor floors, or roofs. Use <kbd>Space</kbd> or
+  <kbd>Left Alt</kbd> when you deliberately want to raise or lower it. Shift-flight can still move
+  along the full viewing direction.
 </p>
 
 <div class="table-wrap">
@@ -433,7 +442,21 @@
 </p>
 
 <div class="tip">
+  If you do not want the held asset to follow where your character looks, press <kbd>V</kbd> for
+  the overhead camera. It is the free-building camera: the preview follows its independent cursor,
+  while you pan, fly, and rotate the view separately.
+</div>
+
+<div class="tip">
   There is no maximum placement range. If you can see it, you can build on it — from any height.
+</div>
+
+<div class="tip">
+  <strong>Wall-mounted objects:</strong> aim the preview at the wall, roof, floor, or other physical
+  surface and press <kbd>N</kbd>. The editor samples the surface around the cursor and makes the
+  object's flat face sit flush against it. Wall-mounted objects remain upright; use
+  <kbd>Q</kbd>/<kbd>E</kbd> afterward to turn them within the surface. This is much more exact than
+  trying to produce a 90-degree tilt by eye.
 </div>
 <!-- ============================================================== -->
 <h2 id="sec6"><span class="section-num">6</span>Edit modes</h2>
@@ -566,12 +589,11 @@
 </div>
 
 <div class="note">
-  While an edit mode is on, your character sheathes their weapons and <strong>the mouse is held off
-  the combat controls</strong> in the third- and first-person cameras: no swinging, no blocking, and
-  no weapon-swapping on the wheel — which raises and lowers the object you are holding instead.
-  Walking and looking work normally. If a click does not place, use <kbd>F</kbd>. Everything returns
-  to normal when editing is off, and nothing in the editor can damage you, so you can build in the
-  middle of a fight scene safely.
+  While an edit mode is on, <strong>all character combat and action controls are disabled</strong> in
+  the third- and first-person cameras. Attacks, blocks, kicks, jumps, crouching, weapon draw/sheath,
+  weapon slots, mounting, interaction, and remapped equivalents cannot animate the character.
+  Walking and looking still work so you can reach interiors and inspect detail. Everything returns
+  to normal as soon as editing is off.
 </div>
 
 <p>
@@ -2867,7 +2889,9 @@
   <tr><td><kbd>Left Ctrl</kbd></td><td>Reset rotation and height offset</td></tr>
   <tr><td><kbd>G</kbd></td><td>Drop to the ground, and re-enable ground follow</td></tr>
   <tr><td><kbd>H</kbd></td><td>Toggle ground follow — pin the height instead of hugging the terrain</td></tr>
+  <tr><td><kbd>N</kbd></td><td>Align the held object's flat face flush to the wall, floor, roof, or other aimed surface. On a wall it also keeps the object upright; use Q/E to turn it within the wall.</td></tr>
   <tr><td>Mouse wheel</td><td>Raise / lower the held object</td></tr>
+  <tr><td><kbd>Left Shift</kbd> + mouse wheel</td><td>Fine height adjustment at one tenth of the normal step</td></tr>
   <tr><td><kbd>`</kbd></td><td>Asset picker</td></tr>
   <tr><td><kbd>L</kbd></td><td>Scene contents list</td></tr>
   <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Previous / next object, without opening the picker</td></tr>
@@ -2920,8 +2944,9 @@
 
 <ul>
   <li><strong>Category</strong> — a dropdown; <strong>All</strong> is first.</li>
-  <li><strong>Search</strong> — filters within the chosen category. Pick <strong>All</strong> first to
-      search everything.</li>
+  <li><strong>Search</strong> — filters within the chosen category. Separate words may appear in any
+      order: <code>arabian interior house</code> matches an asset containing all three words anywhere
+      in its name or tags. Pick <strong>All</strong> first to search everything.</li>
   <li><strong>Info panel</strong> — what the selected object is: its meshes, whether it has collision,
       which module it comes from.</li>
   <li><strong>Build</strong>, or double-click, to take it.</li>
@@ -3077,16 +3102,81 @@ that ordering is far more useful than alphabetical.</p>
 <ul>
   <li><strong>Search</strong> by object name or by attached script.</li>
   <li><strong>Sort</strong> by nearest, name, newest, or which objects carry scripts.</li>
-  <li><strong>Go To</strong> moves the camera to it — or double-click.</li>
-  <li><strong>Scripts</strong>, <strong>Pick Up</strong> and <strong>Delete</strong> do what they say.</li>
+  <li><strong>Go To</strong> moves the camera to it without changing edit mode.</li>
+  <li><strong>Pick Up</strong>, or double-clicking an item, closes the List and makes that object active in <strong>Move</strong> mode.</li>
+  <li><strong>Scripts</strong>, <strong>Textures</strong>, and <strong>Delete</strong> act on the selected object.</li>
+  <li><strong>Break Apart</strong> is available for a composite imported under <strong>My Prefabs</strong>. After confirmation, it replaces that one instance with the original child prefabs and restores embedded <strong>Cutout</strong>, <strong>Add Area</strong>, and <strong>Elevated Navmesh</strong> authoring in editable world coordinates. Child position, rotation, scale, and supported scripts are preserved. The reusable prefab file itself is not deleted.</li>
+  <li><strong>Clear All</strong> starts over after confirmation: it removes every placed object and every authored navmesh cutout, added area, and elevated area. It never removes anything from the underlying base scene. Save the project afterward to keep the cleared state.</li>
 </ul>
+
+<div class="warning">
+  <strong>Break Apart restores the navmesh authoring that was embedded when the prefab was exported.</strong>
+  New exports retain cutout ownership as well as added and elevated areas. Older prefab files can only
+  restore the authoring fields they already contain, and their recovered cutouts are independent
+  bakeable areas rather than child-owned cutouts. A texture override assigned to the whole composite
+  still cannot be distributed among its children. The confirmation reports limitations before
+  changing the scene. If any child cannot be created, if the composite contains anonymous geometry
+  that has no reusable prefab identity, or if scripts are attached to the composite as a whole, the
+  original prefab is left untouched.
+</div>
 
 <h4>Exact placement</h4>
 <p>
-  Selecting an object shows its <strong>position in metres</strong> and <strong>rotation in
-  degrees</strong> as editable fields. Typed numbers are the only way to be exact: lining a wall up
-  with the one beside it, or spacing race gates evenly, is arithmetic rather than aim.
+  Selecting an object shows its <strong>position in metres</strong>, <strong>rotation in degrees</strong>,
+  and <strong>scale on its local X, Y, and Z axes</strong> as editable fields. Typed numbers are the
+  only way to be exact: lining a wall up with the one beside it, or spacing race gates evenly, is
+  arithmetic rather than aim.
 </p>
+
+<p>
+  Enter the same scale on X, Y, and Z for ordinary uniform resizing: <code>0.5, 0.5, 0.5</code> makes
+  an object half size and <code>2, 2, 2</code> doubles it. Different values stretch individual local
+  axes and are useful for simple barriers, floors, and blockout pieces, but can visibly distort a
+  detailed asset. Values must be between <code>0.01</code> and <code>100</code>. Scale is saved in the
+  project, restored in both test modes, and written into prefab and scene exports.
+</p>
+
+<div class="warning">
+  Scaling the placed root also scales physics inherited by that root, but a prefab can contain
+  unusual detached or scripted collision. Test collision after resizing. A marked navmesh cutout is
+  refreshed automatically; hand-drawn Add Area or Elevated Navmesh outlines are world-space work,
+  so redraw those outlines after changing the supporting object's scale.
+</div>
+
+<h3 id="texture-overrides">Texture overrides</h3>
+<p>
+  The contents list can replace one of a placed object's material images without changing every
+  other copy of that prefab. Put an <strong>8-bit, non-interlaced grayscale, RGB, or RGBA PNG</strong>
+  in <code>Documents\Mount and Blade II Bannerlord\CustomSceneCreator\textures\</code>, press
+  <kbd>L</kbd>, select the object, and choose <strong>Textures</strong>.
+</p>
+<ol class="steps">
+  <li>Cycle through the object's exact material names.</li>
+  <li>Choose the PNG and press <strong>Apply Preview</strong>.</li>
+  <li>Use <strong>Refresh PNGs</strong> after editing the image; CSC rereads its pixels without
+      requiring you to leave the scene.</li>
+  <li>Save, then verify it in Walk Around and Raid-Scale Battle.</li>
+</ol>
+<div class="note">
+  This replaces the material's visible diffuse image slots on this object instance. Some Bannerlord
+  materials draw their colour from a secondary diffuse slot, so CSC updates that slot too when the
+  source material uses it. It does not create UV
+  coordinates, change the mesh's UV mapping, crop an atlas, or create a new shader. Transparent
+  pixels work only when the original material already supports transparency. CSC preserves the
+  original shader and alpha state for safety.
+</div>
+<p>
+  Projects and built-in tests apply the override automatically. Textured templates must be shared as
+  both <code>&lt;name&gt;.json</code> and <code>&lt;name&gt;_textures/</code>; CSC imports the images when it
+  previews or places that template.
+</p>
+<div class="warn">
+  Prefab and scene XML cannot embed a PNG created at runtime. Every textured export therefore adds
+  <code>&lt;name&gt;.texture_overrides.json</code> and <code>&lt;name&gt;_textures/</code>. Another mod must
+  ship and consume that sidecar, or convert the image into its own registered material resources.
+  Copying only the XML preserves the object but loses the runtime texture. See
+  <code>MOD_INTEGRATION.md</code>.
+</div>
 
 <div class="tip">
   A quick way to space things evenly: place them roughly, then fix one coordinate at a time. Setting
@@ -3112,6 +3202,7 @@ that ordering is far more useful than alphabetical.</p>
 <table>
   <tr><th>Folder</th><th>Contents</th></tr>
   <tr><td><code>projects/</code></td><td>Your working files. <strong>This is what you reopen.</strong></td></tr>
+  <tr><td><code>textures/</code></td><td>PNG working library used by per-object material overrides</td></tr>
   <tr><td><code>exports/prefabs/</code></td><td>Prefab XML — one reusable object, including local cutout/elevated metadata you authored</td></tr>
   <tr><td><code>exports/scenes/</code></td><td>Absolute-coordinate scene fragments — used by scene-specific layouts such as racetracks</td></tr>
   <tr><td><code>exports/navmesh-cutouts/</code></td><td>Readable navmesh plans (<code>.navcut.json</code>); Bannerlord does not load these directly</td></tr>
@@ -3130,12 +3221,15 @@ that ordering is far more useful than alphabetical.</p>
 
 <h3 id="templates">Templates — reuse something you can still edit</h3>
 <p>
-  A prefab is placed <strong>whole</strong> and cannot be taken apart. That is right for something you
-  reuse unchanged, and wrong for a layout you mean to adapt: nine copies of a fort, each shifted to
-  suit its own terrain, need every piece to stay movable.
+  A prefab is placed <strong>whole</strong>, which is right for something you reuse unchanged. A CSC
+  composite imported under <strong>My Prefabs</strong> can later be selected in the scene contents list
+  and <strong>Broken Apart</strong> into the addressable child prefabs stored inside it. This is useful
+  for occasional revisions. Its embedded Cutout, Add Area, and Elevated Navmesh authoring is restored
+  with the children; a whole-prefab texture override is not distributed to them.
 </p>
 <p>
-  So <kbd>Alt</kbd>+<kbd>E</kbd> offers a third choice: <strong>Export as Template</strong>. It
+  When you already know a layout is meant to stay editable, <kbd>Alt</kbd>+<kbd>E</kbd> offers a third
+  choice: <strong>Export as Template</strong>. It
   writes to <code>exports/templates/</code> and appears in the asset picker under
   <strong>My Templates</strong>. Place one and its contents drop into the scene as
   <strong>individual objects</strong> — each one selectable, movable, deletable, exactly as if you
@@ -3159,9 +3253,10 @@ that ordering is far more useful than alphabetical.</p>
 </div>
 <p>
   This is the way to build the same thing across several maps: lay it out once, export it as a
-  template, then open each map and place it where it suits that ground. A template is also a single
-  file you can send to someone — dropping it into <code>exports/templates/</code> is all they need to
-  do.
+  template, then open each map and place it where it suits that ground. A template without texture
+  overrides is a single file you can send to someone. A textured template also needs its sibling
+  <code>&lt;name&gt;_textures/</code> directory; keep the two together under
+  <code>exports/templates/</code>.
 </p>
 
 <h3 id="prefab-vs-scene">Prefab or Modding Kit scene</h3>
@@ -3259,6 +3354,8 @@ that ordering is far more useful than alphabetical.</p>
   <tr><th>Artifact</th><th>What it is</th><th>Ship it?</th></tr>
   <tr><td><code>projects/&lt;name&gt;.json</code></td><td>Your editable CSC source</td><td>No — keep it as source or a backup</td></tr>
   <tr><td><code>exports/templates/&lt;name&gt;.json</code></td><td>A loose layout for other CSC authors</td><td>No runtime use</td></tr>
+  <tr><td><code>textures/*.png</code></td><td>CSC's working texture library</td><td>Keep as authoring source</td></tr>
+  <tr><td><code>&lt;export&gt;.texture_overrides.json</code> and <code>&lt;export&gt;_textures/</code></td><td>Portable material-to-PNG mapping and its images</td><td>Ship when a consuming mod applies runtime PNG overrides</td></tr>
   <tr><td><code>exports/prefabs/&lt;name&gt;.xml</code></td><td>One reusable object in local coordinates</td><td>Yes — copy to <code>YourMod/Prefabs/</code></td></tr>
   <tr><td><code>exports/scenes/&lt;name&gt;.scene_fragment.xml</code></td><td>Entities at absolute coordinates</td><td>Merge into the matching target <code>scene.xscene</code></td></tr>
   <tr><td><code>exports/navmesh-cutouts/&lt;name&gt;.navcut.json</code></td><td>Readable bake plan; not an engine file</td><td>Only if your own tool or mod deliberately consumes it</td></tr>
@@ -3388,10 +3485,11 @@ python bake_scene.py my_graveyard.xml --list   # just show what is in the file</
   <tr><td>No terrain editing</td><td>You cannot raise a hill or dig a ditch. Terrain lives in a binary file the game does not expose. Pick a scene whose ground already suits you, or shape space with objects.</td></tr>
   <tr><td>Navmesh baking is file-side</td><td>Saving bakes the navmesh into a file, but the mission you are standing in keeps the one it loaded with. To see a bake take effect, load the exported scene.</td></tr>
   <tr><td>No undo</td><td>Delete mode and the contents list are the ways back. Save often.</td></tr>
-  <tr><td>No scaling</td><td>Objects are placed at their authored size.</td></tr>
+  <tr><td>Scaling is root-local</td><td>The contents list can resize a placed prefab on X, Y, and Z. Complex scripted prefabs may contain collision or interaction points that were designed for their original size, so verify them in Walk Around and Raid-Scale Battle.</td></tr>
   <tr><td>A moment on leaving</td><td>The browser reappears a frame or two after the mission closes, since it has to attach to the screen underneath once that screen exists.</td></tr>
   <tr><td>Entity references read-only</td><td>Scripts pointing at another entity cannot be linked here yet.</td></tr>
   <tr><td>Original scene contents are fixed</td><td>You can add to a scene but not remove or move what shipped in it.</td></tr>
+  <tr><td>Texture overrides reuse existing UVs and shaders</td><td>CSC can replace a material's diffuse PNG per object, but it cannot invent UV mapping or safely turn an opaque material into a transparent shader. Exports need their texture manifest and image folder.</td></tr>
 </table>
 </div>
 
@@ -3477,9 +3575,10 @@ python bake_scene.py my_graveyard.xml --list   # just show what is in the file</
   <tr><td><kbd>Q</kbd> <kbd>E</kbd></td><td>Rotate</td><td><kbd>[</kbd> <kbd>]</kbd></td><td>Cycle object</td></tr>
   <tr><td>Hold <kbd>right mouse</kbd></td><td>Tilt / roll</td><td><kbd>'</kbd></td><td>Next category</td></tr>
   <tr><td><kbd>G</kbd></td><td>Drop to ground</td><td><kbd>V</kbd></td><td>Camera</td></tr>
-  <tr><td><kbd>H</kbd></td><td>Ground follow</td><td><kbd>Alt</kbd>+<kbd>S</kbd></td><td>Save</td></tr>
-  <tr><td><kbd>Left Ctrl</kbd></td><td>Reset rotation</td><td><kbd>Alt</kbd>+<kbd>E</kbd></td><td>Export</td></tr>
-  <tr><td>Wheel</td><td>Raise / lower</td><td>Hold <kbd>Tab</kbd></td><td>Leave</td></tr>
+  <tr><td><kbd>H</kbd></td><td>Ground follow</td><td><kbd>N</kbd></td><td>Align flush to surface</td></tr>
+  <tr><td><kbd>Alt</kbd>+<kbd>S</kbd></td><td>Save</td><td><kbd>Alt</kbd>+<kbd>E</kbd></td><td>Export</td></tr>
+  <tr><td><kbd>Left Ctrl</kbd></td><td>Reset rotation</td><td>Wheel</td><td>Raise / lower; hold <kbd>Left Shift</kbd> for one-tenth steps</td></tr>
+  <tr><td>Hold <kbd>Tab</kbd></td><td>Leave</td><td></td><td></td></tr>
 </table>
 </div>
 

@@ -1,7 +1,7 @@
 # Advanced navmesh inspection tools
 
 These Python 3 tools inspect and regression-test Bannerlord NMG8/NMG9 navmesh files without loading
-the game. They are an advanced companion to Custom Scene Creator 1.0.4, not the normal authoring
+the game. They are an advanced companion to Custom Scene Creator 1.0.5, not the normal authoring
 workflow.
 
 For ordinary work, author **Cutout**, **Add Area**, and **Elevated Navmesh** inside CSC, save the

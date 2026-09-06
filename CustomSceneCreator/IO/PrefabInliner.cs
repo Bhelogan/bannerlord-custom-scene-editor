@@ -136,10 +136,11 @@ namespace CustomSceneCreator.IO {
         /// than a pile of meshes at one point.
         /// </summary>
         public static bool Append(System.Text.StringBuilder sb, XmlElement definition, string prefabName,
-                                  string transform, string indent, int index) {
+                                  string transform, string indent, int index, string sourceId = "") {
             try {
                 sb.AppendLine($"{indent}<game_entity name=\"{Escape(prefabName)}_{index}\" " +
-                              $"old_prefab_name=\"{Escape(prefabName)}\">");
+                              $"old_prefab_name=\"{Escape(prefabName)}\"" +
+                              (sourceId.Length > 0 ? $" csc_source_id=\"{Escape(sourceId)}\"" : "") + ">");
                 sb.AppendLine($"{indent}  {transform}");
 
                 foreach (XmlNode child in definition.ChildNodes) {

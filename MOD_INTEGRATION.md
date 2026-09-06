@@ -1,7 +1,8 @@
 # Using Custom Scene Creator output in your own mod
 
-This guide is for **Custom Scene Creator 1.0.4** and Bannerlord **1.4.7**. It explains which export
-to choose, which files belong in a release, and what navmesh data does—and does not—do by itself.
+This guide is for **Custom Scene Creator 1.0.5** and Bannerlord **1.4.7**. It explains which export
+to choose, which files belong in a release, and what navmesh or texture data does—and does not—do
+by itself.
 
 ## Choose the artifact first
 
@@ -14,6 +15,10 @@ to choose, which files belong in a release, and what navmesh data does—and doe
 
 Your saved project in `projects/<name>.json` is the editable source. Keep it in source control or a
 backup, but Bannerlord does not load it as part of your mod.
+
+If any placed object has a texture override, the export also has
+`<name>.texture_overrides.json` and `<name>_textures/`. Keep those together with the main artifact;
+the XML/JSON layout cannot embed the PNG itself.
 
 Templates intentionally contain only the visible entities. Their pieces stay editable, but cutouts,
 ground additions, and elevated routes are not copied into the destination project. Redraw that
@@ -29,10 +34,12 @@ authoring after placement, or use a prefab/complete-scene export when navigation
 5. Copy the XML from Documents into `YourMod/Prefabs/` and give it a unique name owned by your mod.
 6. Restart Bannerlord before testing; prefab XML is registered only during startup.
 
-The XML contains the visible children plus lightweight `hsr_navcut`, `hsr_navelevated`, and
-`hsr_navpoint` authoring markers in **prefab-local coordinates**. They rotate and move with the
-prefab. The markers are metadata: they have no visible mesh and do not change AI routing merely by
-being instantiated.
+The XML contains the visible children plus lightweight `hsr_navcut`, `hsr_navelevated`,
+`csc_navrequired`, and child `hsr_navpoint`/`csc_navpoint` authoring markers in **prefab-local
+coordinates**. They rotate and move with the prefab. The markers are metadata: they have no visible
+mesh and do not change AI routing merely by being instantiated. If the prefab is later placed in CSC
+and **Break Apart** is used, all three authoring types are reconstructed in world coordinates for
+editing. New exports also record which broken-out child owns each cutout.
 
 If your mod places the prefab dynamically, your mod must apply those markers with a compatible
 file-side baker **before the target scene is loaded**. Homesteads Reloaded uses this architecture.
@@ -43,6 +50,47 @@ GameEntity instance = GameEntity.Instantiate(mission.Scene, "my_fortified_camp",
 ```
 
 That code instantiates the already-registered prefab. It is not a navmesh bake call.
+
+## Texture override workflow
+
+1. Put an 8-bit, non-interlaced grayscale, RGB, or RGBA PNG in
+   `Documents/Mount and Blade II Bannerlord/CustomSceneCreator/textures/`.
+2. In CSC press `L`, select the placed object, then choose **Textures**.
+3. Select the exact material name and PNG, then apply it. Save and use both built-in test modes.
+4. Export normally. Keep `<name>.texture_overrides.json` beside `<name>_textures/`.
+
+The manifest is versioned JSON. Each entry identifies the source object by CSC ID, prefab, and
+position, then lists exact material name → PNG filename replacements. The image folder named by
+`ImageFolder` is relative to the manifest:
+
+```json
+{
+  "Version": 1,
+  "Export": "painted_barrier",
+  "Kind": "Prefab",
+  "ImageFolder": "painted_barrier_textures",
+  "Entities": [{
+    "Id": "...",
+    "Prefab": "barrier_ai_04x04m",
+    "Position": [100.0, 200.0, 12.0],
+    "Overrides": [{ "Image": "outline.png", "Material": "barrier_mat" }]
+  }]
+}
+```
+
+At runtime the consuming mod must decode the PNG, create a Bannerlord `Texture`, copy the matching
+material, replace its `DiffuseMap` and any existing `DiffuseMap2`, and set that copied material on the matching meshes. Hold strong
+references to the created textures and materials for the mission lifetime. Homesteads Reloaded's
+picture-frame implementation is a working reference for this engine pattern.
+
+Do **not** blindly turn on alpha blending or change shader flags for arbitrary materials. Preserve
+the original material state. Transparency is reliable only when the source material already uses a
+compatible shader; a custom cutout/transparent asset should be authored with that material in the
+official asset pipeline first.
+
+CSC projects and its Walk Around/Raid tests apply overrides automatically. Shared templates do too,
+provided `<name>.json` and `<name>_textures/` remain together. Prefab/scene XML used by another mod
+does not; that mod must consume the sidecar or convert the PNG to registered resources.
 
 ## Complete scene workflow
 
@@ -86,6 +134,8 @@ project and export a complete scene. Never pair a baked navmesh with a different
 | `exports/navmesh/<name>.navmesh.bin` | Baked mesh for that exact project and base scene | Normally no; the complete scene export places the correct copy for you |
 | `SceneObj/<scene>/navmesh.bin` | Runtime navmesh loaded with that scene | Yes, as part of the complete `SceneObj` folder |
 | `SceneObj/<scene>/navmesh.bin.prebake` | Safety backup made while baking | No |
+| `<export>.texture_overrides.json` | Object/material/PNG mapping for runtime texture replacement | Yes, when the export uses overrides and your mod consumes it |
+| `<export>_textures/*.png` | Images named by the texture manifest | Yes, when the export uses overrides |
 
 The disposable `csc_navmesh_test_slot_*` scenes exist only so CSC can load a saved project's mesh in
 Walk Around and Raid-Scale tests. Never use or ship a test slot as your finished scene.
@@ -132,6 +182,8 @@ and combat-routing failures. A scene intended for combat should pass both.
 - Reusable prefab XML is in your own module's `Prefabs/` folder and uses a unique name.
 - Your module does not contain a partial folder that shadows a stock scene.
 - You tested after a full game restart whenever prefab XML changed.
+- Every textured export includes its manifest and image directory, and the consuming mod applies or
+  converts those overrides rather than expecting prefab XML to embed the PNG.
 
 For visual authoring instructions, open `USER_MANUAL.htm` and read **Edit modes → Navmesh baking**.
 For binary inspection and regression tools, see `tools/README_NAVMESH.md`.

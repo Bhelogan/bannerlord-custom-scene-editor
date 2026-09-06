@@ -489,6 +489,13 @@ namespace CustomSceneCreator.NavMesh {
             }
         }
 
+        /// <summary>The innermost stack frame of an exception, trimmed, or "" when unavailable.</summary>
+        private static string FirstFrame(Exception ex) {
+            string trace = ex.StackTrace ?? "";
+            int end = trace.IndexOf((char)10);   // newline, written as a code to survive tooling
+            return (end < 0 ? trace : trace.Substring(0, end)).Trim();
+        }
+
         private static bool TryCommitCutout(ref NavMeshData working,
                                             Point2[] footprint,
                                             out CutoutResult result,
@@ -500,8 +507,17 @@ namespace CustomSceneCreator.NavMesh {
 
             try {
                 result = ApplyWithRetries(attempt, footprint);
-            } catch (Exception ex) {
+            } catch (NavMeshFormatException ex) {
+                // A geometry refusal. Expected, and its message already says what was wrong.
                 reason = ex.Message;
+                return false;
+            } catch (Exception ex) {
+                // Anything else is a DEFECT, not a refusal, and "Index was outside the bounds of the
+                // array" tells nobody where to look. Carry the type and the top frame so the next
+                // bake log points straight at the line.
+                string where = FirstFrame(ex);
+                reason = $"internal error ({ex.GetType().Name}: {ex.Message}) at {where} - "
+                         + $"footprint has {footprint.Length} corner(s)";
                 return false;
             }
 
@@ -520,8 +536,15 @@ namespace CustomSceneCreator.NavMesh {
                 return false;
             }
             if (after.ConnectedFaceComponents > before.ConnectedFaceComponents) {
+                // Worth being clear about what this check is for, because it looks over-strict and
+                // is not. If cutting a ring of walls severs the inside of a homestead from the
+                // outside, attackers cannot path in AT ALL - the battle becomes a siege of a wall
+                // nobody can cross. Refusing the cut and falling back to per-building cuts keeps the
+                // homestead playable, which is the right trade even though it leaves some walls
+                // walk-through.
                 reason = $"it split the walkable ground into {after.ConnectedFaceComponents} pieces "
-                         + $"(was {before.ConnectedFaceComponents})";
+                         + $"(was {before.ConnectedFaceComponents}) - agents on one piece could never "
+                         + "reach the others";
                 return false;
             }
 
@@ -1029,7 +1052,9 @@ namespace CustomSceneCreator.NavMesh {
                 return report;
             }
 
-            byte[] baked = data.Serialize(data.Signature);
+            // OutputSignature, not Signature: an NMG7 source is read-only and must go out as
+            // NMG9. Everything else round-trips as the format it arrived in.
+            byte[] baked = data.Serialize(data.OutputSignature);
 
             // Read the candidate back before it goes anywhere near the destination. A navmesh that
             // cannot be parsed does not crash the game, it just breaks pathfinding invisibly, so the

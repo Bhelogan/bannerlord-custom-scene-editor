@@ -29,4 +29,5 @@ echo Deployed.
 :done
 echo.
 echo Done.
+pause
 endlocal

@@ -1177,7 +1177,20 @@ namespace CustomSceneCreator.NavMesh {
         private static bool TrySpliceElevatedLanding(NavMeshData data, OpenEdges open,
                                                      NavVertex[] outline, int[] assigned,
                                                      out string failure) {
-            failure = "no same-height deck edge is close enough";
+            // Centroid of the whole failing outline, purely for the diagnostic message below - this
+            // is the one detail the original message lacked, which mattered as soon as an authored
+            // scene had more than one stair/landing hand-off: "no same-height deck edge is close
+            // enough" gives no way to tell WHICH of several stacked flights is the broken one
+            // without a slow manual audit of every authored group. A world position turns that into
+            // a direct look-up.
+            double centroidX = 0.0, centroidY = 0.0, centroidZ = 0.0;
+            for (int i = 0; i < outline.Length; i++) {
+                centroidX += outline[i].X; centroidY += outline[i].Y; centroidZ += outline[i].Z;
+            }
+            if (outline.Length > 0) { centroidX /= outline.Length; centroidY /= outline.Length; centroidZ /= outline.Length; }
+            failure = string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "no same-height deck edge is close enough (failing outline centred near local {0:0.0}, {1:0.0}, {2:0.0})",
+                centroidX, centroidY, centroidZ);
             int bestOutlineEdge = -1;
             int bestBaseEdge = -1;
             double bestCost = double.MaxValue;

@@ -54,6 +54,9 @@ namespace CustomSceneCreator.Editing {
 
         public static InputKey SnapToGround => Settings.KeyBindings.SnapToGround;
         public static InputKey ToggleGroundLock => Settings.KeyBindings.ToggleGroundLock;
+        /// <summary>Turns the held object's local flat plane to match the physical surface under
+        /// the cursor. N for surface normal.</summary>
+        public static InputKey AlignToSurface => Settings.KeyBindings.AlignToSurface;
 
         /// <summary>Clears rotation and height offset in one press. Reached often enough that a
         /// numpad key was the wrong home for it.</summary>

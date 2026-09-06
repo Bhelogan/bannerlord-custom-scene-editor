@@ -84,6 +84,26 @@ namespace CustomSceneCreator.NavMesh {
         public bool IsNmg8 => Signature == "NMG8";
 
         /// <summary>
+        /// An older 1.x navmesh. Read-only: NMG7 is accepted as INPUT so scenes built on stock bases
+        /// can be edited without a trip through the official Modding Kit, but everything this editor
+        /// writes goes out as NMG8 or NMG9. That is the same direction the Modding Kit upgrades in,
+        /// and NMG9 is what our own baked navmeshes already ship as.
+        /// </summary>
+        public bool IsNmg7 => Signature == "NMG7";
+
+        /// <summary>True when edge records are the five-integer, 20-byte form (NMG7 and NMG8).</summary>
+        public bool IsNmg8OrOlder => IsNmg8 || IsNmg7;
+
+        /// <summary>
+        /// The signature this mesh should be WRITTEN as.
+        ///
+        /// Normally the one it came in as, so a plain round-trip is byte-identical. NMG7 is the
+        /// exception: it is read-only, so an NMG7 source is written back as NMG9 - the format the
+        /// Modding Kit upgrades to, and the one our own baked navmeshes already ship as.
+        /// </summary>
+        public string OutputSignature => IsNmg7 ? "NMG9" : Signature;
+
+        /// <summary>
         /// A deep copy, apart from the tail and the original container which are never written to.
         ///
         /// Editing passes mutate in place, so a caller that wants to try an edit and keep the result
@@ -119,11 +139,11 @@ namespace CustomSceneCreator.NavMesh {
         /// <summary>Parses an already-unwrapped NMG stream.</summary>
         public void ParseRaw(byte[] raw) {
             Signature = "" + (char)raw[0] + (char)raw[1] + (char)raw[2] + (char)raw[3];
-            if (Signature != "NMG8" && Signature != "NMG9") {
+            if (Signature != "NMG7" && Signature != "NMG8" && Signature != "NMG9") {
                 throw new NavMeshFormatException("unsupported inner signature " + Signature);
             }
 
-            int edgeWidth = IsNmg8 ? 20 : 24;
+            int edgeWidth = IsNmg8OrOlder ? 20 : 24;
             int cursor = 4;
 
             int vertexCount = (int)ReadU32(raw, cursor);
@@ -147,7 +167,7 @@ namespace CustomSceneCreator.NavMesh {
                     BitConverter.ToInt32(raw, cursor + 8),
                     BitConverter.ToInt32(raw, cursor + 12),
                     BitConverter.ToInt32(raw, cursor + 16),
-                    IsNmg8 ? 0 : BitConverter.ToInt32(raw, cursor + 20)));
+                    IsNmg8OrOlder ? 0 : BitConverter.ToInt32(raw, cursor + 20)));
                 cursor += edgeWidth;
             }
 
@@ -162,7 +182,13 @@ namespace CustomSceneCreator.NavMesh {
                 }
                 cursor += 4;
 
-                if (cursor + degree * 8 + 21 > raw.Length) {
+                // NMG7 omits the per-face direction byte that NMG8/NMG9 carry; everything else in
+                // the face record is identical. Verified against a stock 1.4.x scene
+                // (Native/SceneObj/mp_skirmish_spawn_test): parsed with no direction byte it yields
+                // 209 faces, zero out-of-range vertex or edge references, and lands exactly on the
+                // documented 260-byte global tail. Parsed WITH one it desynchronises on face 1.
+                int directionBytes = IsNmg7 ? 0 : 1;
+                if (cursor + degree * 8 + 20 + directionBytes > raw.Length) {
                     throw new NavMeshFormatException("truncated face " + i);
                 }
 
@@ -175,7 +201,9 @@ namespace CustomSceneCreator.NavMesh {
                 var metadata = new int[5];
                 for (int m = 0; m < 5; m++) { metadata[m] = BitConverter.ToInt32(raw, cursor); cursor += 4; }
 
-                byte direction = raw[cursor++];
+                // Zero is the safe stand-in for a field NMG7 never stored, and matches how this
+                // code already fills NMG8's missing sixth edge integer on upgrade.
+                byte direction = IsNmg7 ? (byte)0 : raw[cursor++];
                 Faces.Add(new NavFace(vertices, edges, metadata, direction));
             }
 

@@ -12,6 +12,34 @@ namespace CustomSceneCreator.Editing {
         public Dictionary<string, string> Variables = new();
     }
 
+    public class ProjectTextureOverride {
+        public string Image = "";
+        public string Material = "";
+        /// <summary>-1 retains the old material-wide override behavior.</summary>
+        public int MeshIndex = -1;
+
+        /// <summary>
+        /// Value written into every alpha byte of the uploaded image, 0-255, or -1 to keep the
+        /// PNG's own alpha.
+        ///
+        /// <para>What that channel DOES depends on the target material, which is why the panel
+        /// reads the material's flags rather than labelling this one way. Where the material has
+        /// UsingSpecularAlpha it is the specular level - low for cloth or fur, high for polished
+        /// metal. Elsewhere it is usually opacity.</para>
+        ///
+        /// <para>Saved with the project and written to the export manifest, so a look someone dials
+        /// in survives a reload and travels with the scene.</para>
+        /// </summary>
+        public int Alpha = -1;
+
+        /// <summary>Alpha-test cutoff 0-100, or -1 to leave the material's own value. Pixels below
+        /// the cutoff are discarded, which is how cut-out foliage and banners are drawn.</summary>
+        public int AlphaCutoff = -1;
+
+        /// <summary>MBAlphaBlendMode as an int, or -1 to leave the material's own mode.</summary>
+        public int BlendMode = -1;
+    }
+
     /// <summary>Serialisable form of one placed object.</summary>
     public class ProjectEntity {
         public string Id = "";
@@ -22,18 +50,23 @@ namespace CustomSceneCreator.Editing {
         public float[] RotF = { 0, 1, 0 };
         public float[] RotU = { 0, 0, 1 };
         public float[] RotS = { 1, 0, 0 };
+        /// <summary>Root-local XYZ scale. Missing in older projects, which means 1,1,1.</summary>
+        public float[] Scale = { 1, 1, 1 };
 
         /// <summary>Marker number, for numbered markers. Zero otherwise. See PlacedEntity.</summary>
         public int Index;
 
         /// <summary>Attached scene scripts, name -> variables. Empty for most objects.</summary>
         public List<ProjectScript> Scripts = new();
+        public List<ProjectTextureOverride> TextureOverrides = new();
 
         public static ProjectEntity From(PlacedEntity e) => new ProjectEntity {
             Scripts = e.Scripts.Select(s => new ProjectScript {
                 Name = s.Name,
                 Variables = new Dictionary<string, string>(s.Variables),
             }).ToList(),
+            TextureOverrides = (e.TextureOverrides ?? new List<TextureOverride>())
+                .Select(t => new ProjectTextureOverride { Image = t.Image, Material = t.Material, MeshIndex = t.MeshIndex, Alpha = t.Alpha, AlphaCutoff = t.AlphaCutoff, BlendMode = t.BlendMode }).ToList(),
             Id = e.Id,
             Index = e.MarkerIndex,
             Prefab = e.PrefabName,
@@ -41,6 +74,7 @@ namespace CustomSceneCreator.Editing {
             RotF = new[] { e.Rotation.f.x, e.Rotation.f.y, e.Rotation.f.z },
             RotU = new[] { e.Rotation.u.x, e.Rotation.u.y, e.Rotation.u.z },
             RotS = new[] { e.Rotation.s.x, e.Rotation.s.y, e.Rotation.s.z },
+            Scale = new[] { e.Scale.x, e.Scale.y, e.Scale.z },
         };
 
         public PlacedEntity To() => new PlacedEntity {
@@ -51,13 +85,24 @@ namespace CustomSceneCreator.Editing {
                     Name = s.Name,
                     Variables = new Dictionary<string, string>(s.Variables ?? new Dictionary<string, string>()),
                 }).ToList(),
+            TextureOverrides = (TextureOverrides ?? new List<ProjectTextureOverride>())
+                .Select(t => new TextureOverride { Image = t.Image, Material = t.Material, MeshIndex = t.MeshIndex, Alpha = t.Alpha, AlphaCutoff = t.AlphaCutoff, BlendMode = t.BlendMode }).ToList(),
             PrefabName = Prefab,
             Position = new Vec3(Pos[0], Pos[1], Pos[2]),
             Rotation = new Mat3(
                 new Vec3(RotS[0], RotS[1], RotS[2]),
                 new Vec3(RotF[0], RotF[1], RotF[2]),
                 new Vec3(RotU[0], RotU[1], RotU[2])),
+            Scale = ReadScale(Scale),
         };
+
+        private static Vec3 ReadScale(float[]? scale) {
+            if (scale == null || scale.Length < 3) return new Vec3(1f, 1f, 1f);
+            return new Vec3(SafeScale(scale[0]), SafeScale(scale[1]), SafeScale(scale[2]));
+        }
+
+        private static float SafeScale(float value) =>
+            float.IsNaN(value) || float.IsInfinity(value) || value <= 0f ? 1f : value;
     }
 
     /// <summary>

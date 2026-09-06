@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using TaleWorlds.Engine;
 using TaleWorlds.Library;
@@ -54,11 +54,21 @@ namespace CustomSceneCreator.Editing {
             distance = float.MaxValue;
             if (!position.IsValid || _built == 0) return false;
 
+            // THREE dimensions, not two.
+            //
+            // This compared AsVec2, so height counted for nothing - and directly below any elevated
+            // surface there is ground at a 2D distance of about zero. An archer placed on the
+            // gatehouse wall walk was therefore "moved onto walkable ground" eleven metres straight
+            // down, every time, however good the navmesh on the deck above him was.
+            //
+            // With height counted, a deck face half a metre away wins over ground far below, and the
+            // ground is still chosen when the deck genuinely has no navmesh - which is the fallback
+            // this method exists to provide.
             float bestSquared = float.MaxValue;
             for (int i = 0; i < _built; i++) {
                 Vec3 candidate = _centers[i];
                 if (!candidate.IsValid) continue;
-                float squared = (candidate.AsVec2 - position.AsVec2).LengthSquared;
+                float squared = (candidate - position).LengthSquared;
                 if (squared >= bestSquared) continue;
                 bestSquared = squared;
                 faceIndex = i;

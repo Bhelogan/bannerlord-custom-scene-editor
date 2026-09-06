@@ -93,7 +93,9 @@ namespace CustomSceneCreator.Boot {
                         new CombatInputSuppressor(),
                         new UI.ExportDialogView(),
                         new UI.ScriptPanelView(),
+                        new UI.TexturePanelView(),
                         new UI.SceneOutlinerView(),
+                        new UI.TransformPanelView(),
                     };
                     TraceLogger.Write(nameof(SceneCreatorMission),
                         $"Mission behavior factory returning {behaviors.Count} behaviors.");

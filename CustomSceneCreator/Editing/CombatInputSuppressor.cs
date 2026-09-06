@@ -6,17 +6,15 @@ using TaleWorlds.ScreenSystem;
 
 namespace CustomSceneCreator.Editing {
     /// <summary>
-    /// Stops the mouse from reaching the player's combat controls while an edit mode is active in a
-    /// player-attached camera.
+    /// Stops player actions while an edit mode is active in a player-attached camera.
     ///
     /// Building in first or third person meant swinging at things, blocking, and cycling weapons with
     /// the wheel that raises and lowers the object you are holding. Sheathing the weapons made it
     /// worse rather than better: an unarmed character punches.
     ///
-    /// The fix is at the input layer rather than the agent. The scene layer is restricted to KEYBOARD
-    /// input only, which blocks mouse buttons and the wheel - attack, block, weapon swap - while
-    /// leaving mouse MOVEMENT alone, so looking around still works, and leaving the keyboard alone,
-    /// so WASD still walks.
+    /// The scene layer blocks mouse buttons and the wheel but leaves mouse movement available for
+    /// looking. <see cref="EditorCombatInputPatch"/> replaces the native player controller with a
+    /// movement-only whitelist, so keyboard-bound actions and remapped controls cannot leak through.
     ///
     /// Disabling MissionMainAgentController outright would have been simpler and wrong: its tick
     /// handles movement as well as fighting, so the player would have stood rooted to the spot.
@@ -27,73 +25,66 @@ namespace CustomSceneCreator.Editing {
     public class CombatInputSuppressor : MissionView {
         public static CombatInputSuppressor? Instance { get; private set; }
 
+        /// <summary>
+        /// Read by the controller patch. While true, the native player controller is replaced with
+        /// CSC's movement-only controller, so no combat/action binding can leak into an edit mode.
+        /// </summary>
+        public static bool IsEditorInputActive { get; private set; }
+
         private bool _suppressing;
+        private bool _releaseControllerAfterScreenTick;
 
         public override void OnMissionScreenInitialize() {
             base.OnMissionScreenInitialize();
             Instance = this;
+            IsEditorInputActive = false;
+            _releaseControllerAfterScreenTick = false;
         }
 
         public override void OnMissionScreenFinalize() {
-            Release();
+            Release(clearControllerGuard: true);
             if (Instance == this) Instance = null;
             base.OnMissionScreenFinalize();
+        }
+
+        public override void OnMissionScreenTick(float dt) {
+            base.OnMissionScreenTick(dt);
+
+            // The edit-mode key is processed by mission logic before the native player controller.
+            // Keep the controller guard alive through that controller tick when leaving the editor,
+            // then release it here. This prevents the same Backslash press (or any user-remapped
+            // action sharing it) from leaking into gameplay on the exit frame.
+            if (_releaseControllerAfterScreenTick) {
+                _releaseControllerAfterScreenTick = false;
+                IsEditorInputActive = false;
+            }
         }
 
         /// <summary>Called each tick by the editor with what it wants.</summary>
         public void Apply(bool editing) {
             bool wanted = editing && CameraModes.Current != EditorCameraMode.Rts;
-            _wanted = wanted;
-
-            if (wanted == _suppressing) return;
-
-            if (wanted) Suppress();
-            else Release();
-        }
-
-        private bool _wanted;
-
-        /// <summary>
-        /// Clears the keyboard actions the agent controller has just requested.
-        ///
-        /// This has to be a SCREEN tick, not a mission tick. MissionMainAgentController is a view,
-        /// so it sets these flags during the screen phase - clearing them from the editor's mission
-        /// tick would run before they were set and do nothing. This view sits after it in the
-        /// behaviour list, so its screen tick lands afterwards.
-        /// </summary>
-        public override void OnMissionScreenTick(float dt) {
-            base.OnMissionScreenTick(dt);
-            if (!_wanted) return;
-
-            try {
-                Agent? main = Agent.Main;
-                if (main == null || !main.IsActive()) return;
-
-                // Kick is the one that prompted this: E rotates the held object here and kicks in the
-                // game, and restricting the mouse never touched a keyboard action.
-                const Agent.EventControlFlag unwanted =
-                    Agent.EventControlFlag.Kick
-                    | Agent.EventControlFlag.Jump
-                    | Agent.EventControlFlag.ToggleAlternativeWeapon
-                    | Agent.EventControlFlag.Wield0
-                    | Agent.EventControlFlag.Wield1
-                    | Agent.EventControlFlag.Wield2
-                    | Agent.EventControlFlag.Wield3;
-
-                Agent.EventControlFlag flags = main.EventControlFlags;
-                if ((flags & unwanted) == 0) return;
-                main.EventControlFlags = flags & ~unwanted;
-            } catch {
-                // Reading the flags touches native state; never let it break the tick.
+            if (wanted) {
+                _releaseControllerAfterScreenTick = false;
+                IsEditorInputActive = true;
+                if (!_suppressing) Suppress();
+                return;
             }
+
+            // Switching to RTS is immediately safe because RTS hands the agent to the AI. Leaving
+            // editing in a player-attached camera needs one guarded controller tick so the key that
+            // closed the editor cannot also trigger a remapped combat/action binding.
+            bool delayControllerRelease = !editing && IsEditorInputActive;
+            _releaseControllerAfterScreenTick = delayControllerRelease;
+            Release(clearControllerGuard: !delayControllerRelease);
         }
 
         private void Suppress() {
             try {
                 if (MissionScreen == null) return;
 
-                // Keyboard only. Mouse buttons and the wheel are what reach the combat controls;
-                // mouse movement is not part of the mask, so the camera still turns.
+                // Keyboard only. This blocks mouse buttons and the wheel; mouse movement is not
+                // part of the mask, so the camera still turns. The controller patch handles every
+                // keyboard-bound action by allowing movement alone.
                 MissionScreen.SceneLayer.InputRestrictions.SetInputRestrictions(
                     false, InputUsageMask.Keyboardkeys);
                 _suppressing = true;
@@ -108,7 +99,11 @@ namespace CustomSceneCreator.Editing {
             }
         }
 
-        private void Release() {
+        private void Release(bool clearControllerGuard) {
+            if (clearControllerGuard) {
+                _releaseControllerAfterScreenTick = false;
+                IsEditorInputActive = false;
+            }
             if (!_suppressing) return;
             _suppressing = false;
             try {
@@ -119,7 +114,7 @@ namespace CustomSceneCreator.Editing {
             }
         }
 
-        /// <summary>True while the mouse is being held off the scene - the HUD says so.</summary>
+        /// <summary>True while editor input restrictions are active.</summary>
         public bool IsSuppressing => _suppressing;
     }
 }

@@ -7,11 +7,11 @@
     <Platforms>x64</Platforms>
     <AssemblyName>CustomSceneCreator</AssemblyName>
     <RootNamespace>CustomSceneCreator</RootNamespace>
-    <!-- Keep in step with _Module/SubModule.xml. Intentionally pinned at 1.0.4 until the project
-         owner approves the first public Nexus Mods revision; development builds do not bump it. -->
-    <Version>1.0.4</Version>
-    <FileVersion>1.0.4.0</FileVersion>
-    <AssemblyVersion>1.0.4.0</AssemblyVersion>
+    <!-- Keep in step with _Module/SubModule.xml. Version 1.0.5 is the development line following
+         the public 1.0.4 release. -->
+    <Version>1.0.5</Version>
+    <FileVersion>1.0.5.0</FileVersion>
+    <AssemblyVersion>1.0.5.0</AssemblyVersion>
     <Product>Custom Bannerlord Scene Creator</Product>
     <Description>Standalone in-game scene editor for Mount &amp; Blade II: Bannerlord.</Description>
 
@@ -37,6 +37,8 @@
     <!-- MCM: compile-time only. It is an OPTIONAL runtime dependency - the editor works without it,
          with its default key bindings, so nothing here may be touched unless MCM is really loaded. -->
     <PackageReference Include="Bannerlord.MCM" Version="5.11.3" ExcludeAssets="runtime" PrivateAssets="all" />
+    <!-- Gauntlet widget bounds use System.Numerics.Vector2.  Compile-time only; Bannerlord ships it. -->
+    <PackageReference Include="System.Numerics.Vectors" Version="4.5.0" ExcludeAssets="runtime" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

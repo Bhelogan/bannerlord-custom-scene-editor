@@ -94,38 +94,43 @@ namespace CustomSceneCreator.Settings {
         [SettingPropertyGroup(KeyGroup, GroupOrder = 10)]
         public string KeyGroundLock { get; set; } = "H";
 
-        [SettingPropertyText("{=CSC_Key_PrevPlaceable_Name}Previous Object", Order = 11, RequireRestart = false,
+        [SettingPropertyText("{=CSC_Key_AlignToSurface_Name}Align To Aimed Surface", Order = 11, RequireRestart = false,
+            HintText = "{=CSC_Key_AlignToSurface_Hint}Makes the flat face of the held object sit flush against the wall, floor, roof, or other surface under the cursor.")]
+        [SettingPropertyGroup(KeyGroup, GroupOrder = 10)]
+        public string KeyAlignToSurface { get; set; } = "N";
+
+        [SettingPropertyText("{=CSC_Key_PrevPlaceable_Name}Previous Object", Order = 12, RequireRestart = false,
             HintText = "{=CSC_Key_PrevPlaceable_Hint}Steps back through the current list without opening the picker.")]
         [SettingPropertyGroup(KeyGroup, GroupOrder = 10)]
         public string KeyPrevPlaceable { get; set; } = "[";
 
-        [SettingPropertyText("{=CSC_Key_NextPlaceable_Name}Next Object", Order = 12, RequireRestart = false,
+        [SettingPropertyText("{=CSC_Key_NextPlaceable_Name}Next Object", Order = 13, RequireRestart = false,
             HintText = "{=CSC_Key_NextPlaceable_Hint}Steps forward through the current list.")]
         [SettingPropertyGroup(KeyGroup, GroupOrder = 10)]
         public string KeyNextPlaceable { get; set; } = "]";
 
-        [SettingPropertyText("{=CSC_Key_NextCategory_Name}Next Category", Order = 13, RequireRestart = false,
+        [SettingPropertyText("{=CSC_Key_NextCategory_Name}Next Category", Order = 14, RequireRestart = false,
             HintText = "{=CSC_Key_NextCategory_Hint}Moves to the next category, leaving any search behind.")]
         [SettingPropertyGroup(KeyGroup, GroupOrder = 10)]
         public string KeyNextCategory { get; set; } = "'";
 
-        [SettingPropertyText("{=CSC_Key_Save_Name}Save", Order = 14, RequireRestart = false,
+        [SettingPropertyText("{=CSC_Key_Save_Name}Save", Order = 15, RequireRestart = false,
             HintText = "{=CSC_Key_Save_Hint}Single-key save. The modifier combination below also works.")]
         [SettingPropertyGroup(KeyGroup, GroupOrder = 10)]
         public string KeySave { get; set; } = "K";
 
-        [SettingPropertyText("{=CSC_Key_Modifier_Name}Save/Export Modifier", Order = 15, RequireRestart = false,
+        [SettingPropertyText("{=CSC_Key_Modifier_Name}Save/Export Modifier", Order = 16, RequireRestart = false,
             HintText = "{=CSC_Key_Modifier_Hint}Held with S to save and E to export. Alt by default, " +
                        "because Ctrl is reset-rotation and Ctrl+S would clear your rotation every time you saved.")]
         [SettingPropertyGroup(KeyGroup, GroupOrder = 10)]
         public string KeyModifier { get; set; } = "LeftAlt";
 
-        [SettingPropertyText("{=CSC_Key_MoveUp_Name}Raise Object", Order = 16, RequireRestart = false,
+        [SettingPropertyText("{=CSC_Key_MoveUp_Name}Raise Object", Order = 17, RequireRestart = false,
             HintText = "{=CSC_Key_MoveUp_Hint}Raises the held object. The mouse wheel does this too.")]
         [SettingPropertyGroup(KeyGroup, GroupOrder = 10)]
         public string KeyMoveUp { get; set; } = "Numpad5";
 
-        [SettingPropertyText("{=CSC_Key_MoveDown_Name}Lower Object", Order = 17, RequireRestart = false,
+        [SettingPropertyText("{=CSC_Key_MoveDown_Name}Lower Object", Order = 18, RequireRestart = false,
             HintText = "{=CSC_Key_MoveDown_Hint}Lowers the held object.")]
         [SettingPropertyGroup(KeyGroup, GroupOrder = 10)]
         public string KeyMoveDown { get; set; } = "Numpad1";

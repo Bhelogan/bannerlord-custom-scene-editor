@@ -2,6 +2,9 @@
 
 A standalone in-game scene editor for **Mount & Blade II: Bannerlord v1.4.7**.
 
+Requires **Bannerlord.Harmony**. Mod Configuration Menu is optional and is used only for rebinding
+the editor controls.
+
 Open any shipped scene, place any shipped prefab or logical marker, and export the result — without
 the Modding Kit.
 
@@ -58,6 +61,10 @@ storage.
   atmosphere, navmesh, and any other published support files. CSC applies every authored cutout,
   ground addition, and elevated route to the copy. The Modding Kit is an optional fallback for work
   CSC cannot express; no manual XML pasting is required.
+- **Per-surface texture overrides** — select a placed object from the scene contents list, choose one
+  real mesh surface and an imported PNG, and preview the replacement immediately. The
+  assignment survives project save/load and both test modes. Exports include the PNGs and a portable
+  manifest because Bannerlord prefab XML cannot embed a runtime-created texture by itself.
 
 ## Building
 
@@ -128,12 +135,14 @@ it for you.
 | **Left Ctrl** | Reset rotation and height offset |
 | `G` | Drop to ground, and re-enable ground follow |
 | `H` | Toggle ground follow (pin the height instead) |
+| `N` | Align the held object's flat face flush to the wall, floor, roof, or other aimed surface |
 | Mouse wheel | Raise / lower the held object |
+| **Left Shift** + mouse wheel | Fine height adjustment (one tenth of the normal step) |
 | **`** | Open the asset picker: choose a category, search within it, inspect, build |
-| `L` | Open the scene contents list: everything placed, with editable position and rotation, plus Go To / Scripts / Pick Up / Delete |
+| `L` | Open the Scene Contents list. **Objects** shows everything placed, with exact position, rotation (degrees), XYZ scale, and texture overrides. Select an object and use the numeric fields for exact values, or press **Transform** for a live right-side X/Y/Z panel. Enter exact degrees or use the coloured +/- controls; **Done** or <kbd>Esc</kbd> closes it. The panel only takes mouse clicks while the cursor is over it, so the camera remains usable for alignment. Double-click picks up an object in Move mode and Go To remains camera-only. **Elevated Navmesh** lists each saved elevated area with numbered perimeter corners and exact X/Y/Z positions; double-click a corner to enter Elevated Navmesh mode with that point selected, then click its new position. The same high-contrast, floor-flat corner numbers are rendered above the elevated outline in-world. The Objects tab also includes Scripts / Delete / Break Apart imported My Prefabs (including embedded Cutout, Add Area, and Elevated Navmesh authoring) / Clear All |
 | `[` `]` | Previous / next placeable (quick cycle without the picker) |
 | `'` | Next category |
-| `V` | Cycle camera: RTS - third person - first person |
+| `V` | Cycle camera: RTS - third person - first person, including while editing is Off |
 | **Alt+S** or `K` | Save the project (confirmation shown) |
 | **Alt+E** | Export: prefab, or whole scene |
 | Numpad `8` `2` | Tilt up / down |
@@ -141,7 +150,9 @@ it for you.
 | Numpad `5` `1` | Raise / lower |
 
 RTS camera: `WASD` pans, `Space` / `Left Alt` change height, hold `Shift` and drag to rotate the
-view, `Shift`+`WASD` flies along the view direction. Pan speed scales with height.
+view, `Shift`+`WASD` flies along the view direction. Pan speed scales with height. In every editor
+state, horizontal movement keeps a fixed world Z instead of following terrain, indoor floors, or
+roofs. This makes indoor and multi-level editing predictable.
 
 There is no maximum placement range - if you can see it, you can build on it.
 
@@ -191,6 +202,12 @@ counter-clockwise order, then press `F` to close the area. A cyan placement ghos
 surface and height the next point will use. A closed outline may have more than four points. Click a
 saved point to select it (blue), click again to move it, or press `Delete` to remove it. While an
 outline is open, only points in that outline can be selected, so two areas may share a corner.
+After `F` closes an outline, no new outline is pre-selected: click any saved point to edit that
+area, or click an empty physical surface to begin the next area. This lets adjacent ramps and
+landings be edited independently even when their corners overlap. While tracing a new area, clicking
+within 0.65 m of a corner from a finished elevated area snaps the new corner to that area's exact
+physical X/Y/Z, making ramp-to-platform and stair-to-wall-walk joins precise without needing to
+manually line up the two edges.
 
 ### Baking
 
@@ -235,6 +252,7 @@ especially for elevated routes.
 | Folder | Contents |
 |---|---|
 | `projects/` | Working files (`.json`), one per scene by default. This is what you reopen to keep building. |
+| `textures/` | PNG images available to per-object texture overrides |
 | `exports/prefabs/` | Prefab XML — one reusable object, positioned relative to its own base |
 | `exports/scenes/` | Scene fragments — everything at its real position, for pasting into a `scene.xscene` |
 | `exports/templates/` | Templates — a layout to place into other scenes as loose, still-editable pieces |
@@ -249,6 +267,48 @@ reopening restores the whole session rather than dropping objects into whatever 
 
 To keep working on something you exported as a prefab, reopen the **project** it came from — the
 prefab is the finished artifact, not the source.
+
+## Texture overrides
+
+Put an **8-bit, non-interlaced grayscale, RGB, or RGBA PNG** in:
+
+```text
+Documents\Mount and Blade II Bannerlord\CustomSceneCreator\textures\
+```
+
+Press `L`, select an object, and choose **Textures**. Cycle to the target **Surface** (each entry
+identifies one mesh and its material), choose the PNG, then press **Apply Preview**. A newly authored
+override changes that one surface, even when the roof, walls, trim, and panel all reuse the same
+native material. **Refresh PNGs** rereads changed pixels from disk; it is not necessary to leave the
+scene. Removing an override restores the prefab's original material on that surface.
+
+This replaces the selected surface's visible diffuse image slots. Some Bannerlord
+materials draw their colour from a secondary diffuse slot, so CSC updates that slot too when the
+source material uses it. It does not create UVs,
+change the mesh's UV layout, select part of a texture atlas, or manufacture a new shader. Transparent
+pixels work only when the original material already supports transparency; CSC deliberately preserves
+the original shader and alpha settings so an ordinary opaque wall cannot be turned into an unstable
+shader combination.
+
+The native shader, normal/specular maps, UV layout, and baked-lighting assumptions are preserved. A
+generic poster PNG can therefore still look dark or odd on complex building geometry. For picture-like
+art, use a dedicated panel/frame or another simple target surface—not an entire building material.
+
+Projects, template placement, **Walk Around**, and **Raid-Scale Battle** apply saved overrides
+automatically. A template with textures is two parts: `<name>.json` and `<name>_textures/`; keep them
+together when sharing it. CSC imports that image folder when the template is previewed or placed.
+
+Bannerlord's prefab and scene XML can name engine material resources, but cannot embed a PNG loaded
+at runtime. Therefore prefab, whole-scene, template, and Modding Kit scene exports write both:
+
+```text
+<name>.texture_overrides.json
+<name>_textures\*.png
+```
+
+Another mod must ship those images and apply the manifest at runtime, or convert the PNG into that
+mod's own registered texture/material resources. Copying only the prefab XML preserves the geometry,
+not a runtime PNG override. See [MOD_INTEGRATION.md](MOD_INTEGRATION.md) for the exact handoff.
 
 ## Testing a saved project
 

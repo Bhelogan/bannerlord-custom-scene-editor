@@ -241,12 +241,15 @@ namespace CustomSceneCreator.NavMesh {
                 throw new NavMeshFormatException("not an RNM1, length-prefixed, or raw NMG8/NMG9 file");
             }
 
-            if (!Matches(raw, 0, "NMG8") && !Matches(raw, 0, "NMG9")) {
+            // NMG7 is accepted for READING only - stock 1.x scenes still ship it, and refusing it
+            // forced every such scene through the official Modding Kit just to be upgraded. It is
+            // written back out as NMG9; see NavMeshData.OutputSignature.
+            if (!Matches(raw, 0, "NMG7") && !Matches(raw, 0, "NMG8") && !Matches(raw, 0, "NMG9")) {
                 // Name it. "unsupported inner signature" on its own leaves no way to tell a scene
                 // this editor simply cannot read from one it has corrupted, and the two need
                 // completely different responses.
                 throw new NavMeshFormatException(
-                    "unsupported inner signature '" + Describe(raw) + "'; this editor reads NMG8 and NMG9");
+                    "unsupported inner signature '" + Describe(raw) + "'; this editor reads NMG7, NMG8 and NMG9");
             }
             return raw;
         }

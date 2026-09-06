@@ -25,30 +25,48 @@ namespace CustomSceneCreator.UI {
         private readonly Action _onClose;
 
         private MBBindingList<OutlinerItemVM> _items = new();
+        private MBBindingList<ElevatedNavMeshSegmentVM> _elevatedNavmeshSegments = new();
         private string _searchText = "";
         private PlacedEntity? _selected;
         private SortMode _sort = SortMode.Nearest;
+        private OutlinerView _view = OutlinerView.Objects;
 
         private enum SortMode { Nearest, Name, Newest, Scripts }
+        private enum OutlinerView { Objects, ElevatedNavmesh }
 
         public SceneOutlinerVM(IEnumerable<PlacedEntity> placed, SceneEditingMissionLogic editor, Action onClose) {
             _all = placed.ToList();
             _editor = editor;
             _onClose = onClose;
             RefreshList();
+            RefreshElevatedNavmeshList();
         }
 
         // -- bindable ---------------------------------------------------------------------------
 
-        [DataSourceProperty] public string TitleText => "Scene Contents";
-        [DataSourceProperty] public string HintText =>
-            "Double-click to move the camera to an object. Type to search.";
+        [DataSourceProperty] public string TitleText => _view == OutlinerView.Objects
+            ? "Scene Contents"
+            : "Elevated Navmesh Areas";
+        [DataSourceProperty] public string HintText => _view == OutlinerView.Objects
+            ? "Select an object for exact fields; Transform opens live X/Y/Z controls and axis rings. Double-click picks it up."
+            : "Double-click a perimeter corner to select it in Elevated Navmesh mode, then click its new position.";
+
+        [DataSourceProperty] public string ObjectsTabText => "Objects";
+        [DataSourceProperty] public string ElevatedNavmeshTabText => "Elevated Navmesh";
+        [DataSourceProperty] public bool IsObjectsView => _view == OutlinerView.Objects;
+        [DataSourceProperty] public bool IsElevatedNavmeshView => _view == OutlinerView.ElevatedNavmesh;
 
         [DataSourceProperty] public string FocusText => "Go To";
         [DataSourceProperty] public string ScriptsText => "Scripts";
+        [DataSourceProperty] public string TexturesText => "Textures";
+        [DataSourceProperty] public string TransformText => "Transform";
         [DataSourceProperty] public string MoveText => "Pick Up";
         [DataSourceProperty] public string DeleteText => "Delete";
+        [DataSourceProperty] public string BreakApartText => "Break Apart";
+        [DataSourceProperty] public string ClearAllText => "Clear All";
         [DataSourceProperty] public string CloseText => "Close";
+
+        [DataSourceProperty] public bool HasAnythingToClear => _editor.HasEditableContent;
 
         [DataSourceProperty]
         public string SortButtonText => _sort switch {
@@ -61,6 +79,11 @@ namespace CustomSceneCreator.UI {
         [DataSourceProperty]
         public string StatusText {
             get {
+                if (_view == OutlinerView.ElevatedNavmesh) {
+                    int areas = _elevatedNavmeshSegments.Count;
+                    int corners = _elevatedNavmeshSegments.Sum(segment => segment.NodeCount);
+                    return $"{areas} elevated area(s), {corners} saved perimeter corner(s).";
+                }
                 if (_selected == null) {
                     int scripted = _all.Count(e => e.Scripts.Count > 0);
                     return $"{_all.Count} object(s) placed, {scripted} carrying scripts.";
@@ -70,7 +93,9 @@ namespace CustomSceneCreator.UI {
             }
         }
 
-        [DataSourceProperty] public bool HasSelection => _selected != null;
+        [DataSourceProperty] public bool HasSelection => IsObjectsView && _selected != null;
+        [DataSourceProperty] public bool CanBreakApart =>
+            IsObjectsView && _selected != null && _editor.CanBreakApart(_selected);
 
         // -- transform ---------------------------------------------------------------------------
         //
@@ -81,6 +106,7 @@ namespace CustomSceneCreator.UI {
 
         [DataSourceProperty] public string PositionLabel => "Position (m)";
         [DataSourceProperty] public string RotationLabel => "Rotation (degrees)";
+        [DataSourceProperty] public string ScaleLabel => "Scale";
         [DataSourceProperty] public string XLabel => "X";
         [DataSourceProperty] public string YLabel => "Y";
         [DataSourceProperty] public string ZLabel => "Z";
@@ -123,6 +149,24 @@ namespace CustomSceneCreator.UI {
         public string RotationRoll {
             get => Format(Degrees(Euler().y));
             set => SetRotation(value, axis: 1, nameof(RotationRoll));
+        }
+
+        [DataSourceProperty]
+        public string ScaleX {
+            get => Format(_selected?.Scale.x ?? 1f);
+            set => SetScale(value, axis: 0, nameof(ScaleX));
+        }
+
+        [DataSourceProperty]
+        public string ScaleY {
+            get => Format(_selected?.Scale.y ?? 1f);
+            set => SetScale(value, axis: 1, nameof(ScaleY));
+        }
+
+        [DataSourceProperty]
+        public string ScaleZ {
+            get => Format(_selected?.Scale.z ?? 1f);
+            set => SetScale(value, axis: 2, nameof(ScaleZ));
         }
 
 
@@ -184,6 +228,16 @@ namespace CustomSceneCreator.UI {
         }
 
         [DataSourceProperty]
+        public MBBindingList<ElevatedNavMeshSegmentVM> ElevatedNavmeshSegments {
+            get => _elevatedNavmeshSegments;
+            set {
+                if (value == _elevatedNavmeshSegments) return;
+                _elevatedNavmeshSegments = value;
+                OnPropertyChangedWithValue(value, nameof(ElevatedNavmeshSegments));
+            }
+        }
+
+        [DataSourceProperty]
         public string SearchText {
             get => _searchText;
             set {
@@ -207,6 +261,22 @@ namespace CustomSceneCreator.UI {
             OnPropertyChangedWithValue(SortButtonText, nameof(SortButtonText));
         }
 
+        public void ExecuteShowObjects() {
+            if (_view == OutlinerView.Objects) return;
+            _view = OutlinerView.Objects;
+            NotifyViewChanged();
+        }
+
+        public void ExecuteShowElevatedNavmesh() {
+            if (_view == OutlinerView.ElevatedNavmesh) {
+                RefreshElevatedNavmeshList();
+                return;
+            }
+            _view = OutlinerView.ElevatedNavmesh;
+            RefreshElevatedNavmeshList();
+            NotifyViewChanged();
+        }
+
         public void ExecuteFocus() {
             if (_selected == null) return;
             _editor.FocusOn(_selected);
@@ -220,11 +290,30 @@ namespace CustomSceneCreator.UI {
             _editor.OpenScripts(target);
         }
 
+        public void ExecuteTextures() {
+            if (_selected == null) return;
+            PlacedEntity target = _selected;
+            _onClose?.Invoke();
+            _editor.OpenTextures(target);
+        }
+
         public void ExecuteMove() {
             if (_selected == null) return;
             PlacedEntity target = _selected;
             _onClose?.Invoke();
             _editor.PickUp(target);
+        }
+
+        /// <summary>
+        /// Leaves the real object where it is and opens live right-side X/Y/Z controls. World rings
+        /// remain as a spatial axis reference; exact values and incremental rotation are handled by
+        /// the non-modal panel so camera movement remains dependable.
+        /// </summary>
+        public void ExecuteTransform() {
+            if (_selected == null) return;
+            PlacedEntity target = _selected;
+            _onClose?.Invoke();
+            _editor.StartTransform(target);
         }
 
         public void ExecuteDelete() {
@@ -233,6 +322,95 @@ namespace CustomSceneCreator.UI {
             _all.Remove(_selected);
             _selected = null;
             RefreshList();
+        }
+
+        public void ExecuteBreakApart() {
+            if (_selected == null) return;
+            PlacedEntity target = _selected;
+            if (target.Scripts.Count > 0) {
+                InformationManager.DisplayMessage(new InformationMessage(
+                    "This composite has scripts attached to the whole object. Remove or move those " +
+                    "scripts before breaking it apart."));
+                return;
+            }
+            if (!_editor.TryDescribeBreakApart(target, out int pieces, out int navMeshGroups,
+                                               out int unsupportedGroups, out bool approximatedScale)) {
+                InformationManager.DisplayMessage(new InformationMessage(
+                    "This imported prefab has no editable child pieces to break apart."));
+                return;
+            }
+
+            string detail =
+                $"Replace {PlaceableRegistry.DisplayNameFor(target.PrefabName)} with {pieces} " +
+                "individually editable child piece(s)?\n\n" +
+                "Their world position, rotation, scale, and supported scripts are preserved. " +
+                "The reusable prefab file remains in My Prefabs.";
+            if (target.TextureOverrides.Count > 0) {
+                detail += "\n\nThe texture override on the whole composite cannot be distributed to its children.";
+            }
+            if (navMeshGroups > 0) {
+                detail += $"\n\n{navMeshGroups} embedded navmesh group(s) will also be restored " +
+                          "as editable Cutout, Add Area, or Elevated authoring.";
+            }
+            if (unsupportedGroups > 0) {
+                InformationManager.DisplayMessage(new InformationMessage(
+                    $"This prefab contains {unsupportedGroups} anonymous geometry group(s) that " +
+                    "cannot become separate List items. The original prefab was left unchanged."));
+                return;
+            }
+            if (approximatedScale) {
+                detail += "\n\nA rotated child beneath non-uniform scale will use the closest editable transform.";
+            }
+
+            InformationManager.ShowInquiry(new InquiryData(
+                "Break Apart Prefab?",
+                detail,
+                true,
+                true,
+                "Break Apart",
+                "Cancel",
+                () => {
+                    if (_editor.TryBreakApart(target, out List<PlacedEntity> children,
+                                              out string message)) {
+                        _all.Remove(target);
+                        _all.AddRange(children);
+                        _selected = null;
+                        RefreshList();
+                        InformationManager.DisplayMessage(new InformationMessage(message));
+                    } else {
+                        InformationManager.DisplayMessage(new InformationMessage(message));
+                    }
+                },
+                null));
+        }
+
+        public void ExecuteClearAll() {
+            if (!_editor.HasEditableContent) return;
+
+            int objects = _editor.EditableObjectCount;
+            int cutouts = _editor.NavMeshCutoutCount;
+            int additions = _editor.NavMeshRequirementCount;
+            int elevations = _editor.NavMeshRampCount;
+            string detail =
+                $"This removes {objects} placed object(s), {cutouts} navmesh cutout(s), " +
+                $"{additions} added navmesh area(s), and {elevations} elevated navmesh area(s).\n\n" +
+                "The underlying base scene is not changed. Save afterward to keep the project empty.";
+
+            InformationManager.ShowInquiry(new InquiryData(
+                "Clear Entire Project?",
+                detail,
+                true,
+                true,
+                "Clear Everything",
+                "Cancel",
+                () => {
+                    _editor.ClearAllEditableContent();
+                    _all.Clear();
+                    _selected = null;
+                    RefreshList();
+                    OnPropertyChangedWithValue(HasAnythingToClear, nameof(HasAnythingToClear));
+                },
+                null));
         }
 
         public void ExecuteClose() => _onClose?.Invoke();
@@ -280,6 +458,26 @@ namespace CustomSceneCreator.UI {
             OnPropertyChangedWithValue(text, propertyName);
         }
 
+        private void SetScale(string text, int axis, string propertyName) {
+            if (_selected == null || !TryParse(text, out float parsed)) return;
+            // Zero/negative scales turn the basis inside-out or make native collision degenerate.
+            // A generous upper bound prevents accidental values from freezing the physics scene.
+            if (parsed < 0.01f || parsed > 100f || float.IsNaN(parsed) || float.IsInfinity(parsed)) {
+                OnPropertyChangedWithValue(Format(axis == 0 ? _selected.Scale.x
+                    : axis == 1 ? _selected.Scale.y : _selected.Scale.z), propertyName);
+                return;
+            }
+
+            Vec3 scale = _selected.Scale;
+            if (axis == 0) scale.x = parsed;
+            else if (axis == 1) scale.y = parsed;
+            else scale.z = parsed;
+
+            _editor.UpdateTransform(_selected, _selected.Position, _selected.Rotation, scale);
+            OnPropertyChangedWithValue(Format(parsed), propertyName);
+            RefreshDistances();
+        }
+
         /// <summary>Distances go stale once something is moved by hand.</summary>
         private void RefreshDistances() {
             Vec3 camera = CameraPosition;
@@ -294,6 +492,9 @@ namespace CustomSceneCreator.UI {
             OnPropertyChangedWithValue(RotationYaw, nameof(RotationYaw));
             OnPropertyChangedWithValue(RotationPitch, nameof(RotationPitch));
             OnPropertyChangedWithValue(RotationRoll, nameof(RotationRoll));
+            OnPropertyChangedWithValue(ScaleX, nameof(ScaleX));
+            OnPropertyChangedWithValue(ScaleY, nameof(ScaleY));
+            OnPropertyChangedWithValue(ScaleZ, nameof(ScaleZ));
             OnPropertyChangedWithValue(IsMarkerSelected, nameof(IsMarkerSelected));
             OnPropertyChangedWithValue(MarkerIndexText, nameof(MarkerIndexText));
             OnPropertyChangedWithValue(MarkerNote, nameof(MarkerNote));
@@ -338,6 +539,41 @@ namespace CustomSceneCreator.UI {
 
             OnPropertyChangedWithValue(StatusText, nameof(StatusText));
             OnPropertyChangedWithValue(HasSelection, nameof(HasSelection));
+            OnPropertyChangedWithValue(CanBreakApart, nameof(CanBreakApart));
+            OnPropertyChangedWithValue(HasAnythingToClear, nameof(HasAnythingToClear));
+        }
+
+        /// <summary>
+        /// The editor stores elevated surfaces as closed world-space outlines. The rows give an
+        /// exact audit and can hand one selected point back to the normal in-world editing rules.
+        /// </summary>
+        private void RefreshElevatedNavmeshList() {
+            _elevatedNavmeshSegments.Clear();
+
+            int number = 0;
+            foreach (ProjectNavMeshRamp area in _editor.ElevatedNavMeshAreas) {
+                if (area == null) continue;
+                number++;
+                _elevatedNavmeshSegments.Add(new ElevatedNavMeshSegmentVM(area, number,
+                    OnElevatedNavmeshNodeDoubleClicked));
+            }
+
+            OnPropertyChangedWithValue(StatusText, nameof(StatusText));
+        }
+
+        private void NotifyViewChanged() {
+            OnPropertyChangedWithValue(TitleText, nameof(TitleText));
+            OnPropertyChangedWithValue(HintText, nameof(HintText));
+            OnPropertyChangedWithValue(IsObjectsView, nameof(IsObjectsView));
+            OnPropertyChangedWithValue(IsElevatedNavmeshView, nameof(IsElevatedNavmeshView));
+            OnPropertyChangedWithValue(StatusText, nameof(StatusText));
+            OnPropertyChangedWithValue(HasSelection, nameof(HasSelection));
+            OnPropertyChangedWithValue(CanBreakApart, nameof(CanBreakApart));
+        }
+
+        private void OnElevatedNavmeshNodeDoubleClicked(ProjectNavMeshRamp area, bool left, int index) {
+            if (!_editor.SelectElevatedNavMeshNode(area, left, index)) return;
+            _onClose();
         }
 
         private void OnClicked(PlacedEntity entity) {
@@ -345,13 +581,93 @@ namespace CustomSceneCreator.UI {
             foreach (OutlinerItemVM item in _items) item.IsSelected = item.Entity == entity;
             OnPropertyChangedWithValue(StatusText, nameof(StatusText));
             OnPropertyChangedWithValue(HasSelection, nameof(HasSelection));
+            OnPropertyChangedWithValue(CanBreakApart, nameof(CanBreakApart));
             NotifyTransform();
         }
 
         private void OnDoubleClicked(PlacedEntity entity) {
             OnClicked(entity);
-            ExecuteFocus();
+            ExecuteMove();
         }
+    }
+
+    /// <summary>One authored elevated surface, with its node rows nested directly beneath it.</summary>
+    public sealed class ElevatedNavMeshSegmentVM : ViewModel {
+        private MBBindingList<ElevatedNavMeshNodeVM> _nodes = new();
+
+        public ElevatedNavMeshSegmentVM(ProjectNavMeshRamp area, int ordinal,
+                                        Action<ProjectNavMeshRamp, bool, int> onDoubleClick) {
+            string name = string.IsNullOrWhiteSpace(area.Label) ? $"Elevated area {ordinal}" : area.Label;
+            Name = name;
+            IsDraft = area.IsDraft;
+
+            if (NavMeshRampAuthoring.HasOutline(area)) {
+                int count = NavMeshRampAuthoring.PointCount(area.Outline);
+                for (int index = 0; index < count; index++) {
+                    _nodes.Add(new ElevatedNavMeshNodeVM($"Corner {index + 1}",
+                        NavMeshRampAuthoring.Point(area.Outline, index), area, true, index,
+                        onDoubleClick));
+                }
+            } else {
+                // Old projects used two rails.  Keep them legible here so opening an old project
+                // does not make its existing elevation data look as if it vanished.
+                int left = NavMeshRampAuthoring.PointCount(area.Left);
+                int right = NavMeshRampAuthoring.PointCount(area.Right);
+                for (int index = 0; index < left; index++) {
+                    _nodes.Add(new ElevatedNavMeshNodeVM($"Left {index + 1}",
+                        NavMeshRampAuthoring.Point(area.Left, index), area, true, index,
+                        onDoubleClick));
+                }
+                for (int index = 0; index < right; index++) {
+                    _nodes.Add(new ElevatedNavMeshNodeVM($"Right {index + 1}",
+                        NavMeshRampAuthoring.Point(area.Right, index), area, false, index,
+                        onDoubleClick));
+                }
+            }
+        }
+
+        [DataSourceProperty] public string Name { get; }
+        [DataSourceProperty] public bool IsDraft { get; }
+        [DataSourceProperty] public int NodeCount => _nodes.Count;
+        [DataSourceProperty] public string DetailText =>
+            IsDraft ? $"draft - {NodeCount} corner(s)" : $"closed - {NodeCount} corner(s)";
+        [DataSourceProperty] public string HeaderColor => IsDraft ? "#FFB347FF" : "#55D8EFFF";
+
+        [DataSourceProperty]
+        public MBBindingList<ElevatedNavMeshNodeVM> Nodes {
+            get => _nodes;
+            set {
+                if (value == _nodes) return;
+                _nodes = value;
+                OnPropertyChangedWithValue(value, nameof(Nodes));
+            }
+        }
+    }
+
+    /// <summary>A single physical elevated-navmesh point, reported in project world coordinates.</summary>
+    public sealed class ElevatedNavMeshNodeVM : ViewModel {
+        private readonly ProjectNavMeshRamp _area;
+        private readonly bool _left;
+        private readonly int _index;
+        private readonly Action<ProjectNavMeshRamp, bool, int> _onDoubleClick;
+
+        public ElevatedNavMeshNodeVM(string label, Vec3 position, ProjectNavMeshRamp area,
+                                     bool left, int index,
+                                     Action<ProjectNavMeshRamp, bool, int> onDoubleClick) {
+            Label = label;
+            _area = area;
+            _left = left;
+            _index = index;
+            _onDoubleClick = onDoubleClick;
+            PositionText = position.IsValid
+                ? $"X {position.x:0.00}   Y {position.y:0.00}   Z {position.z:0.00}"
+                : "Invalid point";
+        }
+
+        [DataSourceProperty] public string Label { get; }
+        [DataSourceProperty] public string PositionText { get; }
+
+        public void ExecuteDoubleClick() => _onDoubleClick(_area, _left, _index);
     }
 
     public class OutlinerItemVM : ViewModel {

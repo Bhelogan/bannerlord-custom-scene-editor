@@ -7,7 +7,7 @@
     Anyone who got two of the three had a broken install or no documentation, and there was nothing
     in the zip to say which version it was. This produces one file:
 
-        CustomSceneCreator-v1.0.4.zip
+        CustomSceneCreator-v1.0.5.zip
           CustomSceneCreator/          <- drop this straight into Modules
           USER_MANUAL.htm
           MOD_INTEGRATION.md            <- using exports in another mod

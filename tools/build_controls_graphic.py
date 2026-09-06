@@ -73,6 +73,7 @@ LIT = {
     (2, "L"): "mode",
     (2, "'"): "cycle",
     (3, "V"): "mode",
+    (3, "N"): "shape",
     (3, "Shift"): "camera",
     (4, "Ctrl"): "shape",
     (4, "Alt"): "save",
@@ -262,6 +263,8 @@ callout(kx(1, "E") + 250, 190, "Alt + E   export", "save", [
 ])
 callout(kx(2, "L") + 330, BELOW, "Scene contents list", "mode", kx(2, "L"), ky(2, "L", top=False))
 callout(kx(3, "V") - 60, BELOW + 112, "Cycle camera", "mode", kx(3, "V"), ky(3, "V", top=False))
+callout(kx(3, "N") + 105, BELOW + 112, "Align flush to aimed surface", "shape",
+        kx(3, "N"), ky(3, "N", top=False), width=260)
 callout(kx(4, "Ctrl") + 60, BELOW + 168, "Reset rotation and height", "shape",
         kx(4, "Ctrl"), ky(4, "Ctrl", top=False))
 

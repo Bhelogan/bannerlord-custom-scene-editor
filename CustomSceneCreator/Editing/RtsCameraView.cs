@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Reflection;
 using TaleWorlds.Core;
 using TaleWorlds.Engine;
@@ -93,8 +93,10 @@ namespace CustomSceneCreator.Editing {
                     _cameraBearing = MissionScreen.CameraBearing;
                     _cameraElevation = -0.65f;
 
-                    float groundZ = Mission.Scene.GetGroundHeightAtPosition(_cameraPosition);
-                    if (groundZ < 9999f) _cameraPosition.z = groundZ + 20f;
+                    // Enter with a useful overview, but never derive camera Z from terrain. This is
+                    // important indoors and around stacked floors: horizontal RTS movement must not
+                    // jump to a roof, floor, hill, or valley. Only explicit vertical controls change Z.
+                    _cameraPosition.z += 20f;
 
                     // Pending deltas would be applied on top of our frame and spin it on entry.
                     BearingDeltaField?.SetValue(MissionScreen, 0f);
@@ -151,8 +153,6 @@ namespace CustomSceneCreator.Editing {
                 Vec3 viewDirection = (-frame.rotation.u).NormalizedCopy();
                 _cameraPosition = target - viewDirection * standoff;
 
-                float groundZ = Mission.Scene.GetGroundHeightAtPosition(_cameraPosition + new Vec3(0f, 0f, 100f));
-                if (groundZ < 9999f) _cameraPosition.z = MathF.Max(_cameraPosition.z, groundZ + 1.5f);
             } catch (Exception ex) {
                 TraceLogger.Write(nameof(RtsCameraView), $"FocusOn failed: {ex.Message}");
             }
@@ -201,7 +201,8 @@ namespace CustomSceneCreator.Editing {
             frame.origin = _cameraPosition;
 
             HandleMove(dt, ref frame);
-            ClampToTerrain(ref frame);
+            // RTS is a true free camera in every editor state. Horizontal movement preserves the
+            // absolute world Z so indoor floors and nearby terrain cannot push it vertically.
             _cameraPosition = frame.origin;
 
             MissionScreen.CombatCamera.Frame = frame;
@@ -250,13 +251,6 @@ namespace CustomSceneCreator.Editing {
 
             if (Input.IsKeyDown(InputKey.Space)) frame.origin.z += speed * dt;
             if (Input.IsKeyDown(InputKey.LeftAlt)) frame.origin.z -= speed * dt;
-        }
-
-        private void ClampToTerrain(ref MatrixFrame frame) {
-            // Sampled from well above so the probe does not start underground and return a floor
-            // below the one we care about.
-            float groundZ = Mission.Scene.GetGroundHeightAtPosition(frame.origin + new Vec3(0f, 0f, 100f));
-            if (groundZ < 9999f) frame.origin.z = MathF.Max(frame.origin.z, groundZ + 1.5f);
         }
 
         // -- per-frame --------------------------------------------------------------------------
@@ -346,7 +340,10 @@ namespace CustomSceneCreator.Editing {
             // first/third person the preview chased the player's aim while they rotated, the same
             // "preview runs away" problem this already solves for the RTS camera.
             (_isActive && _shiftHeld && _shiftWasDrag)
-            || (MissionScreen?.SceneLayer?.Input?.IsKeyDown(InputKey.RightMouseButton) ?? false);
+            || (MissionScreen?.SceneLayer?.Input?.IsKeyDown(InputKey.RightMouseButton) ?? false)
+            // In attached editing cameras CombatInputSuppressor intentionally removes mouse
+            // buttons from the scene layer. The raw path is then the only truthful held state.
+            || Input.IsKeyDown(InputKey.RightMouseButton);
 
         /// <summary>
         /// Reads a key from the SCENE layer rather than global input. Gauntlet panels consume mouse
@@ -364,12 +361,26 @@ namespace CustomSceneCreator.Editing {
         ///
         /// Shift+drag is excluded because that gesture already belongs to the camera; without the
         /// check, rotating the view would also spin whatever you were holding.
+        ///
+        /// BOTH input paths are read, and the raw one is what actually works while editing.
+        /// CombatInputSuppressor puts the scene layer on InputUsageMask.Keyboardkeys so a click
+        /// cannot swing the player's weapon - and that mask is a CLAIM, not a filter: with only
+        /// Keyboardkeys claimed, the scene layer stops receiving mouse BUTTONS altogether, so this
+        /// read was permanently false while any edit mode was on. Mouse movement is not in the mask,
+        /// which is why the camera kept turning and only the button went dead - a failure that looks
+        /// like the drag being ignored rather than the button being unreadable.
+        ///
+        /// Reading the raw button too is safe here specifically because the suppressor exists to
+        /// stop combat input, and in RTS the agent is already handed to the AI: there is no swing to
+        /// trigger. The scene-layer read is kept first for the player-attached cameras.
         /// </summary>
         public bool IsRotateDragging =>
             !(_isActive && _shiftHeld && _shiftWasDrag)
-            && (MissionScreen?.SceneLayer?.Input?.IsKeyDown(Keys.RotateDrag) ?? false);
+            && ((MissionScreen?.SceneLayer?.Input?.IsKeyDown(Keys.RotateDrag) ?? false)
+                || Input.IsKeyDown(Keys.RotateDrag));
 
-        // Not gated on _isActive: a raw scene-layer read, and rotation must work in first/third person.
+        // Not gated on _isActive: a scene-layer read is available in every camera mode. The editor
+        // itself supplies the raw fallback where its MissionLogic input exposes it.
         public float SceneMouseMoveX =>
             MissionScreen?.SceneLayer != null
                 ? MissionScreen.SceneLayer.Input.GetMouseMoveX() : 0f;
@@ -417,18 +428,25 @@ namespace CustomSceneCreator.Editing {
         /// </summary>
         private bool _viewHeld;
         private float _heldBearing, _heldElevation;
+        private MatrixFrame _heldCameraFrame;
         private static readonly System.Reflection.PropertyInfo? ElevationSetter =
             typeof(MissionScreen).GetProperty("CameraElevation");
 
         private void UpdateRotationViewHold() {
             try {
                 if (MissionScreen == null) return;
-                bool rmb = MissionScreen.SceneLayer?.Input?.IsKeyDown(Keys.RotateDrag) ?? false;
-                bool wanted = rmb && !_isActive;   // RTS camera already handles itself
+                // See IsFreezingRay: editing intentionally blocks scene-layer mouse buttons. Use
+                // raw input as well or the camera lock vanishes exactly while an object is held.
+                bool rmb = (MissionScreen.SceneLayer?.Input?.IsKeyDown(Keys.RotateDrag) ?? false)
+                        || Input.IsKeyDown(Keys.RotateDrag);
+                bool wanted = rmb && !_isActive && CombatInputSuppressor.IsEditorInputActive;
+                // RTS owns its frame itself; attached-camera holding is editor-only and must never
+                // change ordinary non-editor RMB camera behavior.
 
                 if (wanted && !_viewHeld) {
                     _heldBearing = MissionScreen.CameraBearing;
                     _heldElevation = MissionScreen.CameraElevation;
+                    _heldCameraFrame = MissionScreen.CombatCamera.Frame;
                     _viewHeld = true;
                 } else if (!wanted) {
                     _viewHeld = false;
@@ -438,6 +456,15 @@ namespace CustomSceneCreator.Editing {
                 MissionScreen.CameraBearing = _heldBearing;
                 // CameraElevation's setter is private; bearing alone would still let the view pitch.
                 ElevationSetter?.SetValue(MissionScreen, _heldElevation);
+
+                // The attached camera has already processed the same mouse delta by the time this
+                // screen tick runs. Re-applying only bearing/elevation does not always undo its
+                // native camera frame, so restore all three camera sinks to the exact RMB-down
+                // frame. The object still receives the raw delta in HandleRotateDrag.
+                MatrixFrame frame = _heldCameraFrame;
+                MissionScreen.CombatCamera.Frame = frame;
+                Mission.SetCameraFrame(ref frame, 1f);
+                MissionScreen.SceneView?.SetCamera(MissionScreen.CombatCamera);
             } catch (Exception ex) {
                 TraceLogger.Write(nameof(RtsCameraView), $"UpdateRotationViewHold failed: {ex.Message}");
                 _viewHeld = false;

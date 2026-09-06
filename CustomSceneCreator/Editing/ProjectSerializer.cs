@@ -75,6 +75,8 @@ namespace CustomSceneCreator.Editing {
         /// take somewhere else, and what you would send to someone.
         /// </summary>
         public static string TemplateExportsPath => EnsureSubfolder(Path.Combine("exports", "templates"));
+        /// <summary>Drop user PNGs here; projects store filenames so they remain portable.</summary>
+        public static string TexturesPath => EnsureSubfolder("textures");
 
         private static string EnsureSubfolder(string relative) {
             string path = Path.Combine(RootPath, relative);

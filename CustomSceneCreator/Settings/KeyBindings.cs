@@ -51,6 +51,7 @@ namespace CustomSceneCreator.Settings {
         public static InputKey RotateTurnRight = InputKey.E;
         public static InputKey SnapToGround     = InputKey.G;
         public static InputKey ToggleGroundLock = InputKey.H;
+        public static InputKey AlignToSurface   = InputKey.N;
         public static InputKey ResetRotation = InputKey.LeftControl;
         public static InputKey MoveUp   = InputKey.Numpad5;
         public static InputKey MoveDown = InputKey.Numpad1;
@@ -108,7 +109,7 @@ namespace CustomSceneCreator.Settings {
             SaveModifier.ToString(), Save.ToString(), PlaceAlt.ToString(),
             PrevPlaceable.ToString(), NextPlaceable.ToString(), NextCategory.ToString(),
             RotateTurnLeft.ToString(), RotateTurnRight.ToString(), SnapToGround.ToString(),
-            ToggleGroundLock.ToString(), ResetRotation.ToString(), MoveUp.ToString(),
+            ToggleGroundLock.ToString(), AlignToSurface.ToString(), ResetRotation.ToString(), MoveUp.ToString(),
             MoveDown.ToString(),
         });
 
@@ -156,6 +157,7 @@ namespace CustomSceneCreator.Settings {
             RotateTurnRight = Parse(settings.KeyRotateRight, InputKey.E);
             SnapToGround    = Parse(settings.KeySnapToGround, InputKey.G);
             ToggleGroundLock = Parse(settings.KeyGroundLock, InputKey.H);
+            AlignToSurface  = Parse(settings.KeyAlignToSurface, InputKey.N);
             ResetRotation   = Parse(settings.KeyResetRotation, InputKey.LeftControl);
             MoveUp          = Parse(settings.KeyMoveUp, InputKey.Numpad5);
             MoveDown        = Parse(settings.KeyMoveDown, InputKey.Numpad1);

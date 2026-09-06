@@ -1,13 +1,76 @@
 # Custom Scene Creator navmesh work — agent handoff
 
-Last updated: 2026-08-24 (America/New_York; transactional salvage and Homesteads live-test fixes)
+Last updated: 2026-08-31 (America/New_York; CSC 1.0.5 development line)
+
+## Scene Contents clean-slate action — 2026-08-31
+
+- The `L` Scene Contents window now has a separate **Clear All** button beside Close.
+- A native confirmation lists the exact number of placed objects, navmesh cutouts, added ground
+  areas, and elevated areas that will be removed. The underlying base scene is never touched.
+- Confirming clears all four authored-data types in memory and marks the project dirty. The author
+  can save the empty project normally or leave and choose Discard to recover the prior file.
+- The leave prompt now appears for a dirty project even when its final object/area was removed;
+  previously an empty live-object list could suppress that prompt.
+- The manual and README controls table describe the action. XML validation, diff checks, and the
+  Release/x64 build pass with 0 errors (31 pre-existing nullable warnings). Nothing was deployed.
+
+## Placement-control parity — 2026-08-31
+
+- CSC, Homesteads, and Estates now use one-tenth vertical placement steps while Left Shift is held
+  during mouse-wheel height adjustment.
+- Homesteads and Estates now share CSC-style surface-normal reconstruction. Aim at a physical
+  surface while holding an object and press the configurable Align to Surface key (default `N`) to
+  make flat props sit flush against walls, floors, roofs, and other meshes.
+- Preview entities have physics disabled, so alignment sampling reads the intended physical surface
+  rather than the green placement ghost.
+- Both CSC and Homesteads Release builds compile successfully. Live placement remains the final
+  verification step; nothing was deployed automatically.
+
+## Version transition — 2026-08-30
+
+Custom Scene Creator **1.0.4 was publicly released before texture-editing work began**. Active
+development is now **1.0.5**. Preserve the existing 1.0.4 release archive and historical 1.0.4
+verification records; new builds, documentation, and eventual packages use 1.0.5.
+
+## CSC texture override handoff — 2026-08-29
+
+The project now contains the first practical texture-editing workflow for version **1.0.5**. From
+the scene contents list, an author can select a placed object, choose one of that
+object's existing material names, choose a PNG from CSC's Documents-side `textures/` folder, and
+apply or remove the diffuse override. Refresh invalidates CSC's image cache so an externally edited
+PNG can be previewed again without restarting the game.
+
+Persistence and portability are explicit rather than implied:
+
+- projects, templates, editor reopening, Walk Around, and Raid-Scale Battle restore overrides;
+- textured templates travel with a sibling `<name>_textures` folder and import those images before
+  preview/placement;
+- prefab, scene-fragment, template, and Modding Kit scene exports write a
+  `<name>.texture_overrides.json` manifest and `<name>_textures` image folder;
+- a CSC-exported prefab placed again from My Prefabs automatically restores any material override
+  that is unambiguous across its source children;
+- if different source children deliberately use different PNGs on the same named material, the
+  sealed prefab cannot address those children safely, so CSC logs and skips that automatic restore;
+  the manifest still preserves the original per-object assignments for a consuming mod.
+
+The implementation intentionally changes only an existing material's primary diffuse texture. It
+does not invent UV coordinates, switch shaders, or force alpha flags on arbitrary assets. The HSR
+picture-frame precedent showed why runtime materials and textures need strong references and why
+shader/alpha mutation is safe only for a specifically authored material; CSC follows those rules.
+
+Files added/changed for this slice include `Editing/PngDecoder.cs`,
+`Editing/TextureOverrideApplicator.cs`, `UI/TexturePanelVM.cs`, `UI/TexturePanelView.cs`,
+`GUI/Prefabs/CSCTexturePanel.xml`, `IO/TextureOverrideManifestExporter.cs`, project DTO mappings,
+test-mission restoration, exporters, the outliner, README, integration guide, and user manual.
+No installed module was deployed from this work. Release builds and in-game UI/material tests are
+the remaining gates before publishing 1.0.5.
 
 ## User constraints
 
 - Start with `F:\Bannerlord Mods\BANNERLORD_MODDING_INDEX.md`; the durable knowledge base is
   `F:\Bannerlord Mods\docs\navmesh.md`.
 - Project: `F:\Bannerlord Mods\bannerlord-custom-scene-editor`.
-- Keep Custom Scene Creator at **1.0.4** until the user explicitly approves a public Nexus revision.
+- Custom Scene Creator **1.0.4 is released**; active development and the next release are **1.0.5**.
 - Update the project only. Do **not** deploy/copy into the installed Bannerlord module; the user does that.
 - Preserve the dirty worktree and all unrelated user changes. Never reset it.
 - The user wants a non-power-user workflow and wants autonomous work until their input is genuinely needed.
@@ -58,7 +121,8 @@ Related Homesteads corrections in the same Dist build:
 - the async bake display reports normalized percent progress rather than pretending the work count
   is a number of buildings.
 
-CSC remains **1.0.4**.
+This historical navmesh status predates the release transition above; active CSC development is now
+**1.0.5**.
 
 ## Baking now happens in the game, in C#
 
@@ -1184,7 +1248,33 @@ an **elevated-network** pass: triangulate each simple elevated perimeter at its 
 reuse/open every valid low landing edge, and join all pieces that share an authored edge/vertex into
 one connected surface. That is the model needed for one continuous wall walk with multiple stairs
 and ramps; it must be tested offline against `battle_terrain_006` before sending another build to
- the user.
+the user.
+
+#### Elevated-outline selection priority correction — 2026-09-01
+
+The earlier “first click after closing always starts a fresh outline” rule above has been replaced.
+It made an already closed outline impossible to select after the user pressed `F`: the empty draft
+captured every later click, including a visibly highlighted node on another finished area.
+
+`SceneEditingMissionLogic.AddNavMeshRampPoint` now uses this consistent interaction model:
+
+- While a draft is actively being traced, only that draft's nodes can be selected; clicks elsewhere
+  add the next physical corner to the same draft.
+- With no draft active (including immediately after `F`), every completed outline is eligible for
+  node selection. A click on a saved node selects it, and the next click moves it.
+- Clicking an empty physical surface while no draft is active is the sole action that begins a new
+  elevated area.
+
+This preserves independent overlapping corners without trapping the user in an empty new outline.
+
+#### Shared-corner snap for elevated authoring — 2026-09-02
+
+When an elevated outline is actively being traced, CSC now checks every **finished** other elevated
+area for a node within 0.65 m of the physical click. If it finds one, it appends a new node to the
+active outline at the other area's exact physical X/Y/Z. It does **not** select or modify the other
+area. This makes ramp-to-platform, stair-to-wall-walk, bridge-to-landing, and similar junctions
+line up reliably, while retaining independently editable overlapping nodes. Nodes of the active
+draft remain normal editable nodes rather than snap targets.
 
 ## Elevated-network implementation and offline result — 2026-08-22
 
@@ -1887,3 +1977,259 @@ Next live acceptance after copying the fresh Dist build and restarting Bannerlor
 Kuchen navmesh rebuild. During the bake the progress line must contain a percent sign. If the fast
 pass is unsafe, the trace must show independent-group retries and the final message must retain any
 safe cutouts/elevated routes instead of the old settlement-wide `nothing could be baked` result.
+
+#### CSC editor input isolation — 2026-08-29
+
+CSC first/third-person editing now uses a Harmony prefix on Bannerlord's native main-agent control
+tick. While any CSC edit mode is active, the native controller is replaced with a movement-only
+whitelist (W/A/S/D); all combat, interaction, posture, weapon, mount, and remapped action bindings
+are excluded. Mouse movement remains available for looking. The scene-layer restriction separately
+keeps mouse buttons and the wheel away from native controls while CSC continues reading the wheel
+directly for preview height.
+
+The three historically troublesome paths were audited explicitly: `E` reaches only CSC's rotate-
+right handler, the mouse wheel reaches only CSC's preview-height handler, and Backslash changes edit
+mode before native controller processing. Backslash exit now retains the controller guard through
+that final screen tick, preventing the same keypress—or an action remapped onto it—from firing as
+normal controls return. RTS remains exempt because it assigns the main agent to AI control.
+
+Harmony is now a required module dependency and the runtime patch is installed during submodule
+load. The manual and README explain the dependency and the full action lock. CSC remains version
+1.0.4. Release/x64 builds with 0 errors (31 existing nullable warnings), and the updated module is
+staged in `Dist/CustomSceneCreator`; it has not been copied into the live game installation.
+
+#### Wall-mounted asset alignment — 2026-08-29
+
+CSC 1.0.4 now has a rebindable **Align To Aimed Surface** action, default `N`. It samples several
+nearby collision rays to reconstruct the aimed wall/floor/roof plane, aligns the held object's flat
+local face to that plane, and preserves an upright orientation on walls. If the surface is too small
+for the auxiliary samples it safely falls back to the primary placement ray. Q/E remains available
+to rotate the object within the aligned surface. The Build HUD, README, manual, quick-reference
+table, and generated controls graphic document the action. The feature is intended for flat props
+such as `hsr_picture_panel`, whose exact wall alignment was previously impractical with free-form
+tilt alone. No live module was overwritten.
+
+The already-exported `big_cozy_house_naved.xml` was also corrected in place. Its embedded
+`hsr_picture_panel_1` keeps the authored position and crest tag, but its rotation is now exactly
+vertical and matched to the house wall (`0.000, -1.571, 0.451`) instead of the manually estimated
+`0.005, -1.533, 0.354`. The XML parses successfully and its existing navmesh metadata was preserved.
+
+#### CSC saved-object scaling — 2026-08-29
+
+CSC 1.0.4 now exposes root-local X/Y/Z scale in the `L` scene contents list. Scale is stored
+separately from the pure rotation matrix to prevent repeated rotation edits from compounding it,
+and missing scale in older project JSON defaults to `1,1,1`. It is applied when restoring projects,
+placing/picking up objects, expanding templates, and loading Walk Around tests, and is emitted as a
+Bannerlord `scale="x, y, z"` transform in prefab and scene exports. Cutout footprints refresh after
+a scale edit. User-authored Add Area and Elevated Navmesh geometry remains world-space and should be
+redrawn after resizing its supporting object. Invalid, negative, near-zero, or extreme values are
+rejected; the UI accepts `0.01` through `100` per axis. Version remains 1.0.4 and no live module was
+overwritten.
+
+#### Navigation-only RTS camera — 2026-08-29
+
+The `V` camera-cycle action is now handled while CSC editing is Off. Entering RTS in that state
+creates a navigation-only free camera: ordinary WASD panning preserves absolute world Z and skips
+the terrain-clearance clamp, while Space/Alt and Shift-flight remain deliberate ways to change
+height. Follow-up: fixed-height RTS now also applies during active build/edit/navmesh tools. Horizontal
+movement never samples terrain, floors, or roofs to alter camera Z; only Space/Alt or intentional
+Shift-flight changes elevation. This prevents camera jumps inside structures and across stacked levels.
+Turning an edit tool on or off updates this context even after the player has manually chosen a
+camera. The Off-mode HUD and user documentation describe the new free-camera option. Version remains
+1.0.4 and no live module was overwritten.
+
+#### CSC 1.0.5 texture-preview false-positive correction — 2026-08-30
+
+The first live PNG swaps logged `Texture applied` but produced no visible change. The PNG decoder,
+material-name match, and mesh replacement all completed, which isolated the false positive to the
+material-slot assumption: the first implementation replaced only `DiffuseMap`, while Bannerlord
+materials can keep their displayed colour in an existing `DiffuseMap2` slot.
+
+The CSC 1.0.5 applicator now replaces `DiffuseMap` plus an existing `DiffuseMap2`, reads both native
+texture pointers back after `SetMaterial`, and counts the mesh only when the requested dynamic texture
+is retained. The trace records the PNG dimensions, material, source texture names, slots changed, and
+verification results. The editor/manual/integration wording now says visible diffuse slots instead of
+claiming a single primary slot. Release/x64 builds with 0 errors (31 existing nullable warnings) and
+stages the updated 1.0.5 DLL in `Dist/CustomSceneCreator`. No live module was overwritten.
+
+Next live acceptance: deploy the staged module, fully restart Bannerlord, reopen a saved object, choose
+an unmistakable PNG and exact material, then press **Apply Preview**. If that material still does not
+change, preserve the new `TextureOverrideApplicator` trace line: it will distinguish a slot-retention
+failure from a shader/UV/material limitation instead of reporting an unverified success.
+
+#### CSC 1.0.5 imported-prefab Break Apart — 2026-08-31
+
+The `L` Scene Contents list now exposes **Break Apart** for a selected composite imported through
+**My Prefabs**. CSC reverses its own composite export into normal editable child prefabs and known
+CSC markers, composing the root and nested local transforms so position, rotation, scale, and direct
+supported scripts survive. The source prefab file is not changed or removed. The replacement is
+transactional: all children must instantiate before the original scene instance is removed, and a
+failure rolls back the attempted children.
+
+The command deliberately does not appear for arbitrary native prefabs, whose internal render meshes
+are not independently placeable assets. Embedded Cutout, Add Area, and Elevated Navmesh authoring is
+restored to the children; a texture override on the whole composite is not distributed to them. If
+anonymous geometry has no reusable prefab identity, CSC refuses the operation
+and leaves the composite intact instead of silently losing geometry. Scripts attached to the composite
+as a whole also block expansion until the author removes or relocates them, since no single child is
+their unambiguous owner. README, user manual, and the
+shared scene-authoring guide document the workflow and boundary. Release/x64 builds with 0 errors
+(31 existing nullable warnings), the outliner XML validates, and CSC remains version 1.0.5. The staged
+build has not been copied to the live game installation.
+
+#### CSC 1.0.5 Scene Contents double-click pickup — 2026-08-31
+
+Double-clicking an object in the `L` Scene Contents list now closes the list, makes that object the
+active carried selection, and enters Move mode through the same path as the existing **Pick Up**
+button. **Go To** remains a separate camera-only action that leaves the list open. The List hint,
+README, and user manual describe the distinction. CSC remains version 1.0.5.
+
+#### CSC 1.0.5 Break Apart restores navmesh authoring — 2026-08-31
+
+**Break Apart** now reconstructs embedded Cutout, Add Area, and Elevated Navmesh authoring alongside
+the child objects. `PrefabBreakApartService` composes every marker through the composite's complete
+position/rotation/scale hierarchy and restores project-space cutout corners, requirement boundaries,
+and closed elevated outlines. The transaction adds that authoring only after every child object has
+instantiated successfully, so a failed expansion still leaves both the original object and project
+navmesh data unchanged.
+
+Future **Export as Prefab** files carry CSC-only `csc_navrequired` boundary markers for Add Area data,
+plus `csc_source_id`/`csc_owner_id` links that reconnect one or more cutouts to their newly created
+child after expansion. Older exports still restore the cutout and elevated geometry they contain;
+because they lack ownership IDs, their cutouts become independent bakeable project areas. Unknown
+`csc_nav*`/`hsr_nav*` groups count as unsupported and prevent partial destructive expansion. The user
+manual, integration guide, README, and shared scene-authoring guide describe the behavior. CSC remains
+version 1.0.5 and no live module was overwritten.
+
+#### CSC 1.0.5 texture override verification — 2026-09-01
+
+`TextureOverrideApplicator` now verifies the material that the mesh actually retains after
+`Mesh.SetMaterial`, rather than verifying only the temporary copied material. This closes a false-success
+path where CSC could report a PNG as applied while the engine had silently kept the original mesh material.
+The trace now records the active material name, whether the native material assignment succeeded, and the
+actual DiffuseMap/DiffuseMap2 readback. This source change is built locally but has not been deployed; the
+next in-game texture assignment should either visibly update or report a concrete engine-retention failure
+instead of claiming success without evidence.
+
+#### Shared documentation refresh — 2026-09-01
+
+The reusable texture-assignment lesson is now recorded in `F:\Bannerlord Mods\docs\runtime_materials.md`
+and `F:\Bannerlord Mods\docs\lessons_learned.md`: verify the material returned by `mesh.GetMaterial()`
+after `SetMaterial`, then verify its active diffuse slots. A valid detached material copy is not proof
+that Bannerlord replaced the material being rendered. `docs\navmesh.md` was reviewed and already carries
+the current shared-corner, physical-XYZ, independent-fallback, gatehouse-tunnel, landing-width, and
+follower-throughput guidance, so its review date was advanced without duplicating those sections.
+
+#### CSC 1.0.5 Elevated Navmesh Scene Contents tab — 2026-09-02
+
+The CSC `L` **Scene Contents** panel now has separate **Objects** and **Elevated Navmesh** tabs.
+The elevated tab is an inspection view: it lists every saved elevated area/segment, whether it is
+closed or still being drafted, and its saved perimeter corners nested underneath with exact X/Y/Z
+coordinates. It also reads older two-rail project data so legacy saved scenes remain inspectable.
+Editing remains in **Add Elevated Navmesh** mode; the list deliberately does not risk changing an
+area by accident. The outliner XML was checked as well-formed and the Release/x64 CSC build succeeds
+with 0 errors (31 pre-existing nullable warnings). This build has not been deployed to the live game.
+
+#### CSC 1.0.5 In-world elevated perimeter numbering — 2026-09-02
+
+Modern elevated-navmesh outlines now render one-based perimeter numbers above every
+corner. The digits are camera-facing seven-segment marker geometry, rather than
+debug text that is invisible in retail missions. The numbers exactly match the
+`L` → **Elevated Navmesh** segment/node list; the selected corner uses the
+selected blue colour. Legacy two-rail data remains labelled as Left/Right in the
+list rather than receiving ambiguous perimeter numbers. README updated. Release
+x64 build passed with 0 errors (31 existing nullable warnings); not deployed.
+
+#### CSC 1.0.5 Elevated-node label/readback improvements — 2026-09-02
+
+Elevated-outline node numbers are now rendered as larger high-contrast marker geometry, raised
+above the authored overlay and laid flat in the world X/Y plane. This prevents the former
+camera-facing glyphs becoming edge-on in normal RTS/third-person editing views. The `L` →
+**Elevated Navmesh** tab now also supports a double-click on a saved perimeter-corner row: it
+closes the list, enters **Add Elevated Navmesh**, and selects that exact node so the next normal
+placement click moves it. This routes the list action through the same selected-point path as a
+world click; it does not create a separate editing model. Legacy two-rail records remain listed
+as Left/Right and can be selected the same way. Build verification is pending after this change.
+
+#### CSC 1.0.5 object transform panel — 2026-09-03
+
+The first in-world ring experiment successfully selected an axis but its RMB drag was not dependable
+in live missions, so it has been replaced rather than treated as a user-training issue. `L` →
+**Scene Contents** → **Transform** now opens a compact, non-modal right-side panel with exact
+X/Pitch, Y/Roll, and Z/Yaw degree fields plus coloured `-` / `+` controls and a configurable step.
+The familiar red, green, and blue in-world rings remain as a spatial axis reference, and left-clicking
+one still identifies that axis in the editor status. The panel only claims mouse buttons when the
+cursor is physically over the panel; outside it, the editor camera and normal scene navigation remain
+live for alignment. `\` or **Done** exits transform mode. This is based on the passive Gauntlet input
+claim pattern used by Illegitimate Children rather than a full-screen modal layer.
+
+README and outliner wording now describe the panel, not the retired RMB-drag behaviour. The Release/x64
+build succeeds with 0 errors (31 existing nullable warnings); it has **not** been deployed or live-tested
+yet. The immediate test is: select an object in `L`, choose Transform, enter an exact value and use each
+axis button, then move the camera while the pointer is outside the right-side panel.
+
+#### CSC 1.0.5 texture overrides target mesh surfaces — 2026-09-03
+
+The first texture UI grouped all meshes by their material resource name. That is unsafe on ordinary
+Bannerlord assets because a roof, walls, and trim can share a single material: applying a picture PNG
+to one named material repainted every one of those meshes and produced apparently broken lighting and
+shadows. The picker now enumerates actual mesh surfaces (`Surface 1: material_name`, etc.) and writes a
+stable traversal `MeshIndex` with the material name. New overrides affect only that surface; the baker
+also verifies the saved surface still names the expected material before applying, so a changed prefab
+cannot silently paint a different mesh. Existing project and imported-manifest overrides retain
+`MeshIndex = -1` and therefore keep the old material-wide behavior for backwards compatibility.
+
+This does not make arbitrary runtime PNGs unlit: the source material's shader, normal/specular maps,
+UVs, and baked-lighting assumptions are deliberately preserved. Use a dedicated simple panel/frame for
+poster-style artwork rather than a whole building surface. README and the shared runtime-material notes
+now document that boundary. Release/x64 build succeeds with 0 errors (31 existing nullable warnings);
+no game deployment was performed.
+
+#### CSC 1.0.5 texture panel control layout — 2026-09-05
+
+The texture panel acquired alpha, alpha-cutoff, and blend controls after its original fixed
+520px dialog was designed. Those rows were being drawn beyond the popup frame. The popup is
+now 840px tall, keeping the full surface/image/alpha/cutoff/blend/action workflow inside the
+framed dialog at normal desktop resolutions. Release/x64 build succeeds with 0 warnings and
+0 errors; it has not been deployed or live-tested.
+
+#### CSC 1.0.5 asset-picker live prefab preview — 2026-09-05
+
+The CSC asset picker now uses three columns: the filtered asset list, its authored details, and
+a live 3D preview of the selected prefab. The preview is a `SceneTextureProvider` backed by a
+small private scene, never the active editor mission. Its prefab is instantiated inertly (physics
+off and no interaction with the editor scene), so browsing a scripted asset cannot run its normal
+mission behavior or affect authored content. The UI provider owns a valid empty scene from its
+constructor so Gauntlet's deferred texture sizing cannot hand a null scene to its tableau. The
+borrowed stock scene contributes only the camera script and light rig; its scenery is hidden.
+
+Drag within the preview column to turn the selected asset, and scroll while over that column to
+zoom. The list's ordinary mouse wheel behaviour is unchanged. The picker grows to 1680px wide so
+the new column does not crowd the existing search/list/detail workflow. Release/x64 build succeeds
+with 0 errors (31 existing nullable warnings); it has not been deployed or live-tested.
+
+#### CSC 1.0.5 transform-panel exit and presentation — 2026-09-05
+
+The retired in-world transform rings are no longer rendered or used for selection; transform is now
+entirely the exact right-side panel. Its status/HUD and panel help no longer describe ring clicks or
+RMB dragging. The panel's former 490px root was shorter than its 536px of controls, which put the
+visible **Done** button outside its own input hit rectangle. It is now 560px tall, so Done is inside
+the clickable panel. Escape also closes through either the Gauntlet layer input or raw mission input,
+covering RTS and attached camera modes. Release/x64 build succeeds with 0 errors (31 existing nullable
+warnings); it has not been deployed or live-tested.
+
+#### CSC 1.0.5 RMB held-object rotation input unification — 2026-09-06
+
+RMB object rotation previously mixed two input paths. The combat-suppression layer intentionally
+removes mouse buttons from the scene-layer input in attached edit cameras, while the camera-hold and
+RTS placement-ray code still checked only that blocked source. The result was exactly the observed
+split behavior: attached camera movement continued during a valid raw RMB rotation, while RTS could
+keep refreshing the placement ray and lose the drag delta through a transient layer owner.
+
+Held-state checks now accept either the scene-layer or raw RMB path. In attached edit cameras the
+camera's complete RMB-down frame is captured and restored after the native camera tick (camera frame,
+mission frame, scene view, bearing, and elevation), while the object continues receiving the mouse
+delta. RTS uses the same raw-button held state to freeze the placement ray and falls back to the
+mission-logic raw mouse delta if its scene layer reports zero. The attached-frame hold is explicitly
+limited to active CSC editing, so normal gameplay RMB remains untouched. Release/x64 build succeeds
+with 0 errors (32 existing nullable warnings); it has not been deployed or live-tested.

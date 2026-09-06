@@ -91,6 +91,7 @@ namespace CustomSceneCreator.IO {
             }
 
             int cutoutMarkers = AppendNavMeshCutoutMarkers(sb, project, anchor, "      ");
+            int addedAreas = AppendRequiredNavMeshMarkers(sb, project, anchor, "      ");
             int elevatedRoutes = AppendElevatedNavMeshMarkers(sb, project, anchor, "      ");
 
             sb.AppendLine("    </children>");
@@ -112,6 +113,8 @@ namespace CustomSceneCreator.IO {
             try {
                 IOFile.WriteAllText(
                     IOPath.Combine(Editing.ProjectSerializer.PrefabExportsPath, name + ".xml"), xml, Encoding.UTF8);
+                TextureOverrideManifestExporter.Write(project, name, "Prefab",
+                    Editing.ProjectSerializer.PrefabExportsPath);
             } catch (Exception ex) {
                 TraceLogger.Write(nameof(SceneExporter), $"Documents copy failed: {ex.Message}");
             }
@@ -132,6 +135,7 @@ namespace CustomSceneCreator.IO {
                 Path = path,
                 Message = $"Prefab '{name}' exported ({project.Entities.Count - skipped.Count} parts)"
                           + (cutoutMarkers > 0 ? $" with {cutoutMarkers} cutout marker(s)" : "")
+                          + (addedAreas > 0 ? $" and {addedAreas} added navmesh area(s)" : "")
                           + (elevatedRoutes > 0 ? $" and {elevatedRoutes} elevated route(s) attached" : "") + "." +
                           note + " Listed under 'My Prefabs'; restart the game to place it.",
             };
@@ -162,10 +166,41 @@ namespace CustomSceneCreator.IO {
                 if (width < 0.05f || depth < 0.05f) continue;
                 float yaw = MathF.Atan2(b.y - a.y, b.x - a.x);
 
-                sb.AppendLine($"{indent}<game_entity name=\"hsr_navcut\" old_prefab_name=\"\">");
+                sb.AppendLine($"{indent}<game_entity name=\"hsr_navcut\" old_prefab_name=\"\" "
+                              + $"csc_clearance=\"{F(cutout.Clearance)}\" "
+                              + $"csc_owner_id=\"{Escape(cutout.EntityId ?? "")}\">");
                 sb.AppendLine($"{indent}  <transform position=\"{F(centre.x)}, {F(centre.y)}, 0.000\" "
                               + $"rotation_euler=\"0.000, 0.000, {F(yaw)}\" "
                               + $"scale=\"{F(width)}, {F(depth)}, 1.000\"/>");
+                sb.AppendLine($"{indent}</game_entity>");
+                written++;
+            }
+            return written;
+        }
+
+        /// <summary>
+        /// Carries editor-authored ground additions with a reusable prefab. Homesteads does not
+        /// consume this CSC-only marker; it exists so Break Apart can restore the editable area.
+        /// </summary>
+        private static int AppendRequiredNavMeshMarkers(StringBuilder sb, Editing.SceneProject project,
+                                                        Vec3 anchor, string indent) {
+            if (project.NavMeshRequirements == null) return 0;
+            int written = 0;
+            foreach (Editing.ProjectNavMeshRequirement area in project.NavMeshRequirements) {
+                if (area?.Pos == null || area.Pos.Length < 3 ||
+                    area.Boundary == null || area.Boundary.Length < 9) continue;
+                Vec3 center = new Vec3(area.Pos[0], area.Pos[1], area.Pos[2]);
+                sb.AppendLine($"{indent}<game_entity name=\"csc_navrequired\" old_prefab_name=\"\">");
+                Vec3 localCenter = center - anchor;
+                sb.AppendLine($"{indent}  <transform position=\"{F(localCenter.x)}, {F(localCenter.y)}, {F(localCenter.z)}\"/>");
+                sb.AppendLine($"{indent}  <children>");
+                for (int i = 0; i + 2 < area.Boundary.Length; i += 3) {
+                    Vec3 point = new Vec3(area.Boundary[i], area.Boundary[i + 1], area.Boundary[i + 2]) - center;
+                    sb.AppendLine($"{indent}    <game_entity name=\"csc_navpoint\" old_prefab_name=\"\">");
+                    sb.AppendLine($"{indent}      <transform position=\"{F(point.x)}, {F(point.y)}, {F(point.z)}\"/>");
+                    sb.AppendLine($"{indent}    </game_entity>");
+                }
+                sb.AppendLine($"{indent}  </children>");
                 sb.AppendLine($"{indent}</game_entity>");
                 written++;
             }
@@ -227,6 +262,8 @@ namespace CustomSceneCreator.IO {
             string path = IOPath.Combine(
                 Editing.ProjectSerializer.SceneExportsPath, name + ".scene_fragment.xml");
             IOFile.WriteAllText(path, sb.ToString(), Encoding.UTF8);
+            int textureOverrides = TextureOverrideManifestExporter.Write(project, name, "SceneFragment",
+                Editing.ProjectSerializer.SceneExportsPath);
 
             if ((project.NavMeshCutouts != null && project.NavMeshCutouts.Count > 0)
                 || (project.NavMeshRequirements != null && project.NavMeshRequirements.Count > 0)
@@ -238,7 +275,8 @@ namespace CustomSceneCreator.IO {
             return new ExportResult {
                 Success = true,
                 Path = path,
-                Message = $"Scene fragment '{name}' exported ({project.Entities.Count} entities).",
+                Message = $"Scene fragment '{name}' exported ({project.Entities.Count} entities)" +
+                          (textureOverrides > 0 ? $" with {textureOverrides} portable texture override(s)." : "."),
             };
         }
 
@@ -275,6 +313,8 @@ namespace CustomSceneCreator.IO {
             string path = IOPath.Combine(Editing.ProjectSerializer.TemplateExportsPath, name + ".json");
             IOFile.WriteAllText(path, Newtonsoft.Json.JsonConvert.SerializeObject(copy,
                 Newtonsoft.Json.Formatting.Indented), Encoding.UTF8);
+            int textureOverrides = TextureOverrideManifestExporter.Write(project, name, "Template",
+                Editing.ProjectSerializer.TemplateExportsPath);
 
             // Listed straight away - nothing has to be registered with the engine first.
             Catalog.PackCatalog.Invalidate();
@@ -284,7 +324,8 @@ namespace CustomSceneCreator.IO {
             return new ExportResult {
                 Success = true,
                 Path = path,
-                Message = $"Template '{name}' exported ({project.Entities.Count} pieces). " +
+                Message = $"Template '{name}' exported ({project.Entities.Count} pieces" +
+                          (textureOverrides > 0 ? $", {textureOverrides} texture override(s)" : "") + "). " +
                           "It is in the picker under 'My Templates' now - no restart needed.",
             };
         }
@@ -303,11 +344,14 @@ namespace CustomSceneCreator.IO {
             Placeable? placeable = PlaceableRegistry.Find(entity.Prefab);
 
             Vec3 position = new Vec3(entity.Pos[0], entity.Pos[1], entity.Pos[2]) - anchor;
-            Vec3 euler = entity.To().Rotation.GetEulerAngles();
+            PlacedEntity placed = entity.To();
+            Vec3 euler = placed.Rotation.GetEulerAngles();
+            Vec3 scale = placed.Scale;
 
             string transform =
                 $"<transform position=\"{F(position.x)}, {F(position.y)}, {F(position.z)}\" " +
-                $"rotation_euler=\"{F(euler.x)}, {F(euler.y)}, {F(euler.z)}\"/>";
+                $"rotation_euler=\"{F(euler.x)}, {F(euler.y)}, {F(euler.z)}\" " +
+                $"scale=\"{F(scale.x)}, {F(scale.y)}, {F(scale.z)}\"/>";
 
             bool isMarker = placeable != null && placeable.ExportName.Length > 0;
             if (isMarker) {
@@ -328,7 +372,7 @@ namespace CustomSceneCreator.IO {
                 if (definition != null) {
                     counters.TryGetValue(entity.Prefab, out int n);
                     counters[entity.Prefab] = ++n;
-                    PrefabInliner.Append(sb, definition, entity.Prefab, transform, indent, n);
+                    PrefabInliner.Append(sb, definition, entity.Prefab, transform, indent, n, entity.Id ?? "");
                 } else {
                     // SKIPPED, not written as a reference.
                     //

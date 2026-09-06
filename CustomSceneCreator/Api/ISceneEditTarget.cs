@@ -21,6 +21,30 @@ namespace CustomSceneCreator.Api {
         };
     }
 
+    /// <summary>A runtime PNG applied to one mesh surface on a placed object.</summary>
+    public class TextureOverride {
+        public string Image = "";
+        public string Material = "";
+        /// <summary>
+        /// Stable traversal index of the target mesh. -1 is the legacy material-wide form used by
+        /// projects made before surface selection existed; it intentionally still affects every
+        /// mesh which names <see cref="Material"/>.
+        /// </summary>
+        public int MeshIndex = -1;
+        /// <summary>Value forced into every alpha byte of the image, 0-255, or -1 to keep the
+        /// PNG's own alpha. What that channel does depends on the target material - see
+        /// TextureOverrideApplicator.DescribeMaterial.</summary>
+        public int Alpha = -1;
+
+        /// <summary>Alpha-test cutoff 0-100, or -1 to leave the material's own value. Pixels below
+        /// the cutoff are discarded, which is how cut-out foliage and banners are drawn.</summary>
+        public int AlphaCutoff = -1;
+
+        /// <summary>MBAlphaBlendMode as an int, or -1 to leave the material's own mode.</summary>
+        public int BlendMode = -1;
+        public TextureOverride Clone() => new TextureOverride { Image = Image, Material = Material, MeshIndex = MeshIndex, Alpha = Alpha, AlphaCutoff = AlphaCutoff, BlendMode = BlendMode };
+    }
+
     /// <summary>One placed object: what it is, and where it sits.</summary>
     public class PlacedEntity {
         public string PrefabName = "";
@@ -28,6 +52,12 @@ namespace CustomSceneCreator.Api {
         /// <summary>Full 3x3 rotation. Kept as a matrix rather than Euler angles because snapped and
         /// tilted objects do not survive a round trip through Euler without drifting.</summary>
         public Mat3 Rotation = Mat3.Identity;
+
+        /// <summary>
+        /// Local scale applied to the placed prefab root. Kept separate from Rotation so reopening
+        /// the list and editing an angle cannot compound scale into the rotation basis.
+        /// </summary>
+        public Vec3 Scale = new Vec3(1f, 1f, 1f);
 
         /// <summary>Stable identity, needed by scripts whose variables reference other entities -
         /// AnimationPoint's PairEntity holds a GUID of its partner. Assigned on placement.</summary>
@@ -46,6 +76,9 @@ namespace CustomSceneCreator.Api {
 
         /// <summary>Scripts attached to this object. Written out on export.</summary>
         public List<AttachedScript> Scripts = new();
+
+        /// <summary>Per-surface runtime PNG replacements.</summary>
+        public List<TextureOverride> TextureOverrides = new();
 
         /// <summary>The live entity in the scene, when there is one. Not persisted.</summary>
         public TaleWorlds.Engine.GameEntity? SceneEntity;

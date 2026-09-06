@@ -123,9 +123,12 @@ namespace CustomSceneCreator.UI {
         }
 
         [DataSourceProperty] public bool HasSelection => _selected != null;
+        [DataSourceProperty] public bool NoSelection => _selected == null;
 
         [DataSourceProperty] public string DetailName => _selected?.DisplayName ?? "";
         [DataSourceProperty] public string DetailPrefab => _selected != null ? _selected.PrefabName : "";
+        /// <summary>The selected prefab, handed to the preview provider by the mission view.</summary>
+        [DataSourceProperty] public string PreviewPrefabName => _selected?.PrefabName ?? "";
 
         /// <summary>
         /// The info pane. Answers what a scene author actually asks of an asset - can I walk into it,
@@ -247,14 +250,29 @@ namespace CustomSceneCreator.UI {
             if (category != AllCategories) items = items.Where(p => p.Category == category);
 
             if (IsSearching) {
-                string q = _searchText.Trim();
-                items = items.Where(p =>
-                    p.PrefabName.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    p.DisplayName.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    p.Tags.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0);
+                string[] terms = _searchText.Split(
+                    new[] { ' ', '\t', '\r', '\n' },
+                    StringSplitOptions.RemoveEmptyEntries);
+                items = items.Where(p => MatchesAllTerms(p, terms));
             }
 
             return items.OrderBy(p => p.DisplayName);
+        }
+
+        /// <summary>
+        /// Treats whitespace as an unordered wildcard between words. Each word must occur somewhere
+        /// in the asset's visible name, internal prefab name, or tags, but the words may appear in
+        /// any order and may be split across those fields.
+        /// </summary>
+        private static bool MatchesAllTerms(Placeable placeable, IEnumerable<string> terms) {
+            string searchable = string.Join(" ", new[] {
+                placeable.DisplayName ?? "",
+                placeable.PrefabName ?? "",
+                placeable.Tags ?? "",
+            });
+
+            return terms.All(term =>
+                searchable.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         private void RefreshList() {
@@ -291,8 +309,10 @@ namespace CustomSceneCreator.UI {
             _measuredSize = Measure(placeable);
 
             OnPropertyChangedWithValue(HasSelection, nameof(HasSelection));
+            OnPropertyChangedWithValue(NoSelection, nameof(NoSelection));
             OnPropertyChangedWithValue(DetailName, nameof(DetailName));
             OnPropertyChangedWithValue(DetailPrefab, nameof(DetailPrefab));
+            OnPropertyChangedWithValue(PreviewPrefabName, nameof(PreviewPrefabName));
             OnPropertyChangedWithValue(DetailBody, nameof(DetailBody));
         }
 

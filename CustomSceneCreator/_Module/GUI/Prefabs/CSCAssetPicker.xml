@@ -2,7 +2,7 @@
   <Window>
     <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="BlankWhiteSquare_9" Color="#000000CC" DoNotPassEventsToChildren="false" DoNotAcceptEvents="false">
       <Children>
-        <Widget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="1260" SuggestedHeight="760" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true">
+        <Widget WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="1680" SuggestedHeight="780" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true">
           <Children>
             <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="StdAssets\Popup\canvas" IsEnabled="false" />
             <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="StdAssets\Popup\canvas_gradient" IsEnabled="false" />
@@ -63,11 +63,13 @@
 
                 <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="22" Text="@ResultCountText" Brush="Popup.Description.Text" HorizontalAlignment="Center" MarginTop="4" DoNotAcceptEvents="true" />
 
-                <!-- List on the left, info pane on the right. -->
+                <!-- Three authoring columns: searchable palette, facts, and a live inert preview.
+                     The preview is a private SceneTextureProvider scene, not an entity in the
+                     edit mission; it therefore cannot run prefab scripts or disturb the scene. -->
                 <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" StackLayout.LayoutMethod="HorizontalLeftToRight" MarginTop="10" MarginBottom="8" DoNotAcceptEvents="true">
                   <Children>
 
-                    <ScrollablePanel WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="700" IsVisible="@IsAssetListVisible" AutoHideScrollBars="true" ClipRect="ClipRect" InnerPanel="ClipRect\InnerPanel" VerticalScrollbar="VerticalScrollbar" MarginRight="18">
+                    <ScrollablePanel WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="560" IsVisible="@IsAssetListVisible" AutoHideScrollBars="true" ClipRect="ClipRect" InnerPanel="ClipRect\InnerPanel" VerticalScrollbar="VerticalScrollbar" MarginRight="14">
                       <Children>
                         <Widget Id="ClipRect" ClipContents="true" WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" MarginRight="20">
                           <Children>
@@ -77,8 +79,8 @@
                                   <Children>
                                     <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" StackLayout.LayoutMethod="HorizontalLeftToRight" MarginLeft="14" MarginRight="14" DoNotAcceptEvents="true">
                                       <Children>
-                                        <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="440" Text="@Name" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
-                                        <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="190" Text="@Note" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                        <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="340" Text="@Name" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                        <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="160" Text="@Note" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                                       </Children>
                                     </ListPanel>
                                   </Children>
@@ -96,7 +98,7 @@
                     </ScrollablePanel>
 
                     <!-- Same region as the asset list; exactly one is visible at a time. -->
-                    <ScrollablePanel WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="700" IsVisible="@IsCategoryListOpen" AutoHideScrollBars="true" ClipRect="CatClipRect" InnerPanel="CatClipRect\CatInnerPanel" VerticalScrollbar="CatScrollbar" MarginRight="18">
+                    <ScrollablePanel WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="560" IsVisible="@IsCategoryListOpen" AutoHideScrollBars="true" ClipRect="CatClipRect" InnerPanel="CatClipRect\CatInnerPanel" VerticalScrollbar="CatScrollbar" MarginRight="14">
                       <Children>
                         <Widget Id="CatClipRect" ClipContents="true" WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" MarginRight="20">
                           <Children>
@@ -106,8 +108,8 @@
                                   <Children>
                                     <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" StackLayout.LayoutMethod="HorizontalLeftToRight" MarginLeft="16" MarginRight="16" DoNotAcceptEvents="true">
                                       <Children>
-                                        <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="460" Text="@Name" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
-                                        <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="140" Text="@CountText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                        <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="360" Text="@Name" Brush="Popup.Button.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                                        <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="120" Text="@CountText" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                                       </Children>
                                     </ListPanel>
                                   </Children>
@@ -124,7 +126,7 @@
                       </Children>
                     </ScrollablePanel>
 
-                    <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="BlankWhiteSquare_9" Color="#0C0C0CDD" DoNotAcceptEvents="true">
+                    <Widget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="330" Sprite="BlankWhiteSquare_9" Color="#0C0C0CDD" MarginRight="14" DoNotAcceptEvents="true">
                       <Children>
                         <ListPanel WidthSizePolicy="StretchToParent" HeightSizePolicy="CoverChildren" StackLayout.LayoutMethod="VerticalTopToBottom" MarginLeft="18" MarginRight="18" MarginTop="16" DoNotAcceptEvents="true">
                           <Children>
@@ -133,6 +135,14 @@
                             <RichTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="CoverChildren" Text="@DetailBody" Brush="Popup.Description.Text" HorizontalAlignment="Left" DoNotAcceptEvents="true" />
                           </Children>
                         </ListPanel>
+                      </Children>
+                    </Widget>
+
+                    <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" Sprite="BlankWhiteSquare_9" Color="#0C0C0CDD" ClipContents="true">
+                      <Children>
+                        <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="28" Text="Preview — drag to rotate, scroll to zoom" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
+                        <TextureWidget Id="PrefabPreviewTexture" WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" MarginLeft="8" MarginRight="8" MarginTop="30" MarginBottom="8" TextureProviderName="CSCPrefabPreviewTextureProvider" DoNotAcceptEvents="true" />
+                        <TextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" IsVisible="@NoSelection" Text="Select an asset to preview it" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                       </Children>
                     </Widget>
 

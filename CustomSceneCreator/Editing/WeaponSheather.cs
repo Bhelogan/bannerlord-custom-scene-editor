@@ -5,14 +5,8 @@ namespace CustomSceneCreator.Editing {
     /// <summary>
     /// Puts the player's weapons away while an edit mode is active, and gives them back afterwards.
     ///
-    /// In the player-attached cameras the left mouse button belongs to the combat system: pressing it
-    /// swings whatever is in hand. There is no engine flag that blocks attacking while leaving
-    /// movement and looking intact - <c>MissionMainAgentController.IsDisabled</c> stops the whole
-    /// control tick, including WASD and mouse-look, which is worse than the problem.
-    ///
-    /// Sheathing is the honest way to get there: with nothing in hand, clicking to place no longer
-    /// swings a sword. It is reversible, it costs one call, and it reads as intentional - the
-    /// character visibly puts their weapon away when you start building.
+    /// The movement-only controller patch prevents combat input. Instant sheathing complements it by
+    /// removing held weapons without playing another character animation as editing starts.
     /// </summary>
     public static class WeaponSheather {
         private static bool _sheathed;
@@ -25,8 +19,8 @@ namespace CustomSceneCreator.Editing {
 
             try {
                 if (editing) {
-                    agent.TryToSheathWeaponInHand(Agent.HandIndex.MainHand, Agent.WeaponWieldActionType.WithAnimation);
-                    agent.TryToSheathWeaponInHand(Agent.HandIndex.OffHand, Agent.WeaponWieldActionType.WithAnimation);
+                    agent.TryToSheathWeaponInHand(Agent.HandIndex.MainHand, Agent.WeaponWieldActionType.Instant);
+                    agent.TryToSheathWeaponInHand(Agent.HandIndex.OffHand, Agent.WeaponWieldActionType.Instant);
                     _sheathed = true;
                 } else {
                     // Deliberately not re-wielding: the game hands weapons back on its own terms, and

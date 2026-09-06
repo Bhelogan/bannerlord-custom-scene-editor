@@ -15,6 +15,8 @@ namespace CustomSceneCreator.Editing {
         private const uint SelectedColor = 0xFFFFD700u;
         private const uint SelectedPointColor = 0xFF1E90FFu;
         private const uint DraftColor = 0xFFFF8C00u;
+        private const uint NumberColor = 0xFFFF00FFu;
+        private const uint SelectedNumberColor = 0xFFFFA500u;
 
         public static bool IsUsable(ProjectNavMeshRamp ramp) =>
             ramp != null && ramp.Left != null && ramp.Right != null
@@ -167,6 +169,14 @@ namespace CustomSceneCreator.Editing {
                 NavMeshVisualMarkers.Show(point + new Vec3(0f, 0f, 0.22f),
                     i == selectedPoint ? SelectedPointColor : color,
                     size: i == selectedPoint ? 0.54f : selected ? 0.42f : 0.32f);
+                // The elevated-area list uses this same one-based perimeter order. A small
+                // floor-flat number makes it possible to identify a physical corner while
+                // authoring or reviewing a complicated stair/wall-walk outline.
+                // Keep the index clear of the thick marker/edge geometry without making it look
+                // detached from its corner on elevated floors and stairs.
+                NavMeshVisualMarkers.ShowNumber(point + new Vec3(0f, 0f, 0.55f), i + 1,
+                    i == selectedPoint ? SelectedNumberColor : NumberColor,
+                    size: i == selectedPoint ? 0.42f : selected ? 0.37f : 0.33f);
                 if (i > 0) ShowRaisedLine(Point(outline, i - 1), point, color, selected ? 0.22f : 0.15f);
             }
             if (closed && count > 2)

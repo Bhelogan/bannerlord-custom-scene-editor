@@ -27,6 +27,12 @@ namespace CustomSceneCreator.Editing {
         public static EditorCameraMode Current { get; private set; } = EditorCameraMode.ThirdPerson;
 
         /// <summary>
+        /// Whether one of CSC's editing tools is active. RTS can also be entered while editing is
+        /// off as a navigation-only free camera; that variant deliberately does not follow terrain.
+        /// </summary>
+        public static bool EditingActive { get; private set; }
+
+        /// <summary>
         /// True once the player has picked a camera themselves. After that the editor stops choosing
         /// for them - an explicit choice should not be silently undone the next time edit mode is
         /// toggled.
@@ -63,9 +69,9 @@ namespace CustomSceneCreator.Editing {
 
             switch (mode) {
                 case EditorCameraMode.Rts:
-                    EditorHud.ShowMessage(
-                        "Camera: RTS. WASD pans, Space/Alt height, Shift+drag rotates, " +
-                        "Shift+WASD flies. Placement follows the cursor.");
+                    EditorHud.ShowMessage("Camera: free RTS. WASD pans at a fixed world height; " +
+                        "Space/Alt changes height, Shift+drag rotates, Shift+WASD flies." +
+                        (EditingActive ? " Placement follows the cursor." : string.Empty));
                     break;
                 case EditorCameraMode.ThirdPerson:
                     EditorHud.ShowMessage("Camera: third person. Placement follows your aim.");
@@ -85,6 +91,7 @@ namespace CustomSceneCreator.Editing {
         /// whether edit mode is on.
         /// </summary>
         public static void FollowEditMode(bool editing) {
+            EditingActive = editing;
             if (_playerChose) return;
 
             EditorCameraMode wanted = editing ? EditorCameraMode.Rts : EditorCameraMode.ThirdPerson;
@@ -98,6 +105,7 @@ namespace CustomSceneCreator.Editing {
         /// </summary>
         public static void Reset() {
             Current = EditorCameraMode.ThirdPerson;
+            EditingActive = false;
             _playerChose = false;
         }
     }

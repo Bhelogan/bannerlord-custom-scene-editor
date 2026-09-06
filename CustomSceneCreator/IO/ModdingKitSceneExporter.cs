@@ -79,6 +79,8 @@ namespace CustomSceneCreator.IO {
                     CopyPublishedScene(source, temporary);
                     WriteDerivedScene(project, source, temporary, sceneId);
                     NavMeshCutoutManifestExporter.WriteIntoFolder(project, temporary);
+                    TextureOverrideManifestExporter.Write(
+                        project, sceneId, "ModdingKitScene", temporary);
                     navmeshNote = BakeExportedNavMesh(project, temporary);
                     WriteHandoffReceipt(project, source, temporary, sceneId, navmeshNote);
 

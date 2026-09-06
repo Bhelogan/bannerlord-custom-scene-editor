@@ -120,6 +120,60 @@ namespace CustomSceneCreator.Editing {
             }
         }
 
+        /// <summary>
+        /// Draws a compact, floor-flat seven-segment number above an authored navmesh point.
+        /// Debug text is deliberately not used: it produces no visible pixels in retail missions.
+        /// The glyph uses the same ordinary marker meshes as the rest of the editor overlay.
+        /// </summary>
+        public static void ShowNumber(Vec3 position, int number, uint color, float size = 0.18f) {
+            if (_scene == null || !position.IsValid || number < 0) return;
+
+            // Keep the label in the world X/Y plane rather than billboarded at the camera.  A
+            // billboard becomes nearly edge-on in the normal RTS/third-person editor views; a
+            // floor-flat label remains legible when looking down at the authored surface.
+            Vec3 right = new Vec3(1f, 0f, 0f);
+            Vec3 up = new Vec3(0f, 1f, 0f);
+
+            string text = number.ToString();
+            float advance = size * 1.24f;
+            Vec3 start = position - right * (advance * (text.Length - 1) * 0.5f);
+            for (int digitIndex = 0; digitIndex < text.Length; digitIndex++) {
+                int digit = text[digitIndex] - '0';
+                if (digit < 0 || digit > 9) continue;
+                DrawDigit(start + right * (advance * digitIndex), right, up, digit, color, size);
+            }
+        }
+
+        private static void DrawDigit(Vec3 centre, Vec3 right, Vec3 up, int digit, uint color, float size) {
+            // top, upper-right, lower-right, bottom, lower-left, upper-left, middle
+            string segments = digit switch {
+                0 => "012345", 1 => "12", 2 => "01346", 3 => "01236", 4 => "1256",
+                5 => "02356", 6 => "023456", 7 => "012", 8 => "0123456", 9 => "012356",
+                _ => ""
+            };
+            float halfWidth = size * 0.46f;
+            float top = size * 0.70f;
+            float mid = 0f;
+            float bottom = -top;
+            float sideInset = size * 0.08f;
+            float lineSize = MathF.Max(0.035f, size * 0.18f);
+
+            foreach (char segment in segments) {
+                (float x1, float y1, float x2, float y2) = segment switch {
+                    '0' => (-halfWidth, top, halfWidth, top),
+                    '1' => (halfWidth, top - sideInset, halfWidth, mid + sideInset),
+                    '2' => (halfWidth, mid - sideInset, halfWidth, bottom + sideInset),
+                    '3' => (-halfWidth, bottom, halfWidth, bottom),
+                    '4' => (-halfWidth, mid - sideInset, -halfWidth, bottom + sideInset),
+                    '5' => (-halfWidth, top - sideInset, -halfWidth, mid + sideInset),
+                    '6' => (-halfWidth, mid, halfWidth, mid),
+                    _ => (0f, 0f, 0f, 0f)
+                };
+                ShowLine(centre + right * x1 + up * y1,
+                    centre + right * x2 + up * y2, color, size: lineSize);
+            }
+        }
+
         private static void HideUnused(List<GameEntity> pool, int used) {
             for (int i = used; i < pool.Count; i++) {
                 try {

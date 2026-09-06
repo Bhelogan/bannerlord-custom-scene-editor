@@ -74,10 +74,17 @@ namespace CustomSceneCreator.Boot {
                 try {
                     string prefab = PlaceableRegistry.ResolveSpawnPrefab(saved.Prefab);
                     if (!GameEntity.PrefabExists(prefab)) { unavailable++; continue; }
-                    MatrixFrame frame = MatrixFrame.Identity; frame.rotation = saved.To().Rotation; frame.origin = saved.To().Position;
+                    CustomSceneCreator.Api.PlacedEntity placed = saved.To();
+                    MatrixFrame frame = MatrixFrame.Identity;
+                    frame.rotation = placed.Rotation;
+                    frame.rotation.ApplyScaleLocal(placed.Scale);
+                    frame.origin = placed.Position;
                     GameEntity entity = GameEntity.Instantiate(Mission.Scene, prefab, frame);
                     PlacedScriptGuard.Strip(entity, prefab); entity.SetGlobalFrame(in frame, true);
                     EnablePhysics(entity);
+                    TextureOverrideApplicator.ApplyAll(entity, placed, out string textureError);
+                    if (textureError.Length > 0)
+                        TraceLogger.Write(nameof(ProjectWalkaroundLogic), $"Texture override on '{saved.Prefab}': {textureError}");
                     restored++;
                 } catch (Exception ex) { TraceLogger.Write(nameof(ProjectWalkaroundLogic), $"Could not restore '{saved.Prefab}': {ex.Message}"); }
             }

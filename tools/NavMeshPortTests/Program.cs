@@ -91,7 +91,7 @@ namespace NavMeshPortTests {
                 // Matching hashes are what prove the C# LZ4 encoder is the same encoder, which is the
                 // only part of the pipeline the game has already accepted output from.
                 NavMeshData source = NavMeshData.Parse(File.ReadAllBytes(args[1]));
-                byte[] encoded = source.Serialize(source.Signature);
+                byte[] encoded = source.Serialize(source.OutputSignature);
                 File.WriteAllBytes(args[2], encoded);
                 Console.WriteLine($"{encoded.Length} bytes  sha256={Sha256(encoded)}");
                 return 0;
@@ -608,7 +608,7 @@ namespace NavMeshPortTests {
             // Optional fourth argument: write the baked file, so a candidate can be dropped into a
             // scene folder and actually loaded by the game. Reasoning about a mesh only goes so far.
             if (args.Length > 3 && report.Changed) {
-                File.WriteAllBytes(args[3], data.Serialize(data.Signature));
+                File.WriteAllBytes(args[3], data.Serialize(data.OutputSignature));
                 Console.WriteLine($"wrote   {args[3]}");
             }
             return report.After.IsStructurallySound ? 0 : 1;
