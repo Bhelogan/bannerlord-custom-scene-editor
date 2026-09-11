@@ -45,6 +45,11 @@ namespace CustomSceneCreator.Editing {
         /// <summary>Held to rotate the held object with horizontal mouse movement.</summary>
         public const InputKey RotateDrag    = InputKey.RightMouseButton;
 
+        /// <summary>In Move mode, makes a carried copy of the placed object under the aim point.
+        /// Kept fixed rather than configurable because it is a direct editor gesture, not a game
+        /// action, and it only runs while the Move tool is active.</summary>
+        public const InputKey Duplicate = InputKey.C;
+
         public static InputKey PrevPlaceable => Settings.KeyBindings.PrevPlaceable;    // [
         public static InputKey NextPlaceable => Settings.KeyBindings.NextPlaceable;   // ]
         public static InputKey NextCategory => Settings.KeyBindings.NextCategory;    // '

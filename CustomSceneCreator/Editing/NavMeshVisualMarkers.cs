@@ -11,10 +11,25 @@ namespace CustomSceneCreator.Editing {
     /// A reusable pool avoids creating/removing hundreds of entities every frame.
     /// </summary>
     internal static class NavMeshVisualMarkers {
-        private const int MaximumPointMarkers = 256;
-        private const int MaximumSegmentMarkers = 512;
+        // These are DISPLAY ceilings, not data limits.
+        //
+        // Nothing the author places is bounded by them: the mark list and the elevated-area records
+        // are plain unbounded Lists and the whole set reaches the baker regardless. What ran out was
+        // the pool of marker entities, and Acquire simply returns null once it is exhausted - so a
+        // point past the ceiling was still saved and still baked, it just stopped being DRAWN. Users
+        // reported this as "it recycles after about 41", which is what invisible-but-present looks
+        // like from the outside.
+        //
+        // A mark ring costs MarkSides (16) segments, so 512 was about 32 rings before elevated
+        // outlines and cutout boxes took their share of the same pool. Raised well past any plausible
+        // authoring session. The pool GROWS LAZILY - Acquire only creates an entity when one is
+        // actually needed - so a higher ceiling costs nothing until it is used, and these are only
+        // ever created while the navmesh editor mode is open.
+        private const int MaximumPointMarkers = 4096;
+        private const int MaximumSegmentMarkers = 8192;
         private const string NormalMaterialName = "plain_green";
         private const string WarningMaterialName = "plain_red";
+        private static bool _reportedExhaustion;
         private static readonly List<GameEntity> PointPool = new();
         private static readonly List<GameEntity> SegmentPool = new();
         private static Scene? _scene;
@@ -106,7 +121,20 @@ namespace CustomSceneCreator.Editing {
         private static GameEntity? Acquire(List<GameEntity> pool, ref int used,
                                            int maximum, string prefab) {
             if (used < pool.Count) return pool[used++];
-            if (_scene == null || pool.Count >= maximum) return null;
+            if (_scene == null) return null;
+            if (pool.Count >= maximum) {
+                // Once per run. Silent truncation is what made the old ceiling look like data loss;
+                // if it is ever hit again the log should say so plainly.
+                if (!_reportedExhaustion) {
+                    _reportedExhaustion = true;
+                    TraceLogger.Write(nameof(NavMeshVisualMarkers),
+                        $"Marker pool exhausted at {maximum} entities - further markers are not DRAWN "
+                      + "this frame. Nothing placed is lost: marks and elevated areas are stored in "
+                      + "full and bake in full. Raise MaximumPointMarkers/MaximumSegmentMarkers if a "
+                      + "scene genuinely needs this many visible at once.");
+                }
+                return null;
+            }
             try {
                 MatrixFrame frame = MatrixFrame.Identity;
                 GameEntity marker = GameEntity.Instantiate(_scene, prefab, frame);

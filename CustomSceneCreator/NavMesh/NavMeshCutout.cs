@@ -102,6 +102,14 @@ namespace CustomSceneCreator.NavMesh {
         /// full, because the reason it failed is what the user needs to see.
         /// </summary>
         public static CutoutPlan Plan(NavMeshData data, Point2[] corners) {
+            return Plan(data, corners, double.NegativeInfinity, double.PositiveInfinity);
+        }
+
+        /// <summary>
+        /// Plans a polygon cutout against only faces intersecting the requested vertical band.
+        /// This is essential when two walkable storeys overlap in XY.
+        /// </summary>
+        public static CutoutPlan Plan(NavMeshData data, Point2[] corners, double minZ, double maxZ) {
             // Any simple polygon, not only a quad. Merged footprints are L-shaped, U-shaped or
             // worse - a fence running round two sides of a yard is the ordinary case - and forcing
             // those back into a rectangle would cut the yard out along with the fence.
@@ -113,6 +121,9 @@ namespace CustomSceneCreator.NavMesh {
                     double.IsNaN(corner.Y) || double.IsInfinity(corner.Y)) {
                     throw new NavMeshFormatException("cutout corners must be finite");
                 }
+            }
+            if (double.IsNaN(minZ) || double.IsNaN(maxZ) || minZ > maxZ) {
+                throw new NavMeshFormatException("the cutout height range is invalid");
             }
 
             var plan = new CutoutPlan { Corners = corners };
@@ -128,6 +139,7 @@ namespace CustomSceneCreator.NavMesh {
             for (int i = 0; i < data.Faces.Count; i++) {
                 NavFace face = data.Faces[i];
                 if (!OverlapsFace(data, face, footprintBounds)) continue;
+                if (!OverlapsHeightBand(data, face, minZ, maxZ)) continue;
 
                 var polygon = new Point2[face.Degree];
                 for (int v = 0; v < face.Degree; v++) {
@@ -214,6 +226,18 @@ namespace CustomSceneCreator.NavMesh {
                 plan.TriangulationAreaError = areaError;
             }
             return plan;
+        }
+
+        private static bool OverlapsHeightBand(NavMeshData data, NavFace face,
+                                               double minZ, double maxZ) {
+            double faceMin = double.PositiveInfinity;
+            double faceMax = double.NegativeInfinity;
+            foreach (uint index in face.Vertices) {
+                double z = data.Vertices[(int)index].Z;
+                faceMin = Math.Min(faceMin, z);
+                faceMax = Math.Max(faceMax, z);
+            }
+            return faceMax >= minZ && faceMin <= maxZ;
         }
 
         /// <summary>

@@ -113,13 +113,21 @@ namespace CustomSceneCreator.Editing {
     /// diffed, handed to the Modding Kit, and eventually consumed by a safe mesh writer.
     /// </summary>
     public class ProjectNavMeshCutout {
+        public string Id = Guid.NewGuid().ToString("B").ToUpperInvariant();
+        public string Label = "Object cutout";
         public string EntityId = "";
         public string Prefab = "";
         public float Clearance = 0.75f;
         public float MinZ;
         public float MaxZ;
-        /// <summary>Four world-space XYZ corners, clockwise, flattened to twelve floats.</summary>
-        public float[] Corners = new float[12];
+        /// <summary>World-space XYZ perimeter corners, flattened to triples.</summary>
+        public float[] Corners = Array.Empty<float>();
+        /// <summary>
+        /// Node-drawn cutouts are height-limited so an upper floor can be removed without also
+        /// deleting walkable ground directly beneath it. Object cutouts retain legacy XY-only behavior.
+        /// </summary>
+        public bool IsFreeform;
+        public bool IsDraft;
         /// <summary>Faces found beneath the footprint when it was last sampled in-game.</summary>
         public List<int> FaceIndices = new();
         public List<int> FaceGroups = new();

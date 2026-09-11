@@ -209,8 +209,9 @@ namespace NavMeshPortTests {
 
             foreach (int index in indices) {
                 JsonElement corners = cutouts[index].GetProperty("Corners");
-                var footprint = new Point2[4];
-                for (int c = 0; c < 4; c++) {
+                int cornerCount = corners.GetArrayLength() / 3;
+                var footprint = new Point2[cornerCount];
+                for (int c = 0; c < cornerCount; c++) {
                     footprint[c] = new Point2(
                         corners[c * 3].GetDouble(), corners[c * 3 + 1].GetDouble());
                 }
@@ -220,7 +221,13 @@ namespace NavMeshPortTests {
                 footprints.Add(footprint);
 
                 try {
-                    CutoutPlan plan = NavMeshCutout.Plan(data, footprint);
+                    bool freeform = cutouts[index].TryGetProperty("IsFreeform", out JsonElement freeformValue)
+                                    && freeformValue.GetBoolean();
+                    double minZ = freeform && cutouts[index].TryGetProperty("MinZ", out JsonElement minValue)
+                        ? minValue.GetDouble() : double.NegativeInfinity;
+                    double maxZ = freeform && cutouts[index].TryGetProperty("MaxZ", out JsonElement maxValue)
+                        ? maxValue.GetDouble() : double.PositiveInfinity;
+                    CutoutPlan plan = NavMeshCutout.Plan(data, footprint, minZ, maxZ);
                     if (!plan.CanApply) {
                         refused++;
                         Console.WriteLine($"  skip  [{index}] {prefab,-28} {plan.BlockingReason}");
@@ -480,6 +487,7 @@ namespace NavMeshPortTests {
 
             if (root.TryGetProperty("NavMeshCutouts", out JsonElement cutouts)) {
                 foreach (JsonElement cutout in cutouts.EnumerateArray()) {
+                    if (cutout.TryGetProperty("IsDraft", out JsonElement draft) && draft.GetBoolean()) continue;
                     if (!cutout.TryGetProperty("Corners", out JsonElement corners)) continue;
                     int count = corners.GetArrayLength() / 3;
                     if (count < 3) continue;
@@ -487,7 +495,21 @@ namespace NavMeshPortTests {
                     for (int c = 0; c < count; c++) {
                         footprint[c] = new Point2(corners[c * 3].GetDouble(), corners[c * 3 + 1].GetDouble());
                     }
-                    request.Cutouts.Add(footprint);
+                    bool freeform = cutout.TryGetProperty("IsFreeform", out JsonElement freeformValue)
+                                    && freeformValue.GetBoolean();
+                    if (freeform) {
+                        request.HeightLimitedCutouts.Add(new NavMeshHeightLimitedCutout {
+                            Label = cutout.TryGetProperty("Label", out JsonElement label)
+                                ? label.GetString() ?? "Drawn cutout" : "Drawn cutout",
+                            Corners = footprint,
+                            MinZ = cutout.TryGetProperty("MinZ", out JsonElement minValue)
+                                ? minValue.GetDouble() : double.NegativeInfinity,
+                            MaxZ = cutout.TryGetProperty("MaxZ", out JsonElement maxValue)
+                                ? maxValue.GetDouble() : double.PositiveInfinity,
+                        });
+                    } else {
+                        request.Cutouts.Add(footprint);
+                    }
                 }
             }
 
@@ -513,7 +535,7 @@ namespace NavMeshPortTests {
             }
 
             NavMeshData data = NavMeshData.Parse(File.ReadAllBytes(args[1]));
-            Console.WriteLine($"{Path.GetFileName(args[2])}: {request.Cutouts.Count} cutout(s), "
+            Console.WriteLine($"{Path.GetFileName(args[2])}: {request.Cutouts.Count + request.HeightLimitedCutouts.Count} cutout(s), "
                               + $"{request.Ramps.Count} elevated area(s) on {data.Faces.Count:N0} faces");
 
             var clock = System.Diagnostics.Stopwatch.StartNew();
@@ -541,13 +563,30 @@ namespace NavMeshPortTests {
             // a reported in-game bake reproducible without hand-copying its authoring data.
             if (!withoutCutouts && TryGetArray(root, "Cutouts", "NavMeshCutouts", out JsonElement cutouts)) {
                 foreach (JsonElement cutout in cutouts.EnumerateArray()) {
+                    if (cutout.TryGetProperty("IsDraft", out JsonElement draft) && draft.GetBoolean()) continue;
                     JsonElement corners = cutout.GetProperty("Corners");
-                    var footprint = new Point2[4];
-                    for (int c = 0; c < 4; c++) {
+                    int cornerCount = corners.GetArrayLength() / 3;
+                    if (cornerCount < 3) continue;
+                    var footprint = new Point2[cornerCount];
+                    for (int c = 0; c < cornerCount; c++) {
                         footprint[c] = new Point2(
                             corners[c * 3].GetDouble(), corners[c * 3 + 1].GetDouble());
                     }
-                    request.Cutouts.Add(footprint);
+                    bool freeform = cutout.TryGetProperty("IsFreeform", out JsonElement freeformValue)
+                                    && freeformValue.GetBoolean();
+                    if (freeform) {
+                        request.HeightLimitedCutouts.Add(new NavMeshHeightLimitedCutout {
+                            Label = cutout.TryGetProperty("Label", out JsonElement label)
+                                ? label.GetString() ?? "Drawn cutout" : "Drawn cutout",
+                            Corners = footprint,
+                            MinZ = cutout.TryGetProperty("MinZ", out JsonElement minValue)
+                                ? minValue.GetDouble() : double.NegativeInfinity,
+                            MaxZ = cutout.TryGetProperty("MaxZ", out JsonElement maxValue)
+                                ? maxValue.GetDouble() : double.PositiveInfinity,
+                        });
+                    } else {
+                        request.Cutouts.Add(footprint);
+                    }
                 }
             }
             if (TryGetArray(root, "RequiredAreas", "NavMeshRequirements", out JsonElement areas)) {

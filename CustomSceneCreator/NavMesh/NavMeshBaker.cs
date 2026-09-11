@@ -9,6 +9,9 @@ namespace CustomSceneCreator.NavMesh {
         /// <summary>Four-corner footprints to remove walkable ground from, one per placed object.</summary>
         public List<Point2[]> Cutouts = new List<Point2[]>();
 
+        /// <summary>Node-drawn polygon holes constrained to the clicked surface's height band.</summary>
+        public List<NavMeshHeightLimitedCutout> HeightLimitedCutouts = new List<NavMeshHeightLimitedCutout>();
+
         /// <summary>Areas the author marked as needing walkable ground.</summary>
         public List<NavMeshRequiredArea> Additions = new List<NavMeshRequiredArea>();
 
@@ -38,7 +41,15 @@ namespace CustomSceneCreator.NavMesh {
         /// </summary>
         public Action<int, int>? Progress;
 
-        public bool HasWork => Cutouts.Count > 0 || Additions.Count > 0 || Ramps.Count > 0;
+        public bool HasWork => Cutouts.Count > 0 || HeightLimitedCutouts.Count > 0
+            || Additions.Count > 0 || Ramps.Count > 0;
+    }
+
+    public class NavMeshHeightLimitedCutout {
+        public string Label = "Drawn cutout";
+        public Point2[] Corners = Array.Empty<Point2>();
+        public double MinZ;
+        public double MaxZ;
     }
 
     /// <summary>What one bake did, in the words the user should see.</summary>
@@ -213,6 +224,30 @@ namespace CustomSceneCreator.NavMesh {
             }
             ReportProgress(42);
 
+            // Hand-drawn cutouts run separately from flat object footprints. Merging them in XY
+            // would discard their height bands and could cut the ground floor underneath an upper
+            // storey. Each polygon is therefore a small independent transaction.
+            if (request.HeightLimitedCutouts.Count > 0) {
+                for (int i = 0; i < request.HeightLimitedCutouts.Count; i++) {
+                    NavMeshHeightLimitedCutout cutout = request.HeightLimitedCutouts[i];
+                    NavMeshData attempt = working.Clone();
+                    try {
+                        CutoutPlan plan = NavMeshCutout.Plan(attempt, cutout.Corners,
+                            cutout.MinZ, cutout.MaxZ);
+                        CutoutResult result = NavMeshCutout.Apply(attempt, plan);
+                        working = attempt;
+                        report.CutoutsApplied++;
+                        report.Add($"Cut out {cutout.Label}: {result.Describe()}");
+                    } catch (Exception ex) {
+                        report.CutoutsSkipped++;
+                        report.Add($"Skipped {cutout.Label}: {ex.Message}");
+                    }
+                    ReportProgress(42 + (int)Math.Round(8.0 * (i + 1)
+                        / Math.Max(1, request.HeightLimitedCutouts.Count)));
+                }
+            }
+            ReportProgress(50);
+
             // Additions run as one pass because overlapping marks are meant to merge into a single
             // surface; splitting them per mark would produce patches that meet without joining.
             if (request.Additions.Count > 0) {
@@ -246,15 +281,69 @@ namespace CustomSceneCreator.NavMesh {
                 // into that one transaction meant one bad player outline rolled back valid gatehouse,
                 // stair and wall-walk networks elsewhere in the settlement.
                 List<List<NavMeshRampPath>> groups = ClusterRamps(request.Ramps);
+
+                // Structures that contain a slope are built first.
+                //
+                // A wall walk usually reaches the rest of the world through its stair, and a stair
+                // never needs the walk to exist first - so building a deck before its stair asks it
+                // to join a seam that has not been opened yet, and it is skipped for having "no lower
+                // landing". Clustering does not always put the two together (a stair and the deck it
+                // serves can land in separate spatial groups), so the order has to be stated here.
+                groups.Sort((a, b) => HasSlope(b).CompareTo(HasSlope(a)));
                 int completed = 0;
                 for (int groupIndex = 0; groupIndex < groups.Count; groupIndex++) {
                     List<NavMeshRampPath> group = groups[groupIndex];
-                    NavMeshData attempt = working.Clone();
                     int progressBase = completed;
+                    Action<int, int> progress = (done, total) => ReportProgress(55 + (int)Math.Round(
+                        38.0 * (progressBase + done) / Math.Max(1, request.Ramps.Count)));
+
+                    // Decks that share a height are unioned before building, so a corner arrives as
+                    // one polygon rather than two rectangles the joiner must find a shared edge
+                    // between. See MergeCoplanarDecks.
+                    var notes = new List<string>();
+                    List<NavMeshRampPath> merged = MergeCoplanarDecks(group, notes);
+
+                    NavMeshData attempt = null;
+                    RampResult result = null;
+
+                    // Merging is an attempt, never a commitment, and it is kept ONLY when it builds
+                    // the whole structure cleanly.
+                    //
+                    // "Better of the two" is the obvious rule and it is wrong: the authored path has
+                    // a salvage pass behind it that rebuilds a failed group one outline at a time, so
+                    // an authored attempt that throws can still end up with more walkable deck than a
+                    // merged attempt that merely limps. Measured on an outside corner, preferring the
+                    // limping merge cost two built ramps. Anything short of a clean merge therefore
+                    // falls back to the untouched behaviour below, salvage included.
+                    if (merged.Count != group.Count) {
+                        NavMeshData mergedAttempt = working.Clone();
+                        try {
+                            RampResult mergedResult = NavMeshRamp.Apply(mergedAttempt, merged, progress);
+                            if (mergedResult.RampsSkipped == 0 && mergedResult.RampsBuilt > 0) {
+                                attempt = mergedAttempt;
+                                result = mergedResult;
+                            }
+                        } catch {
+                            // Fall through to the authored outlines.
+                        }
+                        if (attempt == null) notes.Clear();
+                    }
+
+                    if (attempt != null) {
+                        working = attempt;
+                        report.RampsBuilt += result.RampsBuilt;
+                        report.RampsSkipped += result.RampsSkipped;
+                        foreach (string note in notes) report.Add(note);
+                        report.Add($"Built elevated group {groupIndex + 1}/{groups.Count}: {result.Describe()}");
+                        completed += group.Count;
+                        ReportProgress(55 + (int)Math.Round(
+                            38.0 * completed / Math.Max(1, request.Ramps.Count)));
+                        continue;
+                    }
+
+                    attempt = working.Clone();
                     try {
-                        RampResult result = NavMeshRamp.Apply(attempt, group,
-                            (done, total) => ReportProgress(55 + (int)Math.Round(
-                                38.0 * (progressBase + done) / Math.Max(1, request.Ramps.Count))));
+                        result = NavMeshRamp.Apply(attempt, group, progress);
                         working = attempt;
                         report.RampsBuilt += result.RampsBuilt;
                         report.RampsSkipped += result.RampsSkipped;
@@ -264,6 +353,7 @@ namespace CustomSceneCreator.NavMesh {
                             report.Add("Skipped ramp - " + skipped);
                         }
                     } catch (Exception ex) {
+
                         report.Add($"Skipped elevated group {groupIndex + 1}/{groups.Count} "
                                    + $"({DescribeRampGroup(group)}): {ex.Message}");
 
@@ -345,6 +435,196 @@ namespace CustomSceneCreator.NavMesh {
         /// and decks stay together so they can share seams; a route on the other side of a homestead
         /// cannot make that structure's successful transaction roll back.
         /// </summary>
+        /// <summary>
+        /// The largest top-to-bottom spread an outline may have and still count as a FLAT deck, in
+        /// metres. A wall walk measures about 0.08; the stair beside it on the same prefab spans over
+        /// ten. The two cases are nowhere near each other, so this only has to sit somewhere sensible
+        /// in between - it is not a tuned figure.
+        /// </summary>
+        private const double FlatDeckSpan = 0.60;
+
+        /// <summary>How far apart two flat decks' heights may be and still be treated as one surface.</summary>
+        private const double DeckHeightBand = 0.75;
+
+        /// <summary>
+        /// How close two decks must be to be unioned, in metres.
+        ///
+        /// Much tighter than the 1.5 m used for building footprints, and deliberately so. Cutouts are
+        /// holes, and a hole that is slightly too generous costs nothing; a deck is a surface agents
+        /// stand on, and the union is traced on a 0.2 m grid, so every metre of reach is a metre of
+        /// walkway that might be invented over open air. Decks meeting at a corner touch or overlap
+        /// already, so reaching further buys nothing.
+        /// </summary>
+        private const double DeckMergeSeparation = 0.5;
+
+        /// <summary>
+        /// Unions flat decks that sit at the same height and touch, so the ramp pass sees ONE surface.
+        ///
+        /// <para><b>The problem this solves is corners.</b> Each wall prefab contributes its wall walk
+        /// as a rectangle along its own axis. Run two walls in a line and their end edges are parallel
+        /// and facing, which the joiner stitches happily. Turn a corner and those two end edges are
+        /// PERPENDICULAR - they meet at a point, not along an edge - so the joiner reports "no
+        /// same-height deck edge is close enough" and skips the deck entirely. That is a live report
+        /// of a corner tower with flags on it and no archers, and no amount of careful placement fixes
+        /// it, because the geometry is what is wrong.</para>
+        ///
+        /// <para>Merging turns an L of two rectangles into one L-shaped polygon that COVERS the
+        /// corner, so there is no seam left to stitch. It is the same NavMeshFootprintMerge that
+        /// already unions a cluster of animal pens into one cutout.</para>
+        ///
+        /// <para><b>Height banding is what makes this safe.</b> Cutouts are flat and merge freely;
+        /// decks are not. A wall walk at z 11.4 and the stair climbing to it from z 0.75 must never be
+        /// unioned, or the stair is flattened into the deck and the way up disappears. Only outlines
+        /// that are themselves flat, and within <see cref="DeckHeightBand"/> of each other, are
+        /// considered - everything else passes through untouched.</para>
+        ///
+        /// <para>Nothing here is load-bearing: a merged outline records what it replaced, and the
+        /// salvage pass restores the originals if the union fails to build.</para>
+        /// </summary>
+        private static List<NavMeshRampPath> MergeCoplanarDecks(IList<NavMeshRampPath> ramps,
+                                                                List<string> notes) {
+            var result = new List<NavMeshRampPath>();
+            var flat = new List<NavMeshRampPath>();
+
+            foreach (NavMeshRampPath ramp in ramps) {
+                if (!ramp.HasOutline) { result.Add(ramp); continue; }
+                double low = double.MaxValue, high = double.MinValue;
+                foreach (NavVertex v in ramp.Outline) {
+                    if (v.Z < low) low = v.Z;
+                    if (v.Z > high) high = v.Z;
+                }
+                if (high - low <= FlatDeckSpan) flat.Add(ramp);
+                else result.Add(ramp);            // sloped: a stair or a ramp, left alone
+            }
+            if (flat.Count < 2) { result.AddRange(flat); return result; }
+
+            flat.Sort((a, b) => MeanHeight(a).CompareTo(MeanHeight(b)));
+
+            int merged = 0, consumed = 0;
+            int index = 0;
+            while (index < flat.Count) {
+                // A band runs while consecutive heights stay within tolerance of the previous one, so
+                // a long shallow rampart does not get chopped at an arbitrary absolute height.
+                int end = index + 1;
+                while (end < flat.Count
+                       && MeanHeight(flat[end]) - MeanHeight(flat[end - 1]) <= DeckHeightBand) {
+                    end++;
+                }
+
+                List<NavMeshRampPath> band = flat.GetRange(index, end - index);
+                index = end;
+
+                if (band.Count == 1) { result.Add(band[0]); continue; }
+
+                var outlines = new List<Point2[]>(band.Count);
+                foreach (NavMeshRampPath deck in band) outlines.Add(Flatten(deck.Outline));
+
+                NavMeshFootprintMerge.MergeResult union =
+                    NavMeshFootprintMerge.Merge(outlines, DeckMergeSeparation);
+                if (union.GroupsMerged == 0) { result.AddRange(band); continue; }
+
+                foreach (Point2[] outline in union.Footprints) {
+                    if (!union.FallbackMembers.TryGetValue(outline, out List<Point2[]> members)) {
+                        // Passed through the merge untouched - hand back the ORIGINAL path rather
+                        // than rebuilding one, so its authored heights survive exactly.
+                        result.Add(Original(band, outlines, outline));
+                        continue;
+                    }
+
+                    List<NavMeshRampPath> sources = Sources(band, outlines, members);
+                    var rebuilt = new NavVertex[outline.Length];
+                    for (int i = 0; i < outline.Length; i++) {
+                        rebuilt[i] = new NavVertex((float)outline[i].X, (float)outline[i].Y,
+                                                   NearestHeight(sources, outline[i]));
+                    }
+
+                    var path = new NavMeshRampPath {
+                        Label = $"merged deck ({sources.Count} pieces near {MeanHeight(sources[0]):0.0} m)",
+                        Outline = rebuilt
+                    };
+                    result.Add(path);
+                    merged++;
+                    consumed += sources.Count;
+                }
+            }
+
+            if (merged > 0) {
+                notes.Add($"Combined elevated decks: {consumed} same-height outline(s) became {merged} "
+                          + "surface(s). Wall walks meeting at a corner are now one polygon, so there "
+                          + "is no seam left to join.");
+            }
+            return result;
+        }
+
+        /// <summary>True when any outline in the group climbs - a stair, a ramp, a sloped walkway.</summary>
+        private static int HasSlope(List<NavMeshRampPath> group) {
+            foreach (NavMeshRampPath ramp in group) {
+                if (!ramp.HasOutline) return 1;      // rail-described paths are ramps by definition
+                double low = double.MaxValue, high = double.MinValue;
+                foreach (NavVertex v in ramp.Outline) {
+                    if (v.Z < low) low = v.Z;
+                    if (v.Z > high) high = v.Z;
+                }
+                if (high - low > FlatDeckSpan) return 1;
+            }
+            return 0;
+        }
+
+        private static double MeanHeight(NavMeshRampPath ramp) {
+            if (ramp.Outline.Length == 0) return 0.0;
+            double total = 0.0;
+            foreach (NavVertex v in ramp.Outline) total += v.Z;
+            return total / ramp.Outline.Length;
+        }
+
+        private static Point2[] Flatten(NavVertex[] outline) {
+            var points = new Point2[outline.Length];
+            for (int i = 0; i < outline.Length; i++) points[i] = new Point2(outline[i].X, outline[i].Y);
+            return points;
+        }
+
+        /// <summary>Maps a footprint the merge handed back straight through to the path it came from.</summary>
+        private static NavMeshRampPath Original(List<NavMeshRampPath> band,
+                                                List<Point2[]> outlines, Point2[] footprint) {
+            for (int i = 0; i < outlines.Count; i++) {
+                if (ReferenceEquals(outlines[i], footprint)) return band[i];
+            }
+            return band[0];
+        }
+
+        private static List<NavMeshRampPath> Sources(List<NavMeshRampPath> band,
+                                                     List<Point2[]> outlines, List<Point2[]> members) {
+            var sources = new List<NavMeshRampPath>(members.Count);
+            foreach (Point2[] member in members) {
+                for (int i = 0; i < outlines.Count; i++) {
+                    if (ReferenceEquals(outlines[i], member)) { sources.Add(band[i]); break; }
+                }
+            }
+            if (sources.Count == 0) sources.AddRange(band);
+            return sources;
+        }
+
+        /// <summary>
+        /// The height of the nearest authored vertex to a point on the merged outline.
+        ///
+        /// Not an average: a wall walk is rarely perfectly level, and flattening a band to one height
+        /// would make the deck float at one end and sink into the stone at the other.
+        /// </summary>
+        private static float NearestHeight(List<NavMeshRampPath> sources, Point2 at) {
+            float best = 0f;
+            double bestDistance = double.MaxValue;
+            foreach (NavMeshRampPath deck in sources) {
+                foreach (NavVertex v in deck.Outline) {
+                    double dx = v.X - at.X, dy = v.Y - at.Y;
+                    double distance = dx * dx + dy * dy;
+                    if (distance >= bestDistance) continue;
+                    bestDistance = distance;
+                    best = v.Z;
+                }
+            }
+            return best;
+        }
+
         private static List<List<NavMeshRampPath>> ClusterRamps(IList<NavMeshRampPath> ramps) {
             var groups = new List<List<NavMeshRampPath>>();
             var assigned = new bool[ramps.Count];

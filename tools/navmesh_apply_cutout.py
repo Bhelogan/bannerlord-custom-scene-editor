@@ -3,7 +3,7 @@
 
 This experimental writer never overwrites its input or an existing destination. It
 retains all original vertices/edges, removes only the intersecting face patch, adds
-four hole vertices plus a triangulated repair ring, serializes a new RNM1/NMG9 file,
+polygon hole vertices plus a triangulated repair ring, serializes a new RNM1/NMG9 file,
 then decodes and structurally validates the result before leaving it on disk.
 """
 
@@ -22,18 +22,20 @@ def apply_cutout(
     source: Path,
     output: Path,
     corners_xyz: tuple[tuple[float, float, float], ...],
+    min_z: float = -math.inf,
+    max_z: float = math.inf,
 ) -> dict:
     if output.resolve() == source.resolve():
         raise navmesh_inspect.NavMeshFormatError("output must not overwrite the input")
     if output.exists():
         raise navmesh_inspect.NavMeshFormatError("output already exists")
-    if len(corners_xyz) != 4 or any(
+    if len(corners_xyz) < 3 or any(
         not math.isfinite(value) for corner in corners_xyz for value in corner
     ):
-        raise navmesh_inspect.NavMeshFormatError("four finite XYZ corners are required")
+        raise navmesh_inspect.NavMeshFormatError("at least three finite XYZ corners are required")
 
     corners_xy = tuple((corner[0], corner[1]) for corner in corners_xyz)
-    plan = navmesh_cutout.build_plan(source, corners_xy)
+    plan = navmesh_cutout.build_plan(source, corners_xy, min_z, max_z)
     if not plan.fully_contained or not plan.repairable_single_loop:
         raise navmesh_inspect.NavMeshFormatError("cutout patch is not a contained single-loop repair")
     if len(plan.affected_groups) != 1:
@@ -100,23 +102,29 @@ def apply_cutout(
         tuple((new_vertices[index][0], new_vertices[index][1]) for index in face.vertices)
         for face in new_faces
     ]
-    for row in range(1, 5):
-        v = row / 5.0
-        for column in range(1, 5):
-            u = column / 5.0
-            left = (
-                corners_xy[0][0] + (corners_xy[3][0] - corners_xy[0][0]) * v,
-                corners_xy[0][1] + (corners_xy[3][1] - corners_xy[0][1]) * v,
+    centre = (
+        sum(point[0] for point in corners_xy) / len(corners_xy),
+        sum(point[1] for point in corners_xy) / len(corners_xy),
+    )
+    min_x, max_x = min(p[0] for p in corners_xy), max(p[0] for p in corners_xy)
+    min_y, max_y = min(p[1] for p in corners_xy), max(p[1] for p in corners_xy)
+    samples = [centre]
+    samples.extend(
+        ((corner[0] * 0.9 + centre[0] * 0.1), (corner[1] * 0.9 + centre[1] * 0.1))
+        for corner in corners_xy
+    )
+    samples.extend(
+        (min_x + (max_x - min_x) * column / 9.0,
+         min_y + (max_y - min_y) * row / 9.0)
+        for row in range(1, 9) for column in range(1, 9)
+    )
+    for sample in samples:
+        if not navmesh_cutout._point_in_polygon(sample, corners_xy):
+            continue
+        if any(navmesh_cutout._point_in_polygon(sample, polygon) for polygon in new_polygons):
+            raise navmesh_inspect.NavMeshFormatError(
+                f"repair face still covers cutout interior sample {sample}"
             )
-            right = (
-                corners_xy[1][0] + (corners_xy[2][0] - corners_xy[1][0]) * v,
-                corners_xy[1][1] + (corners_xy[2][1] - corners_xy[1][1]) * v,
-            )
-            sample = (left[0] + (right[0] - left[0]) * u, left[1] + (right[1] - left[1]) * u)
-            if any(navmesh_cutout._point_in_polygon(sample, polygon) for polygon in new_polygons):
-                raise navmesh_inspect.NavMeshFormatError(
-                    f"repair face still covers cutout interior sample {sample}"
-                )
 
     # Always emit the current format. NMG8 differs only by its missing sixth edge integer; the
     # current Modding Kit performs the same zero-filled NMG8 -> NMG9 upgrade when navigation is saved.
@@ -184,19 +192,23 @@ def main() -> int:
     try:
         if args.manifest:
             authored = navmesh_cutout.manifest_corner_xyz(args.manifest, args.cutout_index)
+            height_band = navmesh_cutout.manifest_height_band(args.manifest, args.cutout_index)
             if args.use_manifest_z:
                 corners_xyz = authored
             else:
                 xy = tuple((corner[0], corner[1]) for corner in authored)
-                corners_xyz = navmesh_cutout.build_plan(args.navmesh, xy).projected_corners_xyz
+                corners_xyz = navmesh_cutout.build_plan(
+                    args.navmesh, xy, *height_band
+                ).projected_corners_xyz
         else:
+            height_band = (-math.inf, math.inf)
             if args.use_manifest_z:
                 raise navmesh_inspect.NavMeshFormatError("--use-manifest-z requires --manifest")
             corners_xyz = tuple(
                 (args.corners_xyz[index], args.corners_xyz[index + 1], args.corners_xyz[index + 2])
                 for index in range(0, 12, 3)
             )
-        print(json.dumps(apply_cutout(args.navmesh, args.output, corners_xyz), indent=2))
+        print(json.dumps(apply_cutout(args.navmesh, args.output, corners_xyz, *height_band), indent=2))
     except (OSError, ValueError, json.JSONDecodeError, navmesh_inspect.NavMeshFormatError) as error:
         parser.error(str(error))
     return 0

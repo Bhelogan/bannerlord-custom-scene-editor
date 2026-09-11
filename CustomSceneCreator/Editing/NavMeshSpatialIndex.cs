@@ -84,24 +84,94 @@ namespace CustomSceneCreator.Editing {
         /// not expose the baked vertex array, so the overview reconstructs only this bounded set
         /// instead of attempting tens of thousands of native boundary sweeps at once.
         /// </summary>
+        /// <summary>
+        /// A face this far above or below the query point counts as a DIFFERENT LEVEL, in metres.
+        ///
+        /// Roughly a storey. Small enough that a wall walk, a platform deck or a first floor all
+        /// register; large enough that ordinary terrain relief under your feet does not.
+        /// </summary>
+        public const float LevelSeparation = 2.5f;
+
+        /// <summary>
+        /// Returns the nearest indexed face centers inside a working radius.
+        ///
+        /// <para><b>The reserve exists so raised ground is not crowded out.</b> Selection is by 2D
+        /// distance, because the overview is answering "what is around here" rather than "what am I
+        /// standing on". That means a wall-walk face and the ground face ten metres beneath it are
+        /// the same distance away, and with a fixed budget the dense carpet of terrain at your feet
+        /// can take every slot - so the deck above you is simply never drawn, and the tool looks like
+        /// it is reporting no navmesh up there when the navmesh is fine. Players read that as the
+        /// wall being broken.</para>
+        ///
+        /// <para>With <paramref name="elevatedReserve"/> set, that many slots are held for faces at
+        /// least <see cref="LevelSeparation"/> above or below the query point. Unused reserve goes
+        /// back to the near set, so a flat scene looks exactly as it did before.</para>
+        /// </summary>
         public static void FindNearestWithin(Vec3 position, float radius, int maximum,
-                                             List<int> results) {
+                                             List<int> results, int elevatedReserve = 0) {
             results.Clear();
             if (!position.IsValid || radius <= 0f || maximum <= 0 || _built == 0) return;
 
             float radiusSquared = radius * radius;
-            var candidates = new List<KeyValuePair<float, int>>();
+            var flat = new List<KeyValuePair<float, int>>();
+            var elevated = new List<KeyValuePair<float, int>>();
             for (int i = 0; i < _built; i++) {
                 Vec3 candidate = _centers[i];
                 if (!candidate.IsValid) continue;
                 float squared = (candidate.AsVec2 - position.AsVec2).LengthSquared;
-                if (squared <= radiusSquared)
-                    candidates.Add(new KeyValuePair<float, int>(squared, i));
+                if (squared > radiusSquared) continue;
+                if (elevatedReserve > 0 && MathF.Abs(candidate.z - position.z) >= LevelSeparation)
+                    elevated.Add(new KeyValuePair<float, int>(squared, i));
+                else
+                    flat.Add(new KeyValuePair<float, int>(squared, i));
             }
 
-            candidates.Sort((left, right) => left.Key.CompareTo(right.Key));
-            int count = Math.Min(maximum, candidates.Count);
-            for (int i = 0; i < count; i++) results.Add(candidates[i].Value);
+            flat.Sort((left, right) => left.Key.CompareTo(right.Key));
+            elevated.Sort((left, right) => left.Key.CompareTo(right.Key));
+
+            // Take the reserved elevated faces first, then fill the rest from the near set. Whatever
+            // the reserve does not use is not wasted - the loop below simply keeps going.
+            int reserved = Math.Min(elevatedReserve, elevated.Count);
+            for (int i = 0; i < reserved && results.Count < maximum; i++)
+                results.Add(elevated[i].Value);
+            for (int i = 0; i < flat.Count && results.Count < maximum; i++)
+                results.Add(flat[i].Value);
+            for (int i = reserved; i < elevated.Count && results.Count < maximum; i++)
+                results.Add(elevated[i].Value);
+        }
+
+        /// <summary>The indexed center of one face, or false when the index does not hold it.</summary>
+        public static bool TryGetCenter(int faceIndex, out Vec3 center) {
+            center = Vec3.Invalid;
+            if (faceIndex < 0 || faceIndex >= _built) return false;
+            center = _centers[faceIndex];
+            return center.IsValid;
+        }
+
+        /// <summary>
+        /// Counts indexed faces within <paramref name="radius"/> (2D) that sit at least
+        /// <see cref="LevelSeparation"/> ABOVE the query point, and how high the highest one is.
+        ///
+        /// <para>This is what lets the inspector answer "is there navmesh on the wall above me"
+        /// without the player having to see it. Looking up at a rampart from the ground, the deck is
+        /// hidden by the wall itself, so drawing alone can never settle the question.</para>
+        /// </summary>
+        public static int CountAbove(Vec3 position, float radius, out float highestAbove) {
+            highestAbove = 0f;
+            if (!position.IsValid || radius <= 0f || _built == 0) return 0;
+
+            float radiusSquared = radius * radius;
+            int count = 0;
+            for (int i = 0; i < _built; i++) {
+                Vec3 candidate = _centers[i];
+                if (!candidate.IsValid) continue;
+                if ((candidate.AsVec2 - position.AsVec2).LengthSquared > radiusSquared) continue;
+                float up = candidate.z - position.z;
+                if (up < LevelSeparation) continue;
+                count++;
+                if (up > highestAbove) highestAbove = up;
+            }
+            return count;
         }
     }
 }

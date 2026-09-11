@@ -47,3 +47,6 @@ artifacts/
 # A malformed command line once created a file literally named "--debug-disconnected",
 # which is a 1.5 MB navmesh blob. Ignored rather than deleted, in case it is still wanted.
 --debug-disconnected
+
+# Same command-line mistake during elevated-route testing; this is a generated NMG9 blob.
+tools/NavMeshPortTests/--ramp-label

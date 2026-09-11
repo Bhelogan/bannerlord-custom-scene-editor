@@ -75,7 +75,8 @@ namespace CustomSceneCreator.UI {
         [DataSourceProperty] public string ScriptsModeText => "Scripts";
         [DataSourceProperty] public string InspectModeText => "Inspect";
         [DataSourceProperty] public string NavmeshToolsText => "NAVMESH";
-        [DataSourceProperty] public string CutoutModeText => "Cutout";
+        [DataSourceProperty] public string CutoutModeText => "Object Cutout";
+        [DataSourceProperty] public string DrawCutoutModeText => "Draw Cutout";
         [DataSourceProperty] public string AddAreaModeText => "Add Area";
         [DataSourceProperty] public string ElevatedModeText => "Elevated Navmesh";
         [DataSourceProperty] public string BuildText => "Build";
@@ -229,6 +230,7 @@ namespace CustomSceneCreator.UI {
         public void ExecuteScriptsMode() => ChooseMode(EditMode.Script);
         public void ExecuteInspectMode() => ChooseMode(EditMode.NavMesh);
         public void ExecuteCutoutMode() => ChooseMode(EditMode.NavCutout);
+        public void ExecuteDrawCutoutMode() => ChooseMode(EditMode.NavPolygonCutout);
         public void ExecuteAddAreaMode() => ChooseMode(EditMode.NavRequired);
         public void ExecuteElevatedMode() => ChooseMode(EditMode.NavRamp);
 

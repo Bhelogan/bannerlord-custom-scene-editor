@@ -25,12 +25,34 @@ namespace CustomSceneCreator.UI {
         [DataSourceProperty] public string TitleText => "Transform";
         [DataSourceProperty] public string SubjectText => PlaceableRegistry.DisplayNameFor(_entity.PrefabName);
         [DataSourceProperty] public string HintText =>
-            "Enter exact degrees, or use - / + for the chosen step. Done or Escape closes this panel.";
+            "Enter exact position or rotation values. - / + uses the chosen rotation step. Done or Escape closes.";
+        [DataSourceProperty] public string PositionLabel => "Position (m)";
+        [DataSourceProperty] public string XLabel => "X";
+        [DataSourceProperty] public string YLabel => "Y";
+        [DataSourceProperty] public string ZLabel => "Z";
         [DataSourceProperty] public string PitchLabel => "X / Pitch (red)";
         [DataSourceProperty] public string RollLabel => "Y / Roll (green)";
         [DataSourceProperty] public string YawLabel => "Z / Yaw (blue)";
         [DataSourceProperty] public string StepLabel => "Step (degrees)";
         [DataSourceProperty] public string CloseText => "Done";
+
+        [DataSourceProperty]
+        public string PositionX {
+            get => Format(_entity.Position.x);
+            set => SetPosition(value, 0, nameof(PositionX));
+        }
+
+        [DataSourceProperty]
+        public string PositionY {
+            get => Format(_entity.Position.y);
+            set => SetPosition(value, 1, nameof(PositionY));
+        }
+
+        [DataSourceProperty]
+        public string PositionZ {
+            get => Format(_entity.Position.z);
+            set => SetPosition(value, 2, nameof(PositionZ));
+        }
 
         [DataSourceProperty]
         public string PitchText {
@@ -73,6 +95,9 @@ namespace CustomSceneCreator.UI {
 
         /// <summary>Called after any transform button action.</summary>
         public void Refresh() {
+            OnPropertyChangedWithValue(PositionX, nameof(PositionX));
+            OnPropertyChangedWithValue(PositionY, nameof(PositionY));
+            OnPropertyChangedWithValue(PositionZ, nameof(PositionZ));
             OnPropertyChangedWithValue(PitchText, nameof(PitchText));
             OnPropertyChangedWithValue(RollText, nameof(RollText));
             OnPropertyChangedWithValue(YawText, nameof(YawText));
@@ -95,6 +120,27 @@ namespace CustomSceneCreator.UI {
             }
             _editor.SelectTransformAxis(axis);
             _editor.SetTransformAxisDegrees(_entity, axis, degrees);
+            Refresh();
+        }
+
+        /// <summary>
+        /// Uses the same atomic scene-transform path as the Scene Contents list so moving an
+        /// object by an exact coordinate updates its live entity, navmesh footprint, and saved
+        /// project together.
+        /// </summary>
+        private void SetPosition(string text, int axis, string propertyName) {
+            if (!TryParse(text, out float value) || float.IsNaN(value) || float.IsInfinity(value)) {
+                string current = axis == 0 ? PositionX : axis == 1 ? PositionY : PositionZ;
+                OnPropertyChangedWithValue(current, propertyName);
+                return;
+            }
+
+            Vec3 position = _entity.Position;
+            if (axis == 0) position.x = value;
+            else if (axis == 1) position.y = value;
+            else position.z = value;
+
+            _editor.UpdateTransform(_entity, position, _entity.Rotation, _entity.Scale);
             Refresh();
         }
 

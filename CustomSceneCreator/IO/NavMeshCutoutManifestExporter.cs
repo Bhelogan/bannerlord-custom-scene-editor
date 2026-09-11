@@ -45,7 +45,9 @@ namespace CustomSceneCreator.IO {
                 Scene = project.TargetScene,
                 SceneLevels = project.SceneLevels,
                 ExportedUtc = DateTime.UtcNow,
-                Cutouts = (project.NavMeshCutouts ?? new System.Collections.Generic.List<ProjectNavMeshCutout>()).ToArray(),
+                Cutouts = (project.NavMeshCutouts ?? new System.Collections.Generic.List<ProjectNavMeshCutout>())
+                    .Where(c => c != null && !c.IsDraft && c.Corners != null
+                        && c.Corners.Length >= 9 && c.Corners.Length % 3 == 0).ToArray(),
                 RequiredAreas = (project.NavMeshRequirements
                     ?? new System.Collections.Generic.List<ProjectNavMeshRequirement>()).ToArray(),
                 Ramps = (project.NavMeshRamps

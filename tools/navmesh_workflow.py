@@ -115,11 +115,12 @@ def create_candidate(
         for cutout_index, cutout in enumerate(cutouts):
             authored = navmesh_cutout.manifest_corner_xyz(manifest_path, cutout_index)
             xy = tuple((corner[0], corner[1]) for corner in authored)
-            projected = navmesh_cutout.build_plan(current, xy).projected_corners_xyz
-            z_deltas = tuple(projected[index][2] - authored[index][2] for index in range(4))
+            height_band = navmesh_cutout.manifest_height_band(manifest_path, cutout_index)
+            projected = navmesh_cutout.build_plan(current, xy, *height_band).projected_corners_xyz
+            z_deltas = tuple(projected[index][2] - authored[index][2] for index in range(len(authored)))
             is_last = cutout_index == len(cutouts) - 1
             step_output = output if is_last else Path(temporary) / f"step_{cutout_index + 1}.bin"
-            step = navmesh_apply_cutout.apply_cutout(current, step_output, projected)
+            step = navmesh_apply_cutout.apply_cutout(current, step_output, projected, *height_band)
             operations.append({
                 "cutout_index": cutout_index,
                 "entity_id": str(cutout.get("EntityId", "")),

@@ -234,9 +234,16 @@ def _interpolate_z(point: Point2, polygon, vertices) -> float:
     raise navmesh_inspect.NavMeshFormatError(f"cannot project cutout corner {point} onto affected faces")
 
 
-def build_plan(path: Path, corners: tuple[Point2, ...]) -> CutoutPlan:
-    if len(corners) != 4 or any(not math.isfinite(value) for corner in corners for value in corner):
-        raise navmesh_inspect.NavMeshFormatError("cutout requires four finite XY corners")
+def build_plan(
+    path: Path,
+    corners: tuple[Point2, ...],
+    min_z: float = -math.inf,
+    max_z: float = math.inf,
+) -> CutoutPlan:
+    if len(corners) < 3 or any(not math.isfinite(value) for corner in corners for value in corner):
+        raise navmesh_inspect.NavMeshFormatError("cutout requires at least three finite XY corners")
+    if min_z > max_z:
+        raise navmesh_inspect.NavMeshFormatError("cutout height range is inverted")
     _, raw, _ = navmesh_inspect.read_raw(path)
     if raw[:4] not in (b"NMG8", b"NMG9"):
         raise navmesh_inspect.NavMeshFormatError("cutout planning requires NMG8 or NMG9")
@@ -244,7 +251,13 @@ def build_plan(path: Path, corners: tuple[Point2, ...]) -> CutoutPlan:
     faces, _ = navmesh_inspect._faces(raw, face_count, face_offset)
 
     face_polygons = [tuple((vertices[index][0], vertices[index][1]) for index in face.vertices) for face in faces]
-    affected = tuple(index for index, polygon in enumerate(face_polygons) if _polygons_intersect(polygon, corners))
+    affected = tuple(
+        index
+        for index, polygon in enumerate(face_polygons)
+        if _polygons_intersect(polygon, corners)
+        and max(vertices[vertex][2] for vertex in faces[index].vertices) >= min_z
+        and min(vertices[vertex][2] for vertex in faces[index].vertices) <= max_z
+    )
     if not affected:
         raise navmesh_inspect.NavMeshFormatError("cutout does not intersect any face")
     boundary, repairable = _boundary_loop(affected, faces, edges)
@@ -267,7 +280,7 @@ def build_plan(path: Path, corners: tuple[Point2, ...]) -> CutoutPlan:
     triangulation_area_error = math.nan
     if repairable and fully_contained:
         first_new_vertex = len(vertices)
-        hole_indices = tuple(first_new_vertex + index for index in range(4))
+        hole_indices = tuple(first_new_vertex + index for index in range(len(corners)))
         point_lookup = {index: (vertex[0], vertex[1]) for index, vertex in enumerate(vertices)}
         point_lookup.update({index: corner for index, corner in zip(hole_indices, corners)})
         planned_triangles, triangulation_area_error = _triangulate_with_hole(
@@ -301,12 +314,25 @@ def manifest_corner_xyz(path: Path, cutout_index: int) -> tuple[tuple[float, flo
         values = cutouts[cutout_index]["Corners"]
     except (IndexError, KeyError, TypeError) as error:
         raise navmesh_inspect.NavMeshFormatError(f"manifest cutout {cutout_index} is unavailable") from error
-    if len(values) != 12:
-        raise navmesh_inspect.NavMeshFormatError("manifest cutout must contain twelve XYZ values")
+    if len(values) < 9 or len(values) % 3:
+        raise navmesh_inspect.NavMeshFormatError(
+            "manifest cutout must contain at least three complete XYZ points"
+        )
     return tuple(
         (float(values[index]), float(values[index + 1]), float(values[index + 2]))
-        for index in range(0, 12, 3)
+        for index in range(0, len(values), 3)
     )
+
+
+def manifest_height_band(path: Path, cutout_index: int) -> tuple[float, float]:
+    document = json.loads(path.read_text(encoding="utf-8-sig"))
+    try:
+        cutout = (document.get("Cutouts") or [])[cutout_index]
+    except (IndexError, TypeError) as error:
+        raise navmesh_inspect.NavMeshFormatError(f"manifest cutout {cutout_index} is unavailable") from error
+    if not cutout.get("IsFreeform", False):
+        return -math.inf, math.inf
+    return float(cutout.get("MinZ", -math.inf)), float(cutout.get("MaxZ", math.inf))
 
 
 def main() -> int:
@@ -323,7 +349,8 @@ def main() -> int:
             if args.manifest
             else tuple((args.corners[index], args.corners[index + 1]) for index in range(0, 8, 2))
         )
-        print(json.dumps(asdict(build_plan(args.navmesh, corners)), indent=2))
+        height_band = manifest_height_band(args.manifest, args.cutout_index) if args.manifest else (-math.inf, math.inf)
+        print(json.dumps(asdict(build_plan(args.navmesh, corners, *height_band)), indent=2))
     except (OSError, ValueError, json.JSONDecodeError, navmesh_inspect.NavMeshFormatError) as error:
         parser.error(str(error))
     return 0

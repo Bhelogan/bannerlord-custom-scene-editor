@@ -234,6 +234,25 @@ namespace CustomSceneCreator.Editing {
 
         private static bool TryReadNavMeshMetadata(XmlElement node, string name,
                                                    TransformState world, Result result) {
+            if (EqualsName(name, "csc_navcut_area") || EqualsName(name, "hsr_navcut_area")) {
+                Vec3[] points = ReadPointChildren(node, world, result);
+                if (points.Length < 3) {
+                    result.UnsupportedGroups++;
+                    return true;
+                }
+                result.Cutouts.Add(new ProjectNavMeshCutout {
+                    Label = string.IsNullOrWhiteSpace(node.GetAttribute("csc_label"))
+                        ? "Imported drawn cutout" : node.GetAttribute("csc_label"),
+                    Prefab = "Drawn cutout",
+                    MinZ = world.Position.z + AttributeFloat(node, "csc_min_z", -1.25f),
+                    MaxZ = world.Position.z + AttributeFloat(node, "csc_max_z", 1.25f),
+                    Corners = Flatten(points),
+                    IsFreeform = true,
+                    IsDraft = false,
+                });
+                return true;
+            }
+
             if (EqualsName(name, "hsr_navcut") || EqualsName(name, "csc_navcut")) {
                 Vec3 halfSide = world.Rotation.s * (world.Scale.x * 0.5f);
                 Vec3 halfForward = world.Rotation.f * (world.Scale.y * 0.5f);

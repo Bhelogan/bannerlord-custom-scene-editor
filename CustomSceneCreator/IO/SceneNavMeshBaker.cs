@@ -100,6 +100,7 @@ namespace CustomSceneCreator.IO {
                     },
                 };
                 request.Cutouts.AddRange(ToFootprints(project));
+                request.HeightLimitedCutouts.AddRange(ToHeightLimitedCutouts(project));
                 request.Additions.AddRange(ToRequiredAreas(project));
                 request.Ramps.AddRange(ToRamps(project));
 
@@ -150,13 +151,35 @@ namespace CustomSceneCreator.IO {
             if (project.NavMeshCutouts == null) yield break;
 
             foreach (ProjectNavMeshCutout cutout in project.NavMeshCutouts) {
-                if (cutout?.Corners == null || cutout.Corners.Length < 12) continue;
+                if (cutout == null || cutout.IsFreeform || cutout.IsDraft
+                    || cutout.Corners == null || cutout.Corners.Length < 12) continue;
 
                 var corners = new Point2[4];
                 for (int i = 0; i < 4; i++) {
                     corners[i] = new Point2(cutout.Corners[i * 3], cutout.Corners[i * 3 + 1]);
                 }
                 yield return corners;
+            }
+        }
+
+        /// <summary>Node-drawn polygons retain their surface height so stacked floors stay distinct.</summary>
+        public static IEnumerable<NavMeshHeightLimitedCutout> ToHeightLimitedCutouts(SceneProject project) {
+            if (project.NavMeshCutouts == null) yield break;
+
+            foreach (ProjectNavMeshCutout cutout in project.NavMeshCutouts) {
+                if (cutout == null || !cutout.IsFreeform || cutout.IsDraft
+                    || cutout.Corners == null || cutout.Corners.Length < 9
+                    || cutout.Corners.Length % 3 != 0) continue;
+                int count = cutout.Corners.Length / 3;
+                var corners = new Point2[count];
+                for (int i = 0; i < count; i++)
+                    corners[i] = new Point2(cutout.Corners[i * 3], cutout.Corners[i * 3 + 1]);
+                yield return new NavMeshHeightLimitedCutout {
+                    Label = string.IsNullOrWhiteSpace(cutout.Label) ? "drawn cutout" : cutout.Label,
+                    Corners = corners,
+                    MinZ = cutout.MinZ,
+                    MaxZ = cutout.MaxZ,
+                };
             }
         }
 

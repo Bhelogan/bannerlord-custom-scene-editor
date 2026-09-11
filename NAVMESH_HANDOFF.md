@@ -1,6 +1,41 @@
 # Custom Scene Creator navmesh work — agent handoff
 
-Last updated: 2026-08-31 (America/New_York; CSC 1.0.5 development line)
+Last updated: 2026-09-11 (America/New_York; CSC 1.0.5 development line)
+
+## Node-drawn, elevation-aware cutout tool — 2026-09-11
+
+- The navmesh toolbar now distinguishes **Object Cutout** from **Draw Cutout**. The latter traces
+  three or more red perimeter nodes using the Elevated Navmesh interaction: click to add/select/move,
+  `Delete` to remove a selected node, and `F` to close.
+- Drawn cutouts store arbitrary polygon corners and a clicked Z band. The C# in-tool baker applies
+  each one independently against only vertically overlapping faces, so a roof or upper floor can be
+  cut without removing ground navmesh underneath it. Legacy object cutouts remain XY-unbounded.
+- The portable manifest and Python offline planner/writer/workflow now accept three-or-more-corner
+  polygons and honor `IsFreeform`, `MinZ`, and `MaxZ`. Prefab export/import round-trips drawn cutouts
+  as `csc_navcut_area` with `csc_navpoint` children.
+- Debug build passes with 0 errors. The Python navmesh suite passes 52 tests (3 fixture-dependent
+  tests skipped).
+
+## Compact Transform panel with exact coordinates — 2026-09-07
+
+- The live Transform panel now includes exact world-space **Position X / Y / Z** fields alongside
+  its rotation controls. They use the same atomic transform path as the Scene Contents list, so
+  live placement, saved project data, and any associated navmesh cutout stay synchronized.
+- Rotation labels, fields, step field, and +/- buttons are physically smaller, leaving the panel
+  compact enough to keep more of the edited scene visible while retaining the interactive Done and
+  Escape exits.
+- XML parsing, diff checks, and the Release/x64 CSC build pass with 0 errors (32 existing nullable
+  warnings). Nothing was deployed.
+
+## Move-mode hovered-object duplicate — 2026-09-06
+
+- In **Move** mode, aim at an editor-placed object and press **C** to create a new carried copy;
+  the source remains in the scene and the normal LMB/F placement action drops the copy.
+- The copied object keeps its prefab, orientation, scale, attached scripts, and per-surface texture
+  overrides. It receives a fresh entity identity; numbered exported markers also receive the next
+  available marker number so a duplicate does not silently reuse a gate or spawn identity.
+- The shortcut is unavailable while already carrying an object or while the Transform panel owns an
+  object, preventing accidental duplicate actions during another edit workflow.
 
 ## Scene Contents clean-slate action — 2026-08-31
 

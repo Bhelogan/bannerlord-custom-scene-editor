@@ -472,16 +472,26 @@
   <tr><td>Move</td><td>Picks up what you click; click again to put it down</td></tr>
   <tr><td>Script</td><td>Opens the scripts attached to what you click</td></tr>
   <tr><td>Navmesh</td><td>Sets route point A, then B; a third click starts over</td></tr>
-  <tr><td>Navmesh Cutout Plan</td><td>Records/removes a padded footprint that becomes a hole when you save</td></tr>
+  <tr><td>Object Cutout</td><td>Records/removes a building's padded footprint as a hole</td></tr>
+  <tr><td>Draw Cutout</td><td>Traces a red, elevation-aware polygon that becomes a hole when closed and saved</td></tr>
   <tr><td>Add Navmesh Area</td><td>Marks/removes ground that should become walkable when you save</td></tr>
   <tr><td>Elevated Navmesh</td><td>Authors a raised walkable strip for stairs, ramps, bridges, and wall walks</td></tr>
 </table>
 </div>
 
 <div class="tip">
-  <strong>Navmesh Cutout Plan mode marks what should stop being walkable.</strong> Click a solid object
+  <strong>Object Cutout marks what should stop being walkable.</strong> Click a solid object
   placed by this editor to measure its physics footprint, add 0.75 m clearance, and draw the perimeter.
   The footprint is saved with the project.
+</div>
+
+<div class="tip">
+  <strong>Draw Cutout handles shapes and elevations the object tool cannot guess.</strong> Click at
+  least three physical corners around the unwanted walkable area, then press <kbd>F</kbd> to close it.
+  The nodes, edges, and next-point cross are red. Click a saved node and then its new position to move
+  it, or press <kbd>Delete</kbd> to remove it. The clicked height is retained, so cutting a roof,
+  balcony, bridge, or upper floor does not also remove ground navmesh below. Drafts are saved but do
+  not bake until closed.
 </div>
 
 <div class="tip">
@@ -2880,8 +2890,8 @@
 <div class="table-wrap">
 <table>
   <tr><th>Key</th><th>Action</th></tr>
-  <tr><td>Top row of the Assets selector</td><td>Directly select Build, Delete, Move, Scripts, or Inspect. The boxed <strong>Navmesh</strong> group contains Cutout, Add Area, and Elevated Navmesh.</td></tr>
-  <tr><td><kbd>\</kbd></td><td>Cycle edit mode: Off → Build → Delete → Move → Script → Navmesh → Navmesh Cutout → Add Navmesh Area → Elevated Navmesh</td></tr>
+  <tr><td>Top row of the Assets selector</td><td>Directly select Build, Delete, Move, Scripts, or Inspect. The boxed <strong>Navmesh</strong> group contains Object Cutout, Draw Cutout, Add Area, and Elevated Navmesh.</td></tr>
+  <tr><td><kbd>\</kbd></td><td>Cycle edit mode: Off → Build → Delete → Move → Script → Navmesh → Object Cutout → Draw Cutout → Add Navmesh Area → Elevated Navmesh</td></tr>
   <tr><td><kbd>Left mouse</kbd></td><td>Place / delete / pick up / open scripts / set navmesh points / toggle cutout or navmesh-needed area</td></tr>
   <tr><td><kbd>F</kbd></td><td>The same, from the keyboard</td></tr>
   <tr><td>Hold <kbd>right mouse</kbd> + move</td><td>Tilt and roll the held object</td></tr>

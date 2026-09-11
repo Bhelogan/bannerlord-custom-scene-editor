@@ -127,9 +127,10 @@ it for you.
 
 | Key | Action |
 |---|---|
-| `\` | Cycle edit mode: Off - Build - Delete - Move - Script - Navmesh - Navmesh Cutout - Add Navmesh Area - Elevated Navmesh |
+| `\` | Cycle edit mode: Off - Build - Delete - Move - Script - Navmesh - Object Cutout - Draw Cutout - Add Navmesh Area - Elevated Navmesh |
 | **LMB** | Place / delete / pick up / open scripts / set navmesh points / toggle a cutout or navmesh-needed area — works in every camera mode |
 | `F` | Same, from the keyboard |
+| `C` | In **Move** mode, duplicate the placed object you are aiming at and carry the copy to its new position. The original stays in place. |
 | **Hold RMB** + move mouse | Rotate the held object |
 | `Q` `E` | Rotate left / right |
 | **Left Ctrl** | Reset rotation and height offset |
@@ -139,7 +140,7 @@ it for you.
 | Mouse wheel | Raise / lower the held object |
 | **Left Shift** + mouse wheel | Fine height adjustment (one tenth of the normal step) |
 | **`** | Open the asset picker: choose a category, search within it, inspect, build |
-| `L` | Open the Scene Contents list. **Objects** shows everything placed, with exact position, rotation (degrees), XYZ scale, and texture overrides. Select an object and use the numeric fields for exact values, or press **Transform** for a live right-side X/Y/Z panel. Enter exact degrees or use the coloured +/- controls; **Done** or <kbd>Esc</kbd> closes it. The panel only takes mouse clicks while the cursor is over it, so the camera remains usable for alignment. Double-click picks up an object in Move mode and Go To remains camera-only. **Elevated Navmesh** lists each saved elevated area with numbered perimeter corners and exact X/Y/Z positions; double-click a corner to enter Elevated Navmesh mode with that point selected, then click its new position. The same high-contrast, floor-flat corner numbers are rendered above the elevated outline in-world. The Objects tab also includes Scripts / Delete / Break Apart imported My Prefabs (including embedded Cutout, Add Area, and Elevated Navmesh authoring) / Clear All |
+| `L` | Open the Scene Contents list. **Objects** shows everything placed, with exact position, rotation (degrees), XYZ scale, and texture overrides. Select an object and use the numeric fields for exact values, or press **Transform** for a compact live right-side panel with exact position X/Y/Z plus rotation X/Y/Z fields. Enter exact degrees or use the coloured +/- controls; **Done** or <kbd>Esc</kbd> closes it. The panel only takes mouse clicks while the cursor is over it, so the camera remains usable for alignment. Double-click picks up an object in Move mode and Go To remains camera-only. **Elevated Navmesh** lists each saved elevated area with numbered perimeter corners and exact X/Y/Z positions; double-click a corner to enter Elevated Navmesh mode with that point selected, then click its new position. The same high-contrast, floor-flat corner numbers are rendered above the elevated outline in-world. The Objects tab also includes Scripts / Delete / Break Apart imported My Prefabs (including embedded Cutout, Add Area, and Elevated Navmesh authoring) / Clear All |
 | `[` `]` | Previous / next placeable (quick cycle without the picker) |
 | `'` | Next category |
 | `V` | Cycle camera: RTS - third person - first person, including while editing is Off |
@@ -184,10 +185,17 @@ agent can reach B, straight-line and path distances, detour ratio, and whether t
 clear. A third click starts a new A/B pair. These probes are temporary, read-only, and are never saved
 or exported with the scene.
 
-Cycle once more to **NAVMESH CUTOUT PLAN** and click a solid object placed by this editor. The
+Cycle once more to **NAVMESH CUTOUT PLAN** (shown as **Object Cutout** in the toolbar) and click a solid object placed by this editor. The
 editor measures its physics footprint, adds 0.75 m agent clearance, draws the proposed perimeter,
 and samples the baked face IDs beneath it. Click it again to remove the cutout. Cutouts survive save,
 follow a moved object, and disappear with a deleted object.
+
+Cycle once more to **DRAW CUTOUT AREA** when an object's guessed footprint is not accurate, or when
+the hole belongs on an elevated surface. Click at least three physical perimeter corners in order,
+then press `F` to close the polygon. The outline and placement cross are red. Click a saved red node
+to select it, click its new position to move it, or press `Delete` to remove it. Each drawn cutout
+stores the clicked elevation range, so a hole on a roof, bridge, or upper floor does not erase
+overlapping ground-floor navmesh. Draft outlines are saved but excluded from baking until closed.
 
 Cycle once more to **ADD NAVMESH AREA** to mark the opposite problem: terrain where agents need to
 walk but no baked navmesh exists. Click unmeshed ground to mark a 4 m area; aim near its center and

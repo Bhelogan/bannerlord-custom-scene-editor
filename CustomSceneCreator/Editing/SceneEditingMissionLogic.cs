@@ -23,10 +23,12 @@ namespace CustomSceneCreator.Editing {
         NavMesh = 5,
         /// <summary>Author a portable solid-object footprint for a future navmesh cutout pass.</summary>
         NavCutout = 6,
+        /// <summary>Draw a height-limited polygon hole by placing perimeter nodes.</summary>
+        NavPolygonCutout = 7,
         /// <summary>Mark an unmeshed area so the addition pass builds walkable navmesh over it.</summary>
-        NavRequired = 7,
+        NavRequired = 8,
         /// <summary>Author an elevated perimeter for stairs, ramps, bridges, or wall walks.</summary>
-        NavRamp = 8,
+        NavRamp = 9,
     }
 
     /// <summary>
@@ -142,6 +144,8 @@ namespace CustomSceneCreator.Editing {
         private ProjectNavMeshRamp? _activeNavRamp;
         private bool _selectedNavRampLeft;
         private int _selectedNavRampPoint = -1;
+        private ProjectNavMeshCutout? _activePolygonCutout;
+        private int _selectedPolygonCutoutPoint = -1;
 
         private SceneProject? Project => (_target as SceneProjectTarget)?.Project;
 
@@ -537,6 +541,11 @@ namespace CustomSceneCreator.Editing {
                 DeleteSelectedNavMeshRampPoint();
                 return;
             }
+            if (_mode == EditMode.NavPolygonCutout && _selectedPolygonCutoutPoint >= 0
+                && Input.IsKeyPressed(InputKey.Delete)) {
+                DeleteSelectedPolygonCutoutPoint();
+                return;
+            }
 
             // Left click is the natural place action with a visible cursor. Read through the scene
             // layer, since Gauntlet consumes mouse buttons on the global path first. F still works
@@ -553,6 +562,15 @@ namespace CustomSceneCreator.Editing {
             // no world rings are rendered or clicked, so the selected object stays unobscured.
             if (_transformTarget != null && clickPlaced) {
                 EditorHud.ShowMessage("Use the right-side Transform controls. Done or Escape leaves transform.");
+                return;
+            }
+
+            // Duplicating is deliberately a Move-only action. Unlike Pick Up, it leaves the source
+            // entity in the scene and puts a new, independent copy under the placement ray. It has
+            // to happen before the normal ghost guard because there is no ghost yet.
+            if (_mode == EditMode.Move && _carried == null && _transformTarget == null &&
+                Input.IsKeyPressed(Keys.Duplicate)) {
+                DuplicateLookedAt();
                 return;
             }
 
@@ -657,6 +675,11 @@ namespace CustomSceneCreator.Editing {
                 case EditMode.NavRamp:
                     if (alternate) AdvanceOrFinishNavMeshRamp();
                     else AddNavMeshRampPoint();
+                    break;
+
+                case EditMode.NavPolygonCutout:
+                    if (alternate) FinishNavMeshPolygonCutout();
+                    else AddNavMeshPolygonCutoutPoint();
                     break;
 
                 case EditMode.Script:
@@ -984,6 +1007,8 @@ namespace CustomSceneCreator.Editing {
             _activeNavRamp = null;
             _selectedNavRampPoint = -1;
             _selectedNavRampLeft = false;
+            _activePolygonCutout = null;
+            _selectedPolygonCutoutPoint = -1;
             _hovered = null;
             _navPointA = null;
             _navPointB = null;
@@ -1002,6 +1027,46 @@ namespace CustomSceneCreator.Editing {
                 return;
             }
             PickUp(_hovered);
+        }
+
+        /// <summary>
+        /// Makes an independent carried copy of the placed object under the aim point. This is not
+        /// implemented as pick-up/place twice: the original must remain live, and attached scripts,
+        /// per-surface textures, scale, and rotation all need to travel with the new copy.
+        /// </summary>
+        private void DuplicateLookedAt() {
+            if (_hovered == null) {
+                EditorHud.ShowMessage("Aim at an object placed by this editor to duplicate it.", warning: true);
+                return;
+            }
+
+            PlacedEntity source = _hovered;
+            var duplicate = new PlacedEntity {
+                // A duplicate is a distinct scene entity. Keep script variables intact, because
+                // they may point at other deliberate scene objects, but never reuse the owner's ID.
+                Id = Guid.NewGuid().ToString("B").ToUpperInvariant(),
+                PrefabName = source.PrefabName,
+                Position = source.Position,
+                Rotation = source.Rotation,
+                Scale = source.Scale,
+                Scripts = (source.Scripts ?? new List<AttachedScript>())
+                    .Select(script => script.Clone()).ToList(),
+                TextureOverrides = (source.TextureOverrides ?? new List<TextureOverride>())
+                    .Select(texture => texture.Clone()).ToList(),
+            };
+
+            // Numbered markers are independently addressable exported entities. A copied marker
+            // therefore receives the next free number rather than silently creating a second gate
+            // or spawn with the source marker's identity.
+            duplicate.MarkerIndex = NextMarkerIndex(duplicate.PrefabName);
+
+            _carried = duplicate;
+            _ghostRotation = duplicate.Rotation;
+            _ghostOffset = Vec3.Zero;
+            RemoveGhost();
+            EditorHud.ShowMessage(
+                $"Duplicating {Placeable.ToDisplayName(duplicate.PrefabName)}. " +
+                $"{Keys.Describe(Keys.Place)} to place.");
         }
 
         /// <summary>
@@ -1762,7 +1827,7 @@ namespace CustomSceneCreator.Editing {
         }
 
         private void CycleEditMode() {
-            SetEditMode((EditMode)(((int)_mode + 1) % 9));
+            SetEditMode((EditMode)(((int)_mode + 1) % 10));
         }
 
         private void SetEditMode(EditMode mode) {
@@ -1776,6 +1841,7 @@ namespace CustomSceneCreator.Editing {
             _mode = mode;
             RemoveGhost();
             _selectedNavRampPoint = -1;
+            _selectedPolygonCutoutPoint = -1;
 
             // The camera follows the edit mode unless the player has picked one themselves: RTS for
             // editing, third person for walking around. Turning editing on is the moment an overhead
@@ -1810,7 +1876,9 @@ namespace CustomSceneCreator.Editing {
                     EditorHud.ShowMessage($"Delete mode. {Keys.Describe(Keys.Place)}: delete what you are looking at.");
                     break;
                 case EditMode.Move:
-                    EditorHud.ShowMessage($"Move mode. {Keys.Describe(Keys.Place)}: pick up / put down.");
+                    EditorHud.ShowMessage(
+                        $"Move mode. {Keys.Describe(Keys.Place)}: pick up / put down. " +
+                        $"{Keys.Describe(Keys.Duplicate)}: duplicate aimed object.");
                     break;
                 case EditMode.Script:
                     EditorHud.ShowMessage(
@@ -1848,6 +1916,13 @@ namespace CustomSceneCreator.Editing {
                         $"in perimeter order, then press {Keys.Describe(Keys.PlaceAlt)} to close it. Click a saved dot " +
                         "to select it; click again to move it; Delete removes it. After closing, click empty ground " +
                         "to start another elevated area. While tracing, hold Left Shift and click near a finished area corner to snap to its exact height and position.");
+                    break;
+                case EditMode.NavPolygonCutout:
+                    NavMeshSpatialIndex.Reset();
+                    EditorHud.ShowMessage(
+                        $"Draw cutout area. Click perimeter corners on the physical surface, then press " +
+                        $"{Keys.Describe(Keys.PlaceAlt)} to close it. Red nodes and edges are removed " +
+                        "from navmesh only at the clicked elevation. Click a saved node to move it; Delete removes it.");
                     break;
             }
 
@@ -1925,8 +2000,8 @@ namespace CustomSceneCreator.Editing {
                         status.Set("MOVE",
                             target != null ? Placeable.ToDisplayName(target.PrefabName) : "(nothing under cursor)",
                             target != null
-                                ? $"{Keys.Describe(Keys.Place)} to pick up"
-                                : "Only objects you placed can be moved",
+                                ? $"{Keys.Describe(Keys.Place)} to pick up   {Keys.Describe(Keys.Duplicate)} to duplicate"
+                                : $"Aim at one of your placed objects: {Keys.Describe(Keys.Place)} pick up, {Keys.Describe(Keys.Duplicate)} duplicate",
                             UI.StatusTone.Move);
                     }
                     break;
@@ -2033,6 +2108,32 @@ namespace CustomSceneCreator.Editing {
                         detail + $"   •   {project?.NavMeshRamps?.Count ?? 0} saved ramp(s)",
                         UI.StatusTone.NavMesh,
                         finish + "   •   cyan cross = next corner's exact physical hit height");
+                    break;
+                }
+
+                case EditMode.NavPolygonCutout: {
+                    SceneProject? project = Project;
+                    ProjectNavMeshCutout? active = _activePolygonCutout;
+                    int points = active == null ? 0 : NavMeshPolygonCutoutAuthoring.PointCount(active);
+                    ProjectNavMeshCutout? nearby = FindPolygonCutout(_positionLookingAt);
+                    string primary = active != null
+                        ? $"{active.Label}: {points} perimeter corners" +
+                          (_selectedPolygonCutoutPoint >= 0 ? " • point selected" : "")
+                        : nearby?.Label ?? "Node-drawn navmesh hole";
+                    string detail = _selectedPolygonCutoutPoint >= 0
+                        ? $"{Keys.Describe(Keys.Place)} moves selected corner • Delete removes it"
+                        : active?.IsDraft == true
+                            ? $"{Keys.Describe(Keys.Place)} adds the next perimeter corner"
+                            : $"{Keys.Describe(Keys.Place)} starts a red perimeter outline";
+                    string finish = active?.IsDraft == true
+                        ? $"{Keys.Describe(Keys.PlaceAlt)} closes with 3+ corners"
+                        : nearby != null
+                            ? "Click a red dot to select it"
+                            : "Click the physical surface around the area AI must not enter";
+                    int count = project?.NavMeshCutouts?.Count(c => c.IsFreeform) ?? 0;
+                    status.Set("DRAW CUTOUT AREA", primary,
+                        detail + $"   •   {count} saved drawn cutout(s)", UI.StatusTone.NavMesh,
+                        finish + "   •   red cross = next corner and its exact elevation");
                     break;
                 }
             }
@@ -2287,6 +2388,133 @@ namespace CustomSceneCreator.Editing {
             _activeNavRamp = null;
         }
 
+        private void AddNavMeshPolygonCutoutPoint() {
+            SceneProject? project = Project;
+            if (project == null) {
+                EditorHud.ShowMessage("Drawn cutouts are only available in saved editor projects.", warning: true);
+                return;
+            }
+            if (!_positionLookingAt.IsValid) {
+                EditorHud.ShowMessage("Aim at the physical surface around the area to cut out.", warning: true);
+                return;
+            }
+
+            if (_selectedPolygonCutoutPoint >= 0 && _activePolygonCutout != null) {
+                NavMeshPolygonCutoutAuthoring.SetPoint(
+                    _activePolygonCutout, _selectedPolygonCutoutPoint, _positionLookingAt);
+                _isDirty = true;
+                EditorHud.ShowMessage("Moved the selected cutout corner. Click another red dot to select it.");
+                _selectedPolygonCutoutPoint = -1;
+                return;
+            }
+
+            ProjectNavMeshCutout? selectionScope = _activePolygonCutout?.IsDraft == true
+                ? _activePolygonCutout
+                : null;
+            if (TryFindPolygonCutoutPoint(_positionLookingAt, selectionScope,
+                    out ProjectNavMeshCutout? hit, out int index)) {
+                _activePolygonCutout = hit;
+                _selectedPolygonCutoutPoint = index;
+                EditorHud.ShowMessage($"Selected cutout corner {index + 1}. Click its new position to move it.");
+                return;
+            }
+
+            project.NavMeshCutouts ??= new List<ProjectNavMeshCutout>();
+            if (_activePolygonCutout == null || !_activePolygonCutout.IsDraft
+                || !project.NavMeshCutouts.Contains(_activePolygonCutout)) {
+                int number = project.NavMeshCutouts.Count(c => c.IsFreeform) + 1;
+                _activePolygonCutout = new ProjectNavMeshCutout {
+                    Label = $"Drawn cutout {number}",
+                    Prefab = "Drawn cutout",
+                    IsFreeform = true,
+                    IsDraft = true,
+                    Corners = Array.Empty<float>(),
+                };
+                project.NavMeshCutouts.Add(_activePolygonCutout);
+            }
+
+            NavMeshPolygonCutoutAuthoring.AppendPoint(_activePolygonCutout, _positionLookingAt);
+            _isDirty = true;
+            int pointNumber = NavMeshPolygonCutoutAuthoring.PointCount(_activePolygonCutout);
+            EditorHud.ShowMessage($"Added red cutout corner {pointNumber}. Continue around the perimeter, then press F.");
+        }
+
+        private void DeleteSelectedPolygonCutoutPoint() {
+            if (_activePolygonCutout == null || _selectedPolygonCutoutPoint < 0) return;
+            int index = _selectedPolygonCutoutPoint;
+            if (!NavMeshPolygonCutoutAuthoring.RemovePoint(_activePolygonCutout, index)) {
+                EditorHud.ShowMessage("That cutout corner could not be removed.", warning: true);
+                return;
+            }
+            _activePolygonCutout.IsDraft = true;
+            _selectedPolygonCutoutPoint = -1;
+            _isDirty = true;
+            int remaining = NavMeshPolygonCutoutAuthoring.PointCount(_activePolygonCutout);
+            EditorHud.ShowMessage($"Removed cutout corner {index + 1}. Keep at least three corners, then press F to close.");
+        }
+
+        private void FinishNavMeshPolygonCutout() {
+            SceneProject? project = Project;
+            if (project == null) return;
+            if (_selectedPolygonCutoutPoint >= 0) {
+                _selectedPolygonCutoutPoint = -1;
+                EditorHud.ShowMessage("Cutout point selection cleared.");
+                return;
+            }
+            if (_activePolygonCutout == null || !project.NavMeshCutouts.Contains(_activePolygonCutout)) {
+                EditorHud.ShowMessage("No cutout is being traced. Click a saved red dot to edit it, or empty ground to start another.");
+                return;
+            }
+            if (!_activePolygonCutout.IsDraft) {
+                _activePolygonCutout = null;
+                EditorHud.ShowMessage("Cutout selection cleared. Click a red dot to edit it, or empty ground to start another.");
+                return;
+            }
+            int count = NavMeshPolygonCutoutAuthoring.PointCount(_activePolygonCutout);
+            if (count < 3) {
+                EditorHud.ShowMessage($"A cutout needs at least three perimeter corners (you have {count}).", warning: true);
+                return;
+            }
+            _activePolygonCutout.IsDraft = false;
+            _isDirty = true;
+            EditorHud.ShowMessage("Closed the red cutout area. It will be included in the next bake.");
+            _activePolygonCutout = null;
+        }
+
+        private ProjectNavMeshCutout? FindPolygonCutout(Vec3 position) {
+            if (!position.IsValid || Project?.NavMeshCutouts == null) return null;
+            ProjectNavMeshCutout? nearest = null;
+            float best = 2f * 2f;
+            foreach (ProjectNavMeshCutout cutout in Project.NavMeshCutouts) {
+                if (!cutout.IsFreeform) continue;
+                float distance = NavMeshPolygonCutoutAuthoring.DistanceSquaredTo(cutout, position);
+                if (distance >= best) continue;
+                best = distance;
+                nearest = cutout;
+            }
+            return nearest;
+        }
+
+        private bool TryFindPolygonCutoutPoint(Vec3 position, ProjectNavMeshCutout? scope,
+                                                out ProjectNavMeshCutout? cutout, out int index) {
+            cutout = null;
+            index = -1;
+            if (!position.IsValid || Project?.NavMeshCutouts == null) return false;
+            float best = 1.25f * 1.25f;
+            foreach (ProjectNavMeshCutout candidate in Project.NavMeshCutouts) {
+                if (!candidate.IsFreeform || (scope != null && !ReferenceEquals(candidate, scope))) continue;
+                int count = NavMeshPolygonCutoutAuthoring.PointCount(candidate);
+                for (int i = 0; i < count; i++) {
+                    float distance = (NavMeshPolygonCutoutAuthoring.Point(candidate, i) - position).LengthSquared;
+                    if (distance >= best) continue;
+                    best = distance;
+                    cutout = candidate;
+                    index = i;
+                }
+            }
+            return cutout != null;
+        }
+
         private ProjectNavMeshRamp? FindNavMeshRamp(Vec3 position) {
             if (!position.IsValid || Project?.NavMeshRamps == null) return null;
             ProjectNavMeshRamp? nearest = null;
@@ -2407,12 +2635,26 @@ namespace CustomSceneCreator.Editing {
 
         private void RenderNavMeshCutouts() {
             SceneProject? project = Project;
-            if (_mode != EditMode.NavCutout || project == null || project.NavMeshCutouts == null) return;
+            if ((_mode != EditMode.NavCutout && _mode != EditMode.NavPolygonCutout)
+                || project == null || project.NavMeshCutouts == null) return;
             string hoveredId = _hovered?.Id ?? "";
-            foreach (ProjectNavMeshCutout cutout in project.NavMeshCutouts)
-                NavMeshCutoutAuthoring.Render(cutout,
-                    _mode == EditMode.NavCutout && string.Equals(cutout.EntityId, hoveredId,
-                        StringComparison.OrdinalIgnoreCase));
+            ProjectNavMeshCutout? selected = _mode == EditMode.NavPolygonCutout
+                ? FindPolygonCutout(_positionLookingAt)
+                : null;
+            foreach (ProjectNavMeshCutout cutout in project.NavMeshCutouts) {
+                if (cutout.IsFreeform) {
+                    if (_mode == EditMode.NavPolygonCutout) {
+                        bool active = ReferenceEquals(cutout, _activePolygonCutout);
+                        NavMeshPolygonCutoutAuthoring.Render(cutout,
+                            active || ReferenceEquals(cutout, selected),
+                            active ? _selectedPolygonCutoutPoint : -1);
+                    }
+                    continue;
+                }
+                if (_mode == EditMode.NavCutout)
+                    NavMeshCutoutAuthoring.Render(cutout,
+                        string.Equals(cutout.EntityId, hoveredId, StringComparison.OrdinalIgnoreCase));
+            }
         }
 
         private void RenderNavMeshRamps() {
@@ -2532,9 +2774,23 @@ namespace CustomSceneCreator.Editing {
                 raised + new Vec3(0f, radius, 0f), PreviewColor, size: 0.07f);
         }
 
+        private void RenderNavMeshPolygonCutoutPlacementGhost() {
+            if (_mode != EditMode.NavPolygonCutout || !_positionLookingAt.IsValid) return;
+            const uint PreviewColor = 0xFFFF3030u;
+            Vec3 surface = _positionLookingAt;
+            Vec3 raised = surface + new Vec3(0f, 0f, 0.07f);
+            const float radius = 0.36f;
+            NavMeshVisualMarkers.Show(surface + new Vec3(0f, 0f, 0.12f), PreviewColor, size: 0.28f);
+            NavMeshVisualMarkers.ShowLine(raised + new Vec3(-radius, 0f, 0f),
+                raised + new Vec3(radius, 0f, 0f), PreviewColor, size: 0.07f);
+            NavMeshVisualMarkers.ShowLine(raised + new Vec3(0f, -radius, 0f),
+                raised + new Vec3(0f, radius, 0f), PreviewColor, size: 0.07f);
+        }
+
         private void RenderNavMeshVisuals() {
             bool inNavMode = _mode == EditMode.NavMesh || _mode == EditMode.NavCutout
-                             || _mode == EditMode.NavRequired || _mode == EditMode.NavRamp;
+                             || _mode == EditMode.NavRequired || _mode == EditMode.NavRamp
+                             || _mode == EditMode.NavPolygonCutout;
             // Audit findings stay visible in every mode. They are the answer to "where is the
             // problem", and hunting for one while also holding the right edit mode is needless.
             if (!inNavMode && !NavMeshAuditMarkers.HasFindings) {
@@ -2551,6 +2807,13 @@ namespace CustomSceneCreator.Editing {
             if (_mode == EditMode.NavRamp) {
                 RenderNavMeshRamps();
                 RenderNavMeshRampPlacementGhost();
+                NavMeshVisualMarkers.End();
+                return;
+            }
+
+            if (_mode == EditMode.NavPolygonCutout) {
+                RenderNavMeshCutouts();
+                RenderNavMeshPolygonCutoutPlacementGhost();
                 NavMeshVisualMarkers.End();
                 return;
             }

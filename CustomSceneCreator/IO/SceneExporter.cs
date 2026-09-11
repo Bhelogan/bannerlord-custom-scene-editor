@@ -142,10 +142,9 @@ namespace CustomSceneCreator.IO {
         }
 
         /// <summary>
-        /// Carries a solid object's navmesh exclusion with a reusable composite prefab. A cutout
-        /// is stored in a project as four world-space corners, while Homesteads reads prefab-local
-        /// hsr_navcut rectangles. The editor's cutout authoring produces rectangular footprints,
-        /// so express each as its centre, full side lengths, and yaw relative to the export anchor.
+        /// Carries navmesh exclusions with a reusable composite prefab. Object-derived cutouts stay
+        /// compatible with Homesteads' hsr_navcut rectangles. Node-drawn polygons use a CSC marker
+        /// with point children so Break Apart can restore every corner and its elevation band.
         /// </summary>
         private static int AppendNavMeshCutoutMarkers(StringBuilder sb, Editing.SceneProject project,
                                                       Vec3 anchor, string indent) {
@@ -153,7 +152,35 @@ namespace CustomSceneCreator.IO {
 
             int written = 0;
             foreach (Editing.ProjectNavMeshCutout cutout in project.NavMeshCutouts) {
-                if (cutout?.Corners == null || cutout.Corners.Length < 12) continue;
+                if (cutout?.Corners == null || cutout.IsDraft || cutout.Corners.Length < 9
+                    || cutout.Corners.Length % 3 != 0) continue;
+
+                if (cutout.IsFreeform) {
+                    Vec3[] points = Enumerable.Range(0, cutout.Corners.Length / 3)
+                        .Select(i => new Vec3(cutout.Corners[i * 3], cutout.Corners[i * 3 + 1],
+                                              cutout.Corners[i * 3 + 2]))
+                        .ToArray();
+                    Vec3 polygonCentre = points.Aggregate(Vec3.Zero, (sum, point) => sum + point) / points.Length;
+                    Vec3 localCentre = polygonCentre - anchor;
+                    sb.AppendLine($"{indent}<game_entity name=\"csc_navcut_area\" old_prefab_name=\"\" "
+                                  + $"csc_label=\"{Escape(cutout.Label ?? "Drawn cutout")}\" "
+                                  + $"csc_min_z=\"{F(cutout.MinZ - polygonCentre.z)}\" "
+                                  + $"csc_max_z=\"{F(cutout.MaxZ - polygonCentre.z)}\">");
+                    sb.AppendLine($"{indent}  <transform position=\"{F(localCentre.x)}, {F(localCentre.y)}, {F(localCentre.z)}\"/>");
+                    sb.AppendLine($"{indent}  <children>");
+                    foreach (Vec3 point in points) {
+                        Vec3 local = point - polygonCentre;
+                        sb.AppendLine($"{indent}    <game_entity name=\"csc_navpoint\" old_prefab_name=\"\">");
+                        sb.AppendLine($"{indent}      <transform position=\"{F(local.x)}, {F(local.y)}, {F(local.z)}\"/>");
+                        sb.AppendLine($"{indent}    </game_entity>");
+                    }
+                    sb.AppendLine($"{indent}  </children>");
+                    sb.AppendLine($"{indent}</game_entity>");
+                    written++;
+                    continue;
+                }
+
+                if (cutout.Corners.Length < 12) continue;
 
                 Vec3 a = new Vec3(cutout.Corners[0], cutout.Corners[1], cutout.Corners[2]);
                 Vec3 b = new Vec3(cutout.Corners[3], cutout.Corners[4], cutout.Corners[5]);

@@ -24,7 +24,34 @@ def one_quad_raw() -> bytes:
     return navmesh_inspect.serialize_raw(b"NMG9", list(vertices), list(edges), [face], bytes(260))
 
 
+def stacked_quads_raw() -> bytes:
+    base = ((0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (10.0, 10.0, 0.0), (0.0, 10.0, 0.0))
+    top = tuple((x, y, 10.0) for x, y, _ in base)
+    edges = [
+        (-1, start, end, -1, -1, 0)
+        for offset in (0, 4)
+        for start, end in ((offset, offset + 1), (offset + 1, offset + 2),
+                           (offset + 2, offset + 3), (offset + 3, offset))
+    ]
+    faces = [
+        navmesh_inspect.NmgFace((0, 1, 2, 3), (0, 1, 2, 3), (2, 0, 0, 0, 15), 0),
+        navmesh_inspect.NmgFace((4, 5, 6, 7), (4, 5, 6, 7), (2, 0, 1, 0, 15), 0),
+    ]
+    return navmesh_inspect.serialize_raw(b"NMG9", list(base + top), edges, faces, bytes(260))
+
+
 class ApplyTests(unittest.TestCase):
+    def test_height_band_selects_only_matching_storey(self):
+        raw = stacked_quads_raw()
+        wrapped = struct.pack("<I", len(raw)) + raw
+        corners = ((3.0, 3.0), (7.0, 3.0), (7.0, 7.0), (3.0, 7.0))
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.bin"
+            source.write_bytes(wrapped)
+            plan = navmesh_apply_cutout.navmesh_cutout.build_plan(source, corners, 8.75, 11.25)
+        self.assertEqual(plan.affected_faces, (1,))
+        self.assertTrue(all(abs(point[2] - 10.0) < 1e-6 for point in plan.projected_corners_xyz))
+
     def test_applies_to_new_copy_and_leaves_hole(self):
         raw = one_quad_raw()
         wrapped = struct.pack("<I", len(raw)) + raw

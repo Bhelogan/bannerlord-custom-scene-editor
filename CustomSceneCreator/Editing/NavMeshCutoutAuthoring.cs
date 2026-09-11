@@ -186,9 +186,10 @@ namespace CustomSceneCreator.Editing {
             corners.SelectMany(c => new[] { c.x, c.y, c.z }).ToArray();
 
         public static Vec3[] Corners(ProjectNavMeshCutout cutout) {
-            if (cutout.Corners == null || cutout.Corners.Length < 12) return Array.Empty<Vec3>();
-            var result = new Vec3[4];
-            for (int i = 0; i < 4; i++)
+            if (cutout.Corners == null || cutout.Corners.Length < 9 || cutout.Corners.Length % 3 != 0)
+                return Array.Empty<Vec3>();
+            var result = new Vec3[cutout.Corners.Length / 3];
+            for (int i = 0; i < result.Length; i++)
                 result[i] = new Vec3(cutout.Corners[i * 3], cutout.Corners[i * 3 + 1], cutout.Corners[i * 3 + 2]);
             return result;
         }
