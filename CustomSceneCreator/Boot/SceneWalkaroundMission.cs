@@ -123,7 +123,7 @@ namespace CustomSceneCreator.Boot {
             float angle = index * 1.7f;
             Vec3 pos = Mission.MainAgent.Position + new Vec3((float)Math.Cos(angle) * 2f, (float)Math.Sin(angle) * 2f, 0f);
             pos.z = Mission.Scene.GetGroundHeightAtPosition(pos) + 0.1f;
-            Agent agent = Mission.SpawnAgent(new AgentBuildData(character).Team(Mission.PlayerTeam)
+            Agent agent = GameCompat.SpawnAgent(Mission, new AgentBuildData(character).Team(Mission.PlayerTeam)
                 .Formation(formation).InitialPosition(pos).InitialDirection(new Vec2(0f, 1f)).NoHorses(true));
             agent.Controller = AgentControllerType.AI;
         }

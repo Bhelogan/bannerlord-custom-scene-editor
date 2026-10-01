@@ -287,7 +287,7 @@ namespace CustomSceneCreator.Editing {
                 .InitialDirection(in facing)
                 .NoHorses(true);
 
-            Agent agent = Mission.SpawnAgent(buildData);
+            Agent agent = GameCompat.SpawnAgent(Mission, buildData);
             agent.Controller = AgentControllerType.AI;
             // Alarmed is the watch state that makes agents enter combat-ready stance and
             // engage enemies. Without this they stand idle even in MissionMode.Battle.

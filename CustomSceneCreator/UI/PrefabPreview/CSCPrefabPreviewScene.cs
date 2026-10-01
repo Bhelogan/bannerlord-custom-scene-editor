@@ -41,7 +41,14 @@ namespace CustomSceneCreator.UI.PrefabPreview {
                 ClearSubject();
                 if (!GameEntity.PrefabExists(prefabName)) return false;
 
-                _subject = GameEntity.Instantiate(_scene!, prefabName, MatrixFrame.Identity);
+                // callScriptCallbacks: false - NOT the default. The three-argument overload runs every
+                // script's OnInit, so a castle piece's DestructableComponent, WallSegment, CastleGate
+                // and StandingPoints registered as MissionObjects with the LIVE editing mission while
+                // their entity sat in this private scene. Clicking a castle wall hung and killed the
+                // game. The Homesteads copy of this code hit the same thing (PC hard-freeze on a
+                // longhouse) and was fixed; this copy was ported before that fix.
+                _subject = GameEntity.Instantiate(_scene!, prefabName, MatrixFrame.Identity,
+                                                  callScriptCallbacks: false);
                 if (_subject == null) return false;
                 _subject.SetPhysicsState(false, true);
                 _subject.SetVisibilityExcludeParents(true);

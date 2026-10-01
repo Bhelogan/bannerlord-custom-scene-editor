@@ -121,7 +121,7 @@
                           <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="48" Text="@XLabel" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                           <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="30" VerticalAlignment="Center" Sprite="BlankWhiteSquare_9" Color="#111111FF" DoNotAcceptEvents="true">
                             <Children>
-                              <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@PositionX" Brush="Review.NameInput.Text" DoNotAcceptEvents="false" MarginLeft="6" />
+                              <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@PositionX" Brush="Review.NameInput.Text" Brush.FontSize="16" DoNotAcceptEvents="false" MarginLeft="6" />
                             </Children>
                           </Widget>
                         </Children>
@@ -131,7 +131,7 @@
                           <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="48" Text="@YLabel" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                           <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="30" VerticalAlignment="Center" Sprite="BlankWhiteSquare_9" Color="#111111FF" DoNotAcceptEvents="true">
                             <Children>
-                              <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@PositionY" Brush="Review.NameInput.Text" DoNotAcceptEvents="false" MarginLeft="6" />
+                              <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@PositionY" Brush="Review.NameInput.Text" Brush.FontSize="16" DoNotAcceptEvents="false" MarginLeft="6" />
                             </Children>
                           </Widget>
                         </Children>
@@ -141,7 +141,7 @@
                           <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="48" Text="@ZLabel" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                           <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="30" VerticalAlignment="Center" Sprite="BlankWhiteSquare_9" Color="#111111FF" DoNotAcceptEvents="true">
                             <Children>
-                              <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@PositionZ" Brush="Review.NameInput.Text" DoNotAcceptEvents="false" MarginLeft="6" />
+                              <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@PositionZ" Brush="Review.NameInput.Text" Brush.FontSize="16" DoNotAcceptEvents="false" MarginLeft="6" />
                             </Children>
                           </Widget>
                         </Children>
@@ -156,7 +156,7 @@
                           <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="48" Text="@YawLabel" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                           <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="30" VerticalAlignment="Center" Sprite="BlankWhiteSquare_9" Color="#111111FF" DoNotAcceptEvents="true">
                             <Children>
-                              <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@RotationYaw" Brush="Review.NameInput.Text" DoNotAcceptEvents="false" MarginLeft="6" />
+                              <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@RotationYaw" Brush="Review.NameInput.Text" Brush.FontSize="16" DoNotAcceptEvents="false" MarginLeft="6" />
                             </Children>
                           </Widget>
                         </Children>
@@ -166,7 +166,7 @@
                           <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="48" Text="@PitchLabel" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                           <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="30" VerticalAlignment="Center" Sprite="BlankWhiteSquare_9" Color="#111111FF" DoNotAcceptEvents="true">
                             <Children>
-                              <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@RotationPitch" Brush="Review.NameInput.Text" DoNotAcceptEvents="false" MarginLeft="6" />
+                              <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@RotationPitch" Brush="Review.NameInput.Text" Brush.FontSize="16" DoNotAcceptEvents="false" MarginLeft="6" />
                             </Children>
                           </Widget>
                         </Children>
@@ -176,7 +176,7 @@
                           <TextWidget WidthSizePolicy="Fixed" HeightSizePolicy="StretchToParent" SuggestedWidth="48" Text="@RollLabel" Brush="Popup.Description.Text" HorizontalAlignment="Center" VerticalAlignment="Center" DoNotAcceptEvents="true" />
                           <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="Fixed" SuggestedHeight="30" VerticalAlignment="Center" Sprite="BlankWhiteSquare_9" Color="#111111FF" DoNotAcceptEvents="true">
                             <Children>
-                              <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@RotationRoll" Brush="Review.NameInput.Text" DoNotAcceptEvents="false" MarginLeft="6" />
+                              <EditableTextWidget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" RealText="@RotationRoll" Brush="Review.NameInput.Text" Brush.FontSize="16" DoNotAcceptEvents="false" MarginLeft="6" />
                             </Children>
                           </Widget>
                         </Children>

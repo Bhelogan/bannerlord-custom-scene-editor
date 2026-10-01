@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using CustomSceneCreator.Catalog;
@@ -341,7 +341,11 @@ namespace CustomSceneCreator.UI {
                 MatrixFrame frame = MatrixFrame.Identity;
                 // Far below any plausible scene, so a frame of visibility cannot show it.
                 frame.origin = new Vec3(0f, 0f, -5000f);
-                probe = GameEntity.Instantiate(Mission.Current.Scene, placeable.PrefabName, frame);
+                // Scripts off even though HasScripts was checked: that flag comes from the catalog
+                // and can miss a script on a nested child, and this probe lives in the LIVE mission
+                // scene. Its only job is to be measured.
+                probe = GameEntity.Instantiate(Mission.Current.Scene, placeable.PrefabName, frame,
+                                               callScriptCallbacks: false);
                 if (probe == null) return "";
 
                 Vec3 size = probe.GlobalBoxMax - probe.GlobalBoxMin;

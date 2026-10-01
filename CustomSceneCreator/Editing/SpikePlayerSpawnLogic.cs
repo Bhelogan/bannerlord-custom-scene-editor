@@ -128,7 +128,7 @@ namespace CustomSceneCreator.Editing {
                 .NoHorses(true)
                 .Controller(AgentControllerType.Player);
 
-            Agent agent = Mission.SpawnAgent(buildData);
+            Agent agent = GameCompat.SpawnAgent(Mission, buildData);
             Mission.MainAgent = agent;
             _spawned = true;
 
